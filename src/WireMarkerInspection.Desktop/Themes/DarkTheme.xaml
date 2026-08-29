@@ -1,0 +1,12 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <ResourceDictionary.MergedDictionaries>
+  <ResourceDictionary Source="Tokens/_Tokens.xaml"/>
+  <ResourceDictionary Source="Components/Text.xaml"/>
+  <ResourceDictionary Source="Components/Overlay.xaml"/>
+  <ResourceDictionary Source="Components/Buttons.xaml"/>
+  <ResourceDictionary Source="Components/Inputs.xaml"/>
+  <ResourceDictionary Source="Components/DataGrid.xaml"/>
+  <ResourceDictionary Source="Components/ScrollBars.xaml"/>
+  <ResourceDictionary Source="Components/Inspection.xaml"/>
+ </ResourceDictionary.MergedDictionaries>
+</ResourceDictionary>

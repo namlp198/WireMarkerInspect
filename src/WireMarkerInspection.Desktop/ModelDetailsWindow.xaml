@@ -1,0 +1,13 @@
+<Window x:Class="WireMarkerInspection.Desktop.ModelDetailsWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Model" Width="430" Height="245" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+ Background="{StaticResource Brush.Background.App}" Foreground="{StaticResource Brush.Text.Primary}" FontFamily="{StaticResource Font.Primary}">
+ <Border Style="{StaticResource Panel}" Margin="12">
+  <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <TextBlock Text="MODEL" Style="{StaticResource SectionLabel}"/>
+   <TextBox Grid.Row="1" Text="{Binding ModelCode,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="Mã model duy nhất" Margin="0,0,0,10"/>
+   <TextBox Grid.Row="2" Text="{Binding ModelName,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="Tên model"/>
+   <Button Grid.Row="3" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Check}" ToolTip="Xong" AutomationProperties.Name="Xong" HorizontalAlignment="Right" Margin="0,14,0,0" IsDefault="True" Click="Done"/>
+  </Grid>
+ </Border>
+</Window>

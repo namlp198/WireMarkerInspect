@@ -1,0 +1,24 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Overlay color tokens for the map/video-centric HUD shell.
+        docs/design/DESIGN_SYSTEM.md §3.1a. CSS alpha (RRGGBBAA) is
+        reordered to WPF's #AARRGGBB.
+    -->
+    <Color x:Key="Color.Overlay.TopBar">#CC0B1220</Color>
+    <Color x:Key="Color.Overlay.Panel">#88111A2B</Color>
+    <Color x:Key="Color.Overlay.PanelBorder">#663B4A63</Color>
+    <Color x:Key="Color.Overlay.Widget">#88111A2B</Color>
+    <Color x:Key="Color.Overlay.Scrim">#660B1220</Color>
+    <Color x:Key="Color.Overlay.Trans">#A0000000</Color>
+
+    <SolidColorBrush x:Key="Brush.Overlay.TopBar" Color="{StaticResource Color.Overlay.TopBar}" />
+    <SolidColorBrush x:Key="Brush.Overlay.Panel" Color="{StaticResource Color.Overlay.Panel}" />
+    <SolidColorBrush x:Key="Brush.Overlay.PanelBorder" Color="{StaticResource Color.Overlay.PanelBorder}" />
+    <SolidColorBrush x:Key="Brush.Overlay.Widget" Color="{StaticResource Color.Overlay.Widget}" />
+    <SolidColorBrush x:Key="Brush.Overlay.Scrim" Color="{StaticResource Color.Overlay.Scrim}" />
+    <SolidColorBrush x:Key="Brush.Overlay.Trans" Color="{StaticResource Color.Overlay.Trans}" />
+
+</ResourceDictionary>

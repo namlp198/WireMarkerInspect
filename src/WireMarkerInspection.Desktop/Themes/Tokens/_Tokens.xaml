@@ -1,0 +1,16 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Aggregates all design tokens so any consumer can merge one file. -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/Colors.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/ColorsOverlay.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/Typography.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/Spacing.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/Sizing.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/Elevation.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/Icons.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

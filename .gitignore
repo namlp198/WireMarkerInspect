@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.vs/
+build/
+publish/
+dist/
+artifacts/
+local.settings.json
+assets/ocr/*.onnx
+assets/ocr/dictionary.txt
+vendor/**/*.dll
+vendor/**/*.lib
+data/

@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <Deterministic>true</Deterministic>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+</Project>

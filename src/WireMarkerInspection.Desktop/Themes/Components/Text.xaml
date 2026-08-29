@@ -1,0 +1,64 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/_Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Text roles — docs/design/UI_GUIDELINES.md §5. -->
+
+    <Style x:Key="Text.PageTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Heading1}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Text.SectionHeader" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Heading3}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Text.Body" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Text.Secondary" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.BodySmall}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+    </Style>
+
+    <Style x:Key="Text.Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Muted}" />
+    </Style>
+
+    <Style x:Key="Text.Label" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Micro}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+    </Style>
+
+    <!-- Monospace for fast-changing values / telemetry -->
+    <Style x:Key="Text.Metric" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Monospace}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Heading2}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Text.MetricSmall" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Monospace}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.BodySmall}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+    </Style>
+
+</ResourceDictionary>

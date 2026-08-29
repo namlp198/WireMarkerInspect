@@ -1,0 +1,314 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/_Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Buttons — docs/design/UI_GUIDELINES.md §8, COMPONENT_RULES.md §9. -->
+
+    <!--
+        ViewSelector item (TopBar navigation). Visual only; the DataTemplate
+        wires IsChecked/Command. Expects DataContext = nav item with
+        IconGeometry (Geometry) and Label (string).
+    -->
+    <Style x:Key="ViewSelector.Item" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="root" Background="Transparent"
+                            BorderBrush="Transparent" BorderThickness="0,0,0,2"
+                            Padding="12,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path x:Name="icon" Width="17" Height="17"
+                                  Stretch="Uniform"
+                                  Data="{Binding IconGeometry}"
+                                  Stroke="{StaticResource Brush.Text.Secondary}"
+                                  StrokeThickness="1.5"
+                                  StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round" />
+                            <TextBlock x:Name="label" Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding Label}"
+                                       FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="{StaticResource FontSize.BodySmall}"
+                                       Foreground="{StaticResource Brush.Text.Secondary}" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Hover}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Text.Primary}" />
+                            <Setter TargetName="label" Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Selected}" />
+                            <Setter TargetName="root" Property="BorderBrush" Value="{StaticResource Brush.Brand.Primary}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Text.Primary}" />
+                            <Setter TargetName="label" Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ContextualToolRail icon button. Set Tag to a Geometry for the icon. -->
+    <Style x:Key="ToolRail.Button" TargetType="Button">
+        <Setter Property="Width" Value="{StaticResource Hud.ButtonSize}" />
+        <Setter Property="Height" Value="{StaticResource Hud.ButtonSize}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="root" Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Radius.SM}">
+                        <Path x:Name="icon" Width="{StaticResource Hud.IconSize}" Height="{StaticResource Hud.IconSize}" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                              Stroke="{StaticResource Brush.Text.Secondary}"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Hover}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Text.Primary}" />
+                        </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="root" Property="BorderBrush" Value="{StaticResource Brush.Brand.Primary}" />
+                            <Setter TargetName="root" Property="BorderThickness" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="root" Property="Opacity" Value="0.35" />
+                        </Trigger></ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ContextualToolRail state toggle. Checked means the overlay is visible. -->
+    <Style x:Key="ToolRail.ToggleButton" TargetType="ToggleButton">
+        <Setter Property="Width" Value="{StaticResource Hud.ButtonSize}" />
+        <Setter Property="Height" Value="{StaticResource Hud.ButtonSize}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="root" Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Radius.SM}">
+                        <Path x:Name="icon" Width="{StaticResource Hud.IconSize}" Height="{StaticResource Hud.IconSize}" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                              Stroke="{StaticResource Brush.Text.Secondary}"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Hover}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Text.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Selected}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Brand.Primary}" />
+                        </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="root" Property="BorderBrush" Value="{StaticResource Brush.Brand.Primary}" />
+                            <Setter TargetName="root" Property="BorderThickness" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="root" Property="Opacity" Value="0.35" />
+                        </Trigger></ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Panel header expand/collapse toggle: a round button with a double-chevron.
+        Bind IsChecked (TwoWay) to the panel's "expanded" flag. Panels dock to the
+        right edge, so: collapsed (unchecked) points left « ("open"), expanded
+        (checked) points right » ("close toward the edge").
+    -->
+    <Style x:Key="Overlay.PanelHeaderToggle" TargetType="ToggleButton">
+        <Setter Property="Width" Value="26" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid>
+                        <Ellipse x:Name="root"
+                                 Fill="{StaticResource Brush.Background.Elevated}"
+                                 Stroke="{StaticResource Brush.Border.Strong}"
+                                 StrokeThickness="1" />
+                        <Path x:Name="icon" Width="14" Height="14" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Data="{StaticResource Icon.ChevronDouble}"
+                              Stroke="{StaticResource Brush.Text.Secondary}"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              RenderTransformOrigin="0.5,0.5" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Fill" Value="{StaticResource Brush.Background.Hover}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Text.Primary}" />
+                        </Trigger>
+                        <!-- Expanded (checked): flip the double-chevron to point right ». -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="icon" Property="RenderTransform">
+                                <Setter.Value>
+                                    <RotateTransform Angle="180" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Round floating action button for the map canvas (e.g. locate-robot /
+        "my location"). Set Tag to a Geometry for the icon.
+    -->
+    <Style x:Key="Button.MapFab" TargetType="Button">
+        <Setter Property="Width" Value="44" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Ellipse x:Name="root"
+                                 Fill="{StaticResource Brush.Background.Elevated}"
+                                 Stroke="{StaticResource Brush.Border.Strong}"
+                                 StrokeThickness="1"
+                                 Effect="{StaticResource Elevation.Overlay}" />
+                        <Path x:Name="icon" Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                              Stroke="{StaticResource Brush.Text.Secondary}"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Fill" Value="{StaticResource Brush.Background.Hover}" />
+                            <Setter TargetName="icon" Property="Stroke" Value="{StaticResource Brush.Brand.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="root" Property="Fill" Value="{StaticResource Brush.Background.Selected}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Search suggestion row (full-width, left-aligned, hover highlight). -->
+    <Style x:Key="Suggestion.Item" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="root" Background="Transparent" Padding="10,7">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="root" Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Primary button -->
+    <Style x:Key="Button.Primary" TargetType="Button">
+        <Setter Property="Height" Value="{StaticResource ControlHeight.Medium}" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Brand.Primary}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="root" Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Radius.SM}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Brand.PrimaryHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Brand.PrimaryPressed}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="root" Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Secondary (outline) button -->
+    <Style x:Key="Button.Secondary" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Strong}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeight.Medium}" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="root" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.SM}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="root" Property="Background" Value="{StaticResource Brush.Background.Hover}" />
+                        </Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="root" Property="Opacity" Value="0.4"/><Setter Property="Cursor" Value="Arrow"/></Trigger></ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

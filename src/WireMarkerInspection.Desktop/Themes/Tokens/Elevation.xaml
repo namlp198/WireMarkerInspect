@@ -1,0 +1,17 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Elevation — docs/design/DESIGN_SYSTEM.md §8. Shadows kept light for
+        dark theme. Elevation.Overlay is used by HUD components on the canvas.
+    -->
+    <DropShadowEffect x:Key="Elevation.Low"
+                      BlurRadius="8" ShadowDepth="1" Direction="270"
+                      Opacity="0.35" Color="#000000" />
+
+    <DropShadowEffect x:Key="Elevation.Overlay"
+                      BlurRadius="18" ShadowDepth="2" Direction="270"
+                      Opacity="0.45" Color="#000000" />
+
+</ResourceDictionary>

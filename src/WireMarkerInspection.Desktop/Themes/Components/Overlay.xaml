@@ -1,0 +1,81 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/_Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!--
+        HUD overlay containers that float over the map/video canvas.
+        docs/design/UI_GUIDELINES.md §3.2-3.5, COMPONENT_RULES.md §3.4.
+        All use Brush.Overlay.* (translucent) + Elevation.Overlay.
+    -->
+
+    <!-- TopBar: thin, translucent bar across the top -->
+    <Style x:Key="Overlay.TopBar" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Overlay.TopBar}" />
+        <Setter Property="Height" Value="{StaticResource Layout.TopBarHeight}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Overlay.PanelBorder}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <!-- ContextualToolRail: vertical icon rail floating on the left -->
+    <Style x:Key="Overlay.ToolRail" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Overlay.Widget}" />
+        <Setter Property="Width" Value="{StaticResource Layout.ToolRailWidth}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.MD}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Overlay.PanelBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect" Value="{StaticResource Elevation.Overlay}" />
+    </Style>
+
+    <!-- FloatingPanel: translucent detail/config panel over the canvas -->
+    <Style x:Key="Overlay.FloatingPanel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Overlay.Panel}" />
+        <Setter Property="Width" Value="{StaticResource Layout.FloatingPanelWidth}" />
+        <Setter Property="MaxHeight" Value="{StaticResource Layout.FloatingPanelMaxHeight}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.MD}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Overlay.PanelBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect" Value="{StaticResource Elevation.Overlay}" />
+    </Style>
+
+    <!-- InstrumentClusterWidget: top-right live readout -->
+    <Style x:Key="Overlay.InstrumentCluster" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Overlay.Widget}" />
+        <Setter Property="Width" Value="{StaticResource Layout.InstrumentClusterWidth}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.MD}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Overlay.PanelBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Effect" Value="{StaticResource Elevation.Overlay}" />
+    </Style>
+
+    <!-- Page surface for page-type screens (no canvas) -->
+    <Style x:Key="Surface.Card" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Background.Surface}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.MD}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- Status badge pill -->
+    <Style x:Key="Badge.Pill" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Pill}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="Background" Value="{StaticResource Brush.Background.Elevated}" />
+    </Style>
+
+    <!-- Faint grid to evoke a map canvas (placeholder for GMap.NET) -->
+    <DrawingBrush x:Key="Brush.Canvas.Grid" TileMode="Tile"
+                  Viewport="0,0,48,48" ViewportUnits="Absolute" Stretch="None">
+        <DrawingBrush.Drawing>
+            <GeometryDrawing Geometry="M0,0 H48 V48">
+                <GeometryDrawing.Pen>
+                    <Pen Brush="#14A0B4CC" Thickness="1" />
+                </GeometryDrawing.Pen>
+            </GeometryDrawing>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
+</ResourceDictionary>

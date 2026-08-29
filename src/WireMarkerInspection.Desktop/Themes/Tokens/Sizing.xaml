@@ -1,0 +1,38 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- Control, icon and layout sizes — docs/design/DESIGN_SYSTEM.md §9. -->
+    <sys:Double x:Key="Mission.Fence.Stroke">1</sys:Double>
+    <sys:Double x:Key="Mission.Fence.Opacity">0.32</sys:Double>
+    <sys:Double x:Key="Mission.Fence.StopStroke">0.75</sys:Double>
+    <sys:Double x:Key="Mission.Fence.StopOpacity">0.16</sys:Double>
+
+    <sys:Double x:Key="ControlHeight.Small">28</sys:Double>
+    <sys:Double x:Key="ControlHeight.Medium">36</sys:Double>
+    <sys:Double x:Key="ControlHeight.Large">44</sys:Double>
+
+    <sys:Double x:Key="IconSize.Small">14</sys:Double>
+    <sys:Double x:Key="IconSize.Medium">18</sys:Double>
+    <sys:Double x:Key="IconSize.Large">24</sys:Double>
+
+    <!-- HUD shell layout (replaces sidebar/status-bar tokens) -->
+    <sys:Double x:Key="Hud.ButtonSize">32</sys:Double>
+    <sys:Double x:Key="Hud.IconSize">16</sys:Double>
+    <sys:Double x:Key="Hud.EditorMinHeight">420</sys:Double>
+    <Thickness x:Key="Hud.Inset">8</Thickness>
+    <Thickness x:Key="Hud.EditorCaptionInset">60,8,48,0</Thickness>
+    <Thickness x:Key="Hud.RailPadding">5</Thickness>
+    <sys:Double x:Key="Layout.TopBarHeight">40</sys:Double>
+    <sys:Double x:Key="Layout.ToolRailWidth">44</sys:Double>
+    <sys:Double x:Key="Layout.FloatingPanelWidth">320</sys:Double>
+    <sys:Double x:Key="Layout.FloatingPanelMaxHeight">640</sys:Double>
+    <sys:Double x:Key="Layout.MissionEditorHeight">720</sys:Double>
+    <sys:Double x:Key="Layout.MissionStatusHeight">472</sys:Double>
+    <sys:Double x:Key="Layout.MissionAlertViewportHeight">76</sys:Double>
+    <sys:Double x:Key="Layout.InstrumentClusterWidth">260</sys:Double>
+    <sys:Double x:Key="Layout.MissionTelemetryWidth">420</sys:Double>
+    <Thickness x:Key="Layout.MissionPanelsMargin">0,64,16,190</Thickness>
+
+</ResourceDictionary>

@@ -1,0 +1,127 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/WireMarkerInspection.Desktop;component/Themes/Tokens/_Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Dark, rounded overlay scrollbar used by dense floating panels. -->
+    <Style x:Key="ScrollBar.RoboStation.Thumb" TargetType="Thumb">
+        <Setter Property="Background" Value="{StaticResource Brush.Border.Strong}" />
+        <Setter Property="MinWidth" Value="24" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbSurface"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbSurface" Property="Background"
+                                    Value="{StaticResource Brush.Brand.PrimaryHover}" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbSurface" Property="Background"
+                                    Value="{StaticResource Brush.Brand.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="ThumbSurface" Property="Opacity" Value="0.35" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ScrollBar.RoboStation.PageButton" TargetType="RepeatButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ScrollBar.RoboStation.Vertical" TargetType="ScrollBar">
+        <Setter Property="Width" Value="12" />
+        <Setter Property="Margin" Value="3,0,1,0" />
+        <Setter Property="Background" Value="#80111A2B" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="2">
+                        <Track x:Name="PART_Track"
+                               IsDirectionReversed="True"
+                               Minimum="{TemplateBinding Minimum}"
+                               Maximum="{TemplateBinding Maximum}"
+                               Value="{TemplateBinding Value}"
+                               ViewportSize="{TemplateBinding ViewportSize}">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource ScrollBar.RoboStation.PageButton}"
+                                              Command="{x:Static ScrollBar.PageUpCommand}"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ScrollBar.RoboStation.Thumb}" />
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource ScrollBar.RoboStation.PageButton}"
+                                              Command="{x:Static ScrollBar.PageDownCommand}"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Implicit application-wide style. Vertical is the base; horizontal
+         scrollbars switch dimensions and track commands through the trigger. -->
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.RoboStation.Vertical}">
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="Height" Value="12" />
+                <Setter Property="Margin" Value="0,3,0,1" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="2">
+                                <Track x:Name="PART_Track"
+                                       IsDirectionReversed="False"
+                                       Orientation="Horizontal"
+                                       Minimum="{TemplateBinding Minimum}"
+                                       Maximum="{TemplateBinding Maximum}"
+                                       Value="{TemplateBinding Value}"
+                                       ViewportSize="{TemplateBinding ViewportSize}">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource ScrollBar.RoboStation.PageButton}"
+                                                      Command="{x:Static ScrollBar.PageLeftCommand}"
+                                                      CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource ScrollBar.RoboStation.Thumb}" />
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource ScrollBar.RoboStation.PageButton}"
+                                                      Command="{x:Static ScrollBar.PageRightCommand}"
+                                                      CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" />
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

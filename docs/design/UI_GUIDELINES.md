@@ -1,0 +1,12 @@
+# UI guidelines
+- Follow DESIGN_SYSTEM.md; shared theme tokens own colors, fonts, spacing and states.
+- Mandatory image-control style: RoboStation Geo Measure HUD. Use ImageHud, a left floating vector-icon rail for editing and bottom-right translucent navigation toolbar. Never use text-button toolbars around the image.
+- Live Camera belongs to the acquisition column so the central editor canvases retain room for their full-size HUD rails. Recipe business forms remain outside the reusable control.
+- Keep SETTING/RUN information architecture from the supplied 1_.png, 2_.png and 3_.png references.
+- Prioritize image area. Expand is available for precise ROI editing.
+- Business actions use ViewModel commands. Code-behind is restricted to visual interactions and window lifecycle.
+- Never show synthetic camera data or test fixture OCR as production results.
+- Errors must be actionable. Missing assets are shown with paths; missing camera DLLs do not crash the editor.
+- Text sample auto-recognition is preview only. Test OCR never changes the expected text.
+- A saved recipe is mandatory for RUN; any unsaved change blocks RUN.
+- Do not use Color/Template toggles as working features until their algorithms are explicitly commissioned.
