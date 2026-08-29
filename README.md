@@ -4,11 +4,11 @@ Windows x64 inspection application: WPF/.NET 8 UI, reusable image controls, C++/
 
 ## Current status — 2026-08-29
 
-Implemented: SETTING/RUN screens, independent ImageViewer and ImageEditor controls, recipe persistence, exact comparison, two-capture session, native OCR interface/pipeline, NAcquire C API adapter, tests and deployment scripts.
+Implemented: SETTING/RUN screens, independent ImageViewer and ImageEditor controls, recipe persistence, exact comparison, two-capture session, native OCR interface/pipeline, offline Load Image validation, NAcquire C API adapter, tests and deployment scripts.
 
 UI style is **RoboStation / Geo Measure HUD**: a metallic chevron SETTING/RUN taskbar, shared low-alpha floating toolbars, compact vector icons, a left ROI tool rail and bottom-right navigation. The mandatory specification is docs/design/DESIGN_SYSTEM.md. Live Camera now sits in the acquisition column to leave more room for the two editors.
 
-**Not production accepted:** the supplied NAcquire checkout has only a synthetic backend and placeholder Hikrobot target; the expected PaddleOCR detector/recognizer/dictionary and product test images are absent. Missing dependencies are visible errors. No OCR results are fabricated. Camera hardware, accuracy, throughput and vendor deployment require separate validation.
+The supplied 26 BMP dataset now passes 26/26 in both the native CLI and the managed WPF Load Image path using a representative ROI and Auto 0°/180°. This is a regression baseline for the supplied images, not a production accuracy/throughput claim. The NAcquire checkout still has only a synthetic backend and placeholder Hikrobot target. Camera hardware, a larger representative dataset, model redistribution terms, throughput and vendor deployment require separate validation.
 
 ## Build and run
 
@@ -21,16 +21,16 @@ The build script accepts -OpenCvRoot and -OrtRoot; defaults match this developme
 
 ## Operator workflow
 
-1. SETTING → + Model. Enter unique model code and name.
+1. SETTING → + Model. Enter a unique model code and name, then confirm. The dialog validates required/duplicate values and Cancel leaves the current draft unchanged.
 2. Load Image for each end, or connect the supplied validated camera and start acquisition, then Grab Image.
 3. Draw **one search ROI per end**. The OCR core detects multiple text regions inside it.
 4. Enter expected text with **one detected region per line**, ordered top-to-bottom, then left-to-right in a row. This is a data format, not two manually drawn OCR ROIs.
 5. Select fixed 0°, fixed 180°, or Auto reading orientation. Fixed is preferred when fixture orientation is known.
-6. Apply each end; Save Recipe publishes both ends as one revision.
+6. Apply each end; the Save icon in the Model Library header publishes both ends as one revision. The saved row is selected and reloaded immediately. Edit Model updates the same identity and increments its revision.
 7. RUN uses a frozen saved recipe. Load the first offline image or capture a fresh camera frame, then the second end of the same product.
 8. Both ends must exactly match. Stop cancels the current cycle. Sản phẩm tiếp begins a fresh cycle.
 
-Comparison preserves case, punctuation, whitespace and order. No similarity threshold, cross-end repair, O/0 substitution, or target-conditioned OCR selection is used.
+The current wire-marker OCR alphabet is alphanumeric plus `.` and `/`; layout whitespace is removed and the recognizer's `:`/`,` dot confusions are mapped to `.` before comparison. Case and field order are preserved. The domain comparison remains ordinal and exact: no similarity threshold, cross-end repair, O/0 substitution, or target-conditioned selection is used.
 
 ImageViewer supports wheel zoom, drag pan, Fit and 1:1. ImageEditor adds rectangle/circle/polygon, handle editing, move, delete, undo/redo. Polygon: Enter/Finish, Backspace/remove point, Escape/cancel. Space+drag temporarily pans. Expand opens the same recipe editor larger.
 
@@ -58,8 +58,9 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
 
     powershell -ExecutionPolicy Bypass -File scripts/test.ps1
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
+    powershell -ExecutionPolicy Bypass -File scripts/test-real-images.ps1
 
-Smoke uses a separate data folder under artifacts, renders both views, and checks image transforms and editor undo/redo. Its images are explicitly labeled synthetic UI fixtures, not OCR validation images. It does not contact hardware.
+The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Neither test contacts hardware.
 
 ## Deployment
 

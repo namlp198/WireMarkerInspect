@@ -3,7 +3,7 @@
 ## SETTING
 Camera form: enumerate/select/connect/disconnect; exposure and gain drafts; explicit Start/Stop acquisition.
 Live camera: read-only ImageViewer inside ImageHud, in the left acquisition column; wheel zoom, drag pan and bottom-right vector navigation toolbar.
-Model selector: one horizontal row only — ComboBox, Add, Edit and Delete icon buttons. Add/Edit opens the code/name dialog. Save Recipe is the icon in the Model Library header.
+Model selector: one horizontal row only — ComboBox, Add, Edit and Delete icon buttons. Add/Edit opens an isolated code/name draft dialog; required and duplicate values are rejected inline, and Cancel must not mutate the active recipe draft. Save Recipe is the icon in the Model Library header. It publishes only after both ends have valid images, ROI, expected text and Apply state; Edit keeps the model identity and increments the revision.
 Two end editors: independent captured image, one ROI, orientation, ordered expected lines, Test OCR, Apply.
 Both editors use a floating left HUD rail for geometry/history and bottom-right navigation, with Expand on the canvas and no editor caption. Business inputs stay below. No external geometry text toolbar.
 Model library: virtualized rows, two reference thumbnails, code/name/revision.

@@ -23,6 +23,7 @@ public sealed class RecipeRow(Recipe recipe,FileRecipeStore store)
     public BitmapSource First=>first??=ImageFiles.Decode(store.LoadReference(Recipe,0),112);
     public BitmapSource Second=>second??=ImageFiles.Decode(store.LoadReference(Recipe,1),112);
 }
+public sealed record ModelIdentity(string Code,string Name);
 public partial class MainViewModel : ObservableObject
 {
     public FileRecipeStore Store{get;}
@@ -114,19 +115,46 @@ public partial class MainViewModel : ObservableObject
         if(Store.LoadErrors.Count>0)Message="Không nạp được một số recipe: "+string.Join(" | ",Store.LoadErrors);
     }
     [RelayCommand]private void RefreshOcr()=>OcrStatus=Ocr.AvailabilityError??"OCR assets sẵn sàng · chưa xác nhận độ chính xác.";
-    [RelayCommand]private void NewModel()
+    public string? ValidateModelIdentity(ModelIdentity identity,Guid? existingId=null)
+    {
+        var code=identity.Code.Trim();var name=identity.Name.Trim();
+        if(code.Length==0)return "Nhập mã model.";
+        if(name.Length==0)return "Nhập tên model.";
+        if(code.Length>64)return "Mã model tối đa 64 ký tự.";
+        if(name.Length>128)return "Tên model tối đa 128 ký tự.";
+        if(Models.Any(row=>row.Recipe.Id!=existingId&&string.Equals(row.Code,code,StringComparison.OrdinalIgnoreCase)))
+            return $"Mã model {code} đã tồn tại.";
+        return null;
+    }
+    [RelayCommand]private void NewModel(ModelIdentity identity)=>Guard(()=>
     {
         if(!CanEdit || (Dirty&&Confirm?.Invoke("Bỏ thay đổi chưa lưu và tạo model mới?")==false))return;
+        if(ValidateModelIdentity(identity) is { } error)throw new InvalidOperationException(error);
         loading=true;
-        try{SelectedModel=null;saved=null;draftId=Guid.NewGuid();ModelCode="";ModelName="";End1.Clear();End2.Clear();Dirty=false;}
+        try
+        {
+            SelectedModel=null;saved=null;draftId=Guid.NewGuid();
+            ModelCode=identity.Code.Trim();ModelName=identity.Name.Trim();
+            End1.Clear();End2.Clear();Dirty=true;
+        }
         finally{loading=false;}
-        Message="Model mới · cần hai ảnh, ROI và text mẫu.";
-    }
-    [RelayCommand]private void EditModel()=>Guard(()=>
+        Message=$"Model mới {ModelCode} · cần hai ảnh, ROI, text mẫu, Apply và Save Recipe.";
+    });
+    [RelayCommand]private void EditModel(ModelIdentity identity)=>Guard(()=>
     {
         if(!CanEdit||SelectedModel==null)return;
+        var target=SelectedModel.Recipe;
         if(Dirty && Confirm?.Invoke("Bỏ thay đổi chưa lưu và mở model đã chọn?")==false)return;
-        Load(SelectedModel.Recipe);
+        if(ValidateModelIdentity(identity,target.Id) is { } error)throw new InvalidOperationException(error);
+        Load(target);
+        loading=true;
+        try
+        {
+            ModelCode=identity.Code.Trim();ModelName=identity.Name.Trim();
+            Dirty=ModelCode!=target.ModelCode||ModelName!=target.Name;
+        }
+        finally{loading=false;}
+        Message=Dirty?$"Đang sửa {target.ModelCode} · Apply nếu đổi Recipe, sau đó Save Recipe.":$"Đã nạp {target.ModelCode} · v{target.Revision}.";
     });
     [RelayCommand]private void SaveRecipe()=>Guard(()=>
     {

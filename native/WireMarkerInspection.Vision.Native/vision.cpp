@@ -3,13 +3,17 @@
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <memory>
+#include <map>
 #include <mutex>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -117,9 +121,14 @@ Ort::Value run(Ort::Session& session,std::vector<float>& input,const std::array<
     return std::move(output.front());
 }
 std::vector<cv::RotatedRect> detect(Engine& engine,const cv::Mat& image) {
-    const double scale=std::min(1.0,960.0/std::max(image.cols,image.rows));
+    // The validated Paddle detector is exported with a fixed 960x960 input.
+    // Preserve aspect ratio and letterbox on the bottom/right; coordinate mapping
+    // below intentionally uses only the resized content dimensions.
+    constexpr int inputSide=960;
+    const double scale=std::min(static_cast<double>(inputSide)/image.cols,
+        static_cast<double>(inputSide)/image.rows);
     const int w=std::max(1,cvRound(image.cols*scale)),h=std::max(1,cvRound(image.rows*scale));
-    const int pw=(w+31)/32*32,ph=(h+31)/32*32;
+    const int pw=inputSide,ph=inputSide;
     cv::Mat rgb; cv::cvtColor(image,rgb,cv::COLOR_BGR2RGB); cv::resize(rgb,rgb,{w,h});
     cv::copyMakeBorder(rgb,rgb,0,ph-h,0,pw-w,cv::BORDER_CONSTANT,cv::Scalar(0,0,0));
     rgb.convertTo(rgb,CV_32FC3,1.0/255);
@@ -131,22 +140,23 @@ std::vector<cv::RotatedRect> detect(Engine& engine,const cv::Mat& image) {
     if(dims.size()!=4 || dims[0]!=1 || dims[1]!=1 || dims[2]<=0 || dims[3]<=0)
         throw std::runtime_error("Detector must return [1,1,H,W] probabilities.");
     cv::Mat probabilities(static_cast<int>(dims[2]),static_cast<int>(dims[3]),CV_32F,output.GetTensorMutableData<float>());
-    cv::Mat binary; cv::threshold(probabilities,binary,0.3,255,cv::THRESH_BINARY); binary.convertTo(binary,CV_8U);
+    cv::Mat binary; cv::threshold(probabilities,binary,0.2,255,cv::THRESH_BINARY); binary.convertTo(binary,CV_8U);
+    cv::morphologyEx(binary,binary,cv::MORPH_CLOSE,
+        cv::getStructuringElement(cv::MORPH_RECT,cv::Size(3,3)));
     std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(binary,contours,cv::RETR_EXTERNAL,cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(binary,contours,cv::RETR_LIST,cv::CHAIN_APPROX_SIMPLE);
     std::vector<cv::RotatedRect> boxes;
     for(auto& contour:contours) {
-        if(cv::contourArea(contour)<9) continue;
-        cv::Mat mask(probabilities.size(),CV_8U,cv::Scalar(0));
-        cv::fillPoly(mask,std::vector<std::vector<cv::Point>>{contour},cv::Scalar(255));
-        if(cv::mean(probabilities,mask)[0]<0.5) continue;
+        if(cv::contourArea(contour)<18) continue;
         std::vector<cv::Point2f> mapped;
         for(auto p:contour) mapped.emplace_back(static_cast<float>(p.x*pw/(probabilities.cols*scale)),
             static_cast<float>(p.y*ph/(probabilities.rows*scale)));
         auto box=cv::minAreaRect(mapped);
         if(box.center.x>=image.cols || box.center.y>=image.rows || std::min(box.size.width,box.size.height)<3) continue;
-        if(box.size.width>=box.size.height) { box.size.width*=1.1f; box.size.height*=1.6f; }
-        else { box.size.width*=1.6f; box.size.height*=1.1f; }
+        // Keep a small horizontal guard band for edge glyphs. A larger band pulls
+        // terminal/wire edges into the recognizer and creates false leading chars.
+        if(box.size.width>=box.size.height) { box.size.width*=1.06f; box.size.height*=2.25f; }
+        else { box.size.width*=2.25f; box.size.height*=1.06f; }
         boxes.push_back(box);
     }
     // Row ordering is independent of recognition score or expected text.
@@ -161,6 +171,74 @@ std::vector<cv::RotatedRect> detect(Engine& engine,const cv::Mat& image) {
         start=end;
     }
     return boxes;
+}
+double logAdd(double lhs,double rhs) {
+    if(!std::isfinite(lhs))return rhs;
+    if(!std::isfinite(rhs))return lhs;
+    const double high=std::max(lhs,rhs);
+    return high+std::log(std::exp(lhs-high)+std::exp(rhs-high));
+}
+std::string decodeCtcBeam(const float* probabilities,int sequence,int classes,
+    const std::vector<std::string>& dictionary) {
+    struct BeamState {double blank=-std::numeric_limits<double>::infinity();double nonBlank=-std::numeric_limits<double>::infinity();};
+    constexpr int beamWidth=12,topClasses=8;
+    std::map<std::vector<int>,BeamState> beams;
+    beams[{}].blank=0;
+    int dot=-1,slash=-1;
+    for(size_t i=0;i<dictionary.size();i++) {
+        if(dictionary[i]==".")dot=static_cast<int>(i+1);
+        if(dictionary[i]=="/")slash=static_cast<int>(i+1);
+    }
+    for(int time=0;time<sequence;time++) {
+        const float* row=probabilities+static_cast<size_t>(time)*classes;
+        std::vector<int> indices(classes);std::iota(indices.begin(),indices.end(),0);
+        const int keep=std::min(topClasses,classes);
+        std::partial_sort(indices.begin(),indices.begin()+keep,indices.end(),[row](int a,int b){return row[a]>row[b];});
+        indices.resize(keep);
+        for(int punctuation:{dot,slash})if(punctuation>0&&std::find(indices.begin(),indices.end(),punctuation)==indices.end())indices.push_back(punctuation);
+        std::map<std::vector<int>,BeamState> next;
+        for(const auto& [prefix,state]:beams) {
+            const double total=logAdd(state.blank,state.nonBlank);
+            auto& same=next[prefix];
+            same.blank=logAdd(same.blank,total+std::log(std::max(row[0],1.0e-12f)));
+            for(int token:indices) {
+                if(token==0)continue;
+                const double probability=std::log(std::max(row[token],1.0e-12f));
+                if(!prefix.empty()&&prefix.back()==token) {
+                    same.nonBlank=logAdd(same.nonBlank,state.nonBlank+probability);
+                    auto extended=prefix;extended.push_back(token);
+                    auto& target=next[extended];target.nonBlank=logAdd(target.nonBlank,state.blank+probability);
+                } else {
+                    auto extended=prefix;extended.push_back(token);
+                    auto& target=next[extended];target.nonBlank=logAdd(target.nonBlank,total+probability);
+                }
+            }
+        }
+        std::vector<std::pair<std::vector<int>,BeamState>> ranked(next.begin(),next.end());
+        const int retained=std::min(beamWidth,static_cast<int>(ranked.size()));
+        std::partial_sort(ranked.begin(),ranked.begin()+retained,ranked.end(),[](const auto& a,const auto& b){
+            return logAdd(a.second.blank,a.second.nonBlank)>logAdd(b.second.blank,b.second.nonBlank);
+        });
+        beams.clear();for(int i=0;i<retained;i++)beams.emplace(std::move(ranked[i]));
+    }
+    const auto best=std::max_element(beams.begin(),beams.end(),[](const auto& a,const auto& b){
+        return logAdd(a.second.blank,a.second.nonBlank)<logAdd(b.second.blank,b.second.nonBlank);
+    });
+    std::string text;
+    if(best==beams.end())return text;
+    for(int token:best->first)if(token>0&&static_cast<size_t>(token-1)<dictionary.size())text+=dictionary[token-1];
+    return text;
+}
+std::string sanitizeMarkerText(const std::string& value) {
+    std::string result;result.reserve(value.size());
+    for(unsigned char character:value) {
+        if(std::isspace(character))continue;
+        // The current wire-marker recipe alphabet is alphanumeric plus '.' and
+        // '/'. Paddle sometimes emits ':' or ',' for a single printed dot.
+        if(character==':'||character==',')character='.';
+        if(std::isalnum(character)||character=='.'||character=='/')result.push_back(static_cast<char>(character));
+    }
+    return result;
 }
 std::array<cv::Point2f,4> corners(cv::RotatedRect rect) {
     cv::Point2f pts[4]; rect.points(pts);
@@ -180,7 +258,7 @@ cv::Mat rectify(const cv::Mat& image,const std::array<cv::Point2f,4>& points) {
 std::pair<std::string,double> recognize(Engine& engine,const cv::Mat& image) {
     constexpr int h=48,w=320;
     cv::Mat rgb; cv::cvtColor(image,rgb,cv::COLOR_BGR2RGB);
-    int actual=std::clamp(cvRound(static_cast<double>(h)*rgb.cols/rgb.rows),1,w);
+    int actual=std::clamp(cvRound(static_cast<double>(h)*rgb.cols/rgb.rows),8,w);
     cv::resize(rgb,rgb,{actual,h},0,0,cv::INTER_CUBIC);
     cv::Mat padded(h,w,CV_8UC3,cv::Scalar(255,255,255)); rgb.copyTo(padded(cv::Rect(0,0,actual,h)));
     padded.convertTo(padded,CV_32FC3,1.0/127.5,-1);
@@ -202,14 +280,35 @@ std::pair<std::string,double> recognize(Engine& engine,const cv::Mat& image) {
         }
         previous=best;
     }
-    return {text,count?confidence/count:0};
+    const std::string beam=decodeCtcBeam(values,sequence,classes,engine.dictionary);
+    const auto punctuation=[](const std::string& value){return static_cast<int>(std::count_if(value.begin(),value.end(),
+        [](char c){return c=='.'||c=='/';}));};
+    if(punctuation(beam)>punctuation(text)&&beam.size()+1>=text.size()&&beam.size()<=text.size()+2)text=beam;
+    return {sanitizeMarkerText(text),count?confidence/count:0};
 }
 struct Region { std::string text; double confidence; std::array<cv::Point2f,4> box; cv::Mat crop; };
+double textQuality(const Region& region) {
+    if(region.text.empty())return 0;
+    return region.confidence+std::min(0.18,region.text.size()*0.012)+
+        (region.text.find('/')!=std::string::npos?0.08:0);
+}
 std::vector<Region> read(Engine& e,const cv::Mat& image) {
     std::vector<Region> regions;
     for(auto box:detect(e,image)) {
         auto pts=corners(box); auto patch=rectify(image,pts); auto text=recognize(e,patch);
-        regions.push_back({text.first,text.second,pts,patch});
+        Region region{text.first,text.second,pts,patch};
+        const auto bounds=box.boundingRect2f();
+        const double center=bounds.x+bounds.width*0.5;
+        const double centrality=std::max(0.0,1.0-std::abs(center-image.cols*0.5)/(image.cols*0.5));
+        const double widthRatio=bounds.width/image.cols;
+        const double heightRatio=bounds.height/image.rows;
+        const auto average=cv::mean(patch);
+        const double brightness=(average[0]+average[1]+average[2])/3.0;
+        const double widthScore=std::min(1.0,bounds.width/(image.cols*0.18));
+        const double score=textQuality(region)+0.45*centrality+0.25*widthScore+0.30*(brightness/255.0);
+        const bool singleCharacter=region.text.size()<=2;
+        if(brightness>=75&&centrality>=0.20&&heightRatio>=0.018&&
+            (singleCharacter||widthRatio>=0.06)&&score>=1.25)regions.push_back(std::move(region));
     }
     return regions;
 }

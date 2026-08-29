@@ -14,16 +14,18 @@ public partial class MainWindow : Window
     }
     private void AddModel(object sender,RoutedEventArgs e)
     {
-        Model.NewModelCommand.Execute(null);
-        if(Model.SelectedModel==null && string.IsNullOrEmpty(Model.ModelCode))ShowModelDetails();
+        if(!Model.CanEdit)return;
+        var dialog=new ModelDetailsWindow("ADD MODEL","","",identity=>Model.ValidateModelIdentity(identity)){Owner=this};
+        if(dialog.ShowDialog()==true)Model.NewModelCommand.Execute(dialog.Identity);
     }
     private void EditModel(object sender,RoutedEventArgs e)
     {
         var selected=Model.SelectedModel;
-        Model.EditModelCommand.Execute(null);
-        if(selected!=null && Model.ModelCode==selected.Code)ShowModelDetails();
+        if(!Model.CanEdit||selected==null)return;
+        var dialog=new ModelDetailsWindow("EDIT MODEL",selected.Code,selected.Name,
+            identity=>Model.ValidateModelIdentity(identity,selected.Recipe.Id)){Owner=this};
+        if(dialog.ShowDialog()==true)Model.EditModelCommand.Execute(dialog.Identity);
     }
-    private void ShowModelDetails()=>new ModelDetailsWindow{Owner=this,DataContext=Model}.ShowDialog();
     private async void OnClosing(object? sender,CancelEventArgs e)
     {
         if(closing)return;

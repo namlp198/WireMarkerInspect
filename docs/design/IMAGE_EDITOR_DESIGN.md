@@ -43,7 +43,7 @@ Stroke/handle dimensions remain screen-space so zooming does not enlarge control
 
 ## Native geometry
 
-Crop uses the ROI's bounding rectangle and a white exclusion mask for circles/polygons. Automatic text boxes are rectified in C++. Their coordinates are transformed back to original source pixels, including the selected 180-degree orientation.
+Crop uses the ROI's bounding rectangle and a white exclusion mask for circles/polygons. Automatic text boxes are rectified in C++; their count comes only from DB detection. `/` remains a character in the detected region's full text and must not split a region. Coordinates are transformed back to original source pixels, including the selected 180-degree orientation.
 There is no fallback search outside the ROI.
 
 ## Acceptance

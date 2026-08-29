@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "orientation": 2,
+  "normalizedRoi": [0.08, 0.28, 0.92, 0.68],
+  "cases": [
+    { "file": "TYPE1-I1-00.bmp", "rotation": 0,   "regions": ["QK1.11/FT3.f"] },
+    { "file": "TYPE1-I1-01.bmp", "rotation": 0,   "regions": ["BUSBAR.N/QE06.3"] },
+    { "file": "TYPE1-I1-02.bmp", "rotation": 0,   "regions": ["QK1.11/FT3.f"] },
+    { "file": "TYPE1-I2-00.bmp", "rotation": 0,   "regions": ["FT3.f/QK1.11"] },
+    { "file": "TYPE1-I2-01.bmp", "rotation": 0,   "regions": ["QE06.3/BUSBAR.N"] },
+    { "file": "TYPE1-I2-02.bmp", "rotation": 0,   "regions": ["FT3.f/QK1.11"] },
+    { "file": "TYPE2-I1-00.bmp", "rotation": 0,   "regions": ["E"] },
+    { "file": "TYPE2-I1-01.bmp", "rotation": 0,   "regions": ["TB3.11/TB3.9"] },
+    { "file": "TYPE2-I1-02.bmp", "rotation": 0,   "regions": ["TB3.11/TB3.9"] },
+    { "file": "TYPE2-I2-00.bmp", "rotation": 180, "regions": ["E"] },
+    { "file": "TYPE2-I2-01.bmp", "rotation": 180, "regions": ["TB3.9/TB3.11"] },
+    { "file": "TYPE2-I2-02.bmp", "rotation": 180, "regions": ["TB3.9/TB3.11"] },
+    { "file": "TYPE3-I1-00.bmp", "rotation": 180, "regions": ["TB3.9/TB3.11"] },
+    { "file": "TYPE3-I1-01.bmp", "rotation": 180, "regions": ["QK1.11/FT3.f"] },
+    { "file": "TYPE3-I1-02.bmp", "rotation": 180, "regions": ["TB3.9/TB3.11"] },
+    { "file": "TYPE3-I2-00.bmp", "rotation": 0,   "regions": ["TB3.11/TB3.9"] },
+    { "file": "TYPE3-I2-01.bmp", "rotation": 0,   "regions": ["FT3.f/QK1.11"] },
+    { "file": "TYPE3-I2-02.bmp", "rotation": 0,   "regions": ["TB3.11/TB3.9"] },
+    { "file": "TYPE4-I1-00.bmp", "rotation": 180, "regions": ["FT6.b/QE11.4"] },
+    { "file": "TYPE4-I1-01.bmp", "rotation": 180, "regions": ["QK1.11/FT3.f"] },
+    { "file": "TYPE4-I1-02.bmp", "rotation": 180, "regions": ["QK1.11/FT3.f"] },
+    { "file": "TYPE4-I1-03.bmp", "rotation": 180, "regions": ["FT6.b/QE11.4"] },
+    { "file": "TYPE4-I2-00.bmp", "rotation": 180, "regions": ["FT6.b/QE11.4"] },
+    { "file": "TYPE4-I2-01.bmp", "rotation": 180, "regions": ["FT3.f/QK1.11"] },
+    { "file": "TYPE4-I2-02.bmp", "rotation": 180, "regions": ["FT3.f/QK1.11"] },
+    { "file": "TYPE4-I2-03.bmp", "rotation": 180, "regions": ["QE11.4/FT6.b"] }
+  ]
+}

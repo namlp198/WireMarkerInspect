@@ -12,9 +12,9 @@ Image input is borrowed BGR24; responses are owned UTF-8 JSON allocated/freed in
 Crop images are PNG byte arrays serialized as base64. Exceptions are converted into explicit error payloads.
 Managed gate prevents disposal during active OCR. Cancellation cannot interrupt a native inference already executing; its eventual result is discarded using the session generation.
 
-Pipeline: mask/crop search ROI -> detect DB regions -> deterministic geometric row ordering -> rectify -> CTC decode -> optional whole-ROI 180-degree evaluation -> source-space boxes.
-No text correction, cross-end reconciliation, TYPE classification, target-conditioned decoding or central-image fallback.
-The initial DB/CTC preprocessing contract is documented in assets/ocr/README.md. Thresholds and rectification need calibration against the actual product dataset before production claims.
+Pipeline: mask/crop search ROI -> detect DB regions -> deterministic geometric row ordering -> rectify -> CTC decode -> marker-alphabet cleanup -> optional whole-ROI 180-degree evaluation -> source-space boxes.
+Marker cleanup is independent of recipe targets: preserve case/alphanumerics and `.`/`/`, remove layout whitespace, map `:`/`,` glyph confusions to the supported dot. `/` remains in the text and never splits a detector region. There is no cross-end reconciliation, TYPE classification, similarity matching, target-conditioned decoding or central-image fallback.
+The DB/CTC preprocessing contract and model hashes are documented in assets/ocr/README.md. The supplied 26 BMPs pass the checked native and managed Load Image regression; broader production calibration is still required.
 
 ## Session
 One cycle snapshots a full recipe revision and owns copied frame bytes.

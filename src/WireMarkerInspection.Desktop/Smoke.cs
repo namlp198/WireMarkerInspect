@@ -23,19 +23,23 @@ internal static class Smoke
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
             var image=Fixture();
+            vm.NewModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture"));
             vm.End1.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End2.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End1.Roi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
             vm.End2.Roi=new(RoiShape.Polygon,[new(120,110),new(1000,130),new(970,450),new(110,425)]);
             vm.End1.ExpectedText="QK1.11\nFT3.F";vm.End2.ExpectedText="FT3.F\nQK1.11";
-            vm.ModelCode="UI-FIXTURE";vm.ModelName="Synthetic layout fixture";
             vm.LiveImage=image;vm.End1.Apply();vm.End2.Apply();vm.SaveRecipeCommand.Execute(null);
-            if(vm.Dirty || vm.SelectedModel?.Code!="UI-FIXTURE" || vm.Models.Count!=1)
+            if(vm.Dirty || vm.SelectedModel?.Code!="UI-FIXTURE" || vm.SelectedModel.Revision!="v1" || vm.Models.Count!=1)
                 throw new Exception($"Smoke recipe save/reload failed: {vm.Message}");
+            vm.EditModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture v2"));
+            vm.SaveRecipeCommand.Execute(null);
+            if(vm.Dirty || vm.SelectedModel?.Name!="Synthetic layout fixture v2" || vm.SelectedModel.Revision!="v2")
+                throw new Exception($"Smoke recipe edit/revision failed: {vm.Message}");
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyHudLayout(window);
             Capture(window,Path.Combine(output,"setting.png"));
-            var modelDialog=new ModelDetailsWindow{Owner=window,DataContext=vm,Title="MODEL DIALOG · UI SMOKE"};
+            var modelDialog=new ModelDetailsWindow("MODEL DIALOG · UI SMOKE",vm.ModelCode,vm.ModelName,_=>null){Owner=window};
             modelDialog.Show();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(modelDialog,Path.Combine(output,"model-dialog.png"));modelDialog.Close();
             var viewer=new ImageViewer{Source=image,Width=600,Height=300};
@@ -66,7 +70,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; recipe save/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }

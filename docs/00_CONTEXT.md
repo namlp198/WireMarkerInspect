@@ -7,7 +7,7 @@ The user approved implementation after confirming:
 - C++ core called natively by .NET/C#;
 - separate read-only zoom/pan ImageViewer and editable ImageEditor.
 
-Repository initialized on codex/initial-implementation. Reference repositories were not modified.
+Repository initialized with `main` and `develop`; current work is on `develop`. Reference repositories were not modified.
 
 Implemented software:
 - 6 production .NET projects, 1 C++ native project and 1 managed test project;
@@ -20,7 +20,7 @@ Implemented software:
 
 Latest verification: scripts/verify-release.ps1 completed successfully.
 - Release build: zero warnings/errors.
-- Managed tests: 25 passed, zero failed/skipped.
+- Managed tests: 27 passed, zero failed/skipped, including complete model Add/Save/Reload/Edit/Delete coverage.
 - Native CTest suite: 1/1 passed.
 - Published WPF smoke passed; screenshots at artifacts/release-smoke.
 - Installer compiled: dist/WireMarkerInspection-Setup-0.1.0.exe. Not installed.
@@ -40,8 +40,9 @@ HUD revision requested by the user:
 - Repeated smoke runs use unique isolated fixture data and assert successful recipe save/reload.
 
 External blockers:
-1. Actual detector.onnx, recognizer.onnx and dictionary.txt are absent.
-2. No product image pairs / expected text dataset supplied yet.
-3. NAcquire/backends/hikrobot currently contains only .gitkeep; the CMake target is INTERFACE. The validated Hikrobot build / C# test mentioned by the user is not in this checkout.
+1. NAcquire/backends/hikrobot currently contains only .gitkeep; the CMake target is INTERFACE. The validated Hikrobot build / C# test mentioned by the user is not in this checkout.
+2. Model redistribution/license approval, broader production image coverage, throughput and target-PC acceptance remain open.
 
-Do not report OCR accuracy, camera connectivity, throughput, DPI/mouse acceptance or clean-PC installation as validated. The app can be reviewed and recipes edited offline; production RUN requires the missing assets.
+Offline OCR validation now uses locally converted fixed-shape Paddle models. The native CLI and managed WPF Load Image path both pass 26/26 supplied BMPs with Auto orientation and normalized ROI `[0.08, 0.28, 0.92, 0.68]`. Checksums/provenance are in `assets/ocr/README.md`; checked ground truth is in `tests/real-images.expected.json`.
+
+Do not extrapolate the 26/26 regression result to production accuracy. Camera connectivity, throughput, DPI/mouse acceptance and clean-PC installation are not validated.

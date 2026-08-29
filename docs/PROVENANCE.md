@@ -15,6 +15,6 @@ The three user-supplied UI PNGs are stored under design/references.
 The user's later HUD screenshots are preserved as design/references/hud-editor.png and hud-viewer.png. ImageHud follows the actual GeoMeasure ToolRail and Overlay styles; the new Select/Pan/Redo/Expand/ActualSize/Check/Close geometries use the same stroke grid. No map or robot behavior was imported.
 The latest taskbar and cleanup annotations are preserved as taskbar-chevron.png, hud-cleanup-annotation.png and setting-layout-annotation.png. They govern the metallic chevron taskbar, 400-DIP side columns, compact 32/16-DIP HUD and removed editor labels/actions.
 The final parallel-edge reference is preserved as taskbar-chevron-parallel.png; its geometry is implemented with matching 42x31 edge vectors and 14-DIP separation.
-OpenCV/ONNX notices are copied by the build script. User-supplied trained models and vendor runtime licenses still need confirmation before distribution.
+OpenCV/ONNX notices are copied by the build script. Local detector/recognizer conversion sources, runtime contracts and SHA-256 values are recorded in `assets/ocr/README.md`. Model and vendor runtime redistribution terms still need confirmation before distribution.
 The first-item straight-tail annotation is preserved as design/references/taskbar-first-straight.png.
 The operator-status and text-Apply annotation is preserved as design/references/status-apply-annotation.png; it defines the highlighted action messages and explicit Apply buttons.
