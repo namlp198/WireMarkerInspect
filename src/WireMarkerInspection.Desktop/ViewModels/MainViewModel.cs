@@ -30,6 +30,7 @@ public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring
 public partial class MainViewModel : ObservableObject
 {
     public FileRecipeStore Store{get;}
+    public FileSettingsStore Settings{get;}
     public NativeOcrEngine Ocr{get;}
     public ICamera Camera{get;}
     public bool AutoDiscoverCameraOnLoad{get;}
@@ -58,6 +59,8 @@ public partial class MainViewModel : ObservableObject
     private TriggerRouter router=new(new TriggerSettings());
     private ITriggerSource? activeTrigger;
     private readonly ManualTriggerSource manualTrigger=new();
+    private PlcReporter? plcReporter;
+    private IPlcLink? plcLink;
     private CameraSettings? appliedSettings;
     private long latestTimestamp;
     private static readonly TimeSpan[] ReconnectDelays=
@@ -113,6 +116,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string triggerRepeatBlock="250";
     [ObservableProperty]private string triggerStatus="Trigger thủ công";
     [ObservableProperty]private string lastTrigger="Chưa có trigger.";
+    [ObservableProperty]private bool plcEnabled;
+    [ObservableProperty]private string plcVendor="delta-dvp";
+    [ObservableProperty]private PlcTransport plcTransport=PlcTransport.Tcp;
+    [ObservableProperty]private string plcHost="192.168.1.5";
+    [ObservableProperty]private string plcPort="502";
+    [ObservableProperty]private string plcSerialPort="COM1";
+    [ObservableProperty]private string plcBaudRate="9600";
+    [ObservableProperty]private string plcUnitId="1";
+    [ObservableProperty]private string plcPollMs="20";
+    [ObservableProperty]private string plcTriggerAddress="X0";
+    [ObservableProperty]private string plcEnd1Address="X0";
+    [ObservableProperty]private string plcEnd2Address="X1";
+    [ObservableProperty]private string plcStatus="PLC chưa cấu hình.";
+    [ObservableProperty]private string plcOutputsSummary="Ghi kết quả về PLC: tắt.";
     [ObservableProperty]private string message="Chọn một model hoặc Add Model để bắt đầu setup.";
     [ObservableProperty]private string runStatus="CHƯA CHẠY";
     [ObservableProperty]private string ocrStatus="";
@@ -148,7 +165,13 @@ public partial class MainViewModel : ObservableObject
     public bool CanNext=>Running&&!Busy&&Session.State==InspectionState.Completed;
     public string CaptureLabel=>$"Nhận ảnh đầu {Session.NextEnd+1}";
     public string ModelCount=>$"{Models.Count} MODELS";
-    public TriggerKind[] TriggerKinds{get;}=[TriggerKind.Manual,TriggerKind.CameraLine];
+    public TriggerKind[] TriggerKinds{get;}=[TriggerKind.Manual,TriggerKind.CameraLine,TriggerKind.Plc];
+    public IReadOnlyList<string> PlcVendors{get;}=PlcAddressMaps.Vendors;
+    public PlcTransport[] PlcTransports{get;}=[PlcTransport.Tcp,PlcTransport.SerialRtu];
+    public bool PlcSelected=>TriggerKind==TriggerKind.Plc;
+    public bool PlcUsesNetwork=>PlcTransport==PlcTransport.Tcp;
+    public bool PlcUsesSerial=>PlcTransport==PlcTransport.SerialRtu;
+    private PlcOutputs plcOutputs=new();
     public TriggerMapping[] TriggerMappings{get;}=[TriggerMapping.Shared,TriggerMapping.PerEnd];
     public bool CanEditTrigger=>CanEdit&&!Running;
     public bool CanRetakeEnd=>Running&&!Busy&&Session.State==InspectionState.WaitingEnd2;
@@ -186,13 +209,90 @@ public partial class MainViewModel : ObservableObject
         if(this.cameraSearchTimeout<=TimeSpan.Zero)throw new ArgumentOutOfRangeException(nameof(cameraSearchTimeout));
         Store=new(dataRoot);Ocr=new(Path.Combine(AppContext.BaseDirectory,"assets","ocr"));
         Log=new FileDiagnosticsLog(dataRoot);
+        Settings=new(dataRoot);
         Session=new(Ocr,new FileResultStore(dataRoot));
         ModelsView=CollectionViewSource.GetDefaultView(Models);
         ModelsView.Filter=o=>o is RecipeRow r&&(r.Code.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase));
         End1.Changed+=(_,_)=>{if(!loading)Dirty=true;};End2.Changed+=(_,_)=>{if(!loading)Dirty=true;};
-        Reload();RefreshOcr();
+        Reload();RefreshOcr();LoadMachineSettings();
+    }
+
+    private void LoadMachineSettings()
+    {
+        var machine=Settings.Load();
+        loadingCamera=true;
+        try
+        {
+            TriggerKind=machine.Trigger.Kind;TriggerMapping=machine.Trigger.Mapping;
+            var camera=machine.Trigger.CameraTrigger;
+            TriggerLine=camera.Line.ToString();TriggerRisingEdge=camera.RisingEdge;
+            TriggerDelay=camera.DelayUs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            TriggerDebouncer=camera.DebouncerUs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            TriggerRepeatBlock=machine.Trigger.RepeatBlockMs.ToString();
+            var plc=machine.Plc;
+            PlcEnabled=plc.Enabled;PlcVendor=plc.Vendor;PlcTransport=plc.Transport;
+            PlcHost=plc.Host;PlcPort=plc.Port.ToString();PlcSerialPort=plc.SerialPort;
+            PlcBaudRate=plc.BaudRate.ToString();PlcUnitId=plc.UnitId.ToString();PlcPollMs=plc.PollMs.ToString();
+            PlcTriggerAddress=plc.TriggerAddress.Length>0?plc.TriggerAddress:PlcTriggerAddress;
+            PlcEnd1Address=plc.End1Address.Length>0?plc.End1Address:PlcEnd1Address;
+            PlcEnd2Address=plc.End2Address.Length>0?plc.End2Address:PlcEnd2Address;
+            plcOutputs=plc.Writes;
+        }
+        finally{loadingCamera=false;}
+        PlcOutputsSummary=DescribeOutputs();
+        if(Settings.LoadError is{}error)Message=$"Không đọc được settings.json: {error}";
+    }
+
+    private string DescribeOutputs()
+    {
+        if(!plcOutputs.Enabled)return "Ghi kết quả về PLC: tắt. Bật và khai báo địa chỉ trong settings.json.";
+        var declared=new[]
+        {
+            ("trạng thái",plcOutputs.WaitingEndRegister),("busy",plcOutputs.BusyBit),("OK",plcOutputs.OkBit),
+            ("NG",plcOutputs.NgBit),("lỗi",plcOutputs.ErrorBit),("heartbeat",plcOutputs.HeartbeatBit)
+        }.Where(pair=>pair.Item2.Length>0).Select(pair=>$"{pair.Item1} {pair.Item2}");
+        return "Ghi kết quả về PLC: "+string.Join(" · ",declared);
+    }
+
+    /// <summary>Builds the PLC configuration from the form. Writing addresses stay in settings.json.</summary>
+    public PlcSettings BuildPlcSettings()=>new(
+        PlcEnabled,PlcVendor,PlcTransport,PlcHost.Trim(),Whole(PlcPort,"Cổng PLC"),PlcSerialPort.Trim(),
+        Whole(PlcBaudRate,"Baud rate"),checked((byte)Whole(PlcUnitId,"Unit ID")),Whole(PlcPollMs,"Chu kỳ đọc PLC"),
+        PlcTriggerAddress.Trim(),PlcEnd1Address.Trim(),PlcEnd2Address.Trim(),plcOutputs);
+
+    /// <summary>Persists the machine-level trigger and PLC configuration.</summary>
+    [RelayCommand]private void SaveMachineSettings()=>Guard(()=>
+    {
+        var trigger=BuildTriggerSettings();
+        var plc=BuildPlcSettings();
+        if(plc.Validate(trigger.Mapping) is{}error)throw new InvalidOperationException(error);
+        Settings.Save(new(trigger,plc));
+        Message="Đã lưu cấu hình trigger và PLC của máy.";
+    });
+
+    /// <summary>Connects, reads the configured trigger bit once and disconnects, without arming anything.</summary>
+    [RelayCommand]private async Task TestPlcAsync()
+    {
+        var settings=BuildPlcSettings();
+        await GuardAsync(async()=>
+        {
+            if(settings.Validate(TriggerMapping) is{}error)throw new InvalidOperationException(error);
+            await using var link=new ModbusPlcLink(settings,PlcAddressMaps.For(settings.Vendor));
+            await link.ConnectAsync(CancellationToken.None);
+            var address=TriggerMapping==TriggerMapping.Shared?settings.TriggerAddress:settings.End1Address;
+            var value=await link.ReadBitAsync(address,CancellationToken.None);
+            PlcStatus=$"PLC OK · {settings.Describe()} · {address} = {(value?"ON":"OFF")}";
+            await link.DisconnectAsync();
+        });
+        if(Message.StartsWith("Không",StringComparison.Ordinal)||Message.Contains("PLC",StringComparison.Ordinal))
+            PlcStatus=Message;
     }
     partial void OnSearchChanged(string value)=>ModelsView.Refresh();
+    partial void OnTriggerKindChanged(TriggerKind value)=>OnPropertyChanged(nameof(PlcSelected));
+    partial void OnPlcTransportChanged(PlcTransport value)
+    {
+        OnPropertyChanged(nameof(PlcUsesNetwork));OnPropertyChanged(nameof(PlcUsesSerial));
+    }
     partial void OnModelCodeChanged(string value){if(!loading)Dirty=true;}
     partial void OnModelNameChanged(string value){if(!loading)Dirty=true;}
     partial void OnDirtyChanged(bool value)=>OnPropertyChanged(nameof(CanSaveRecipe));
@@ -447,15 +547,33 @@ public partial class MainViewModel : ObservableObject
     {
         await DisarmTriggerAsync();
         router=new(settings);
-        ITriggerSource source=settings.Kind==TriggerKind.CameraLine
-            ?new CameraLineTriggerSource(Camera,settings.CameraTrigger)
-            :manualTrigger;
+        ITriggerSource source;
+        if(settings.Kind==TriggerKind.CameraLine)source=new CameraLineTriggerSource(settings.CameraTrigger);
+        else if(settings.Kind==TriggerKind.Plc)
+        {
+            var plc=BuildPlcSettings() with {Enabled=true};
+            if(plc.Validate(settings.Mapping) is{}invalid)throw new InvalidOperationException(invalid);
+            plcLink=new ModbusPlcLink(plc,PlcAddressMaps.For(plc.Vendor));
+            plcReporter=new(plcLink,plc.Writes,Log);
+            source=new PlcTriggerSource(plcLink,plc,settings.Mapping,Log);
+        }
+        else source=manualTrigger;
         if(settings.CameraTrigger.IsTriggered)
         {
             if(!CameraConnected)throw new InvalidOperationException("Trigger phần cứng cần camera đang kết nối.");
-            await SwitchAcquisitionAsync(settings.CameraTrigger,()=>source.StartAsync(CancellationToken.None));
+            await SwitchAcquisitionAsync(settings.CameraTrigger,async()=>
+            {
+                await Task.Run(()=>Camera.ConfigureTrigger(settings.CameraTrigger));
+                await source.StartAsync(CancellationToken.None);
+            });
         }
         else await source.StartAsync(CancellationToken.None);
+        if(plcReporter is{}reporter)
+        {
+            await reporter.ClearVerdictAsync(CancellationToken.None);
+            await reporter.ReportStageAsync(PlcStage.WaitingEnd1,CancellationToken.None);
+            PlcStatus=reporter.LastError??source.Status;
+        }
         source.Fired+=OnTriggerFired;
         activeTrigger=source;TriggerStatus=source.Status;
         Log.Write("trigger","armed",new Dictionary<string,object?>
@@ -472,8 +590,19 @@ public partial class MainViewModel : ObservableObject
         activeTrigger=null;
         // The source owns the device configuration, so restoring free-run must happen exactly once,
         // inside the stopped window. Configuring it again afterwards would hit a grabbing camera.
-        if(cameraTrigger.IsTriggered&&CameraConnected)await SwitchAcquisitionAsync(CameraTrigger.FreeRun,source.StopAsync);
+        if(cameraTrigger.IsTriggered&&CameraConnected)
+            await SwitchAcquisitionAsync(CameraTrigger.FreeRun,async()=>
+            {
+                await source.StopAsync();
+                await Task.Run(()=>Camera.ConfigureTrigger(CameraTrigger.FreeRun));
+            });
         else await source.StopAsync();
+        if(plcReporter is{}reporter)
+        {
+            try{await reporter.ReportStageAsync(PlcStage.Idle,CancellationToken.None);}
+            catch(Exception ex){Log.Write("plc","stage-failed",new Dictionary<string,object?>{["error"]=ex.Message});}
+        }
+        plcReporter=null;plcLink=null;PlcStatus="PLC đã ngắt.";
         if(!ReferenceEquals(source,manualTrigger))await source.DisposeAsync();
         TriggerStatus=manualTrigger.Status;
         Log.Write("trigger","disarmed",null);
@@ -500,7 +629,37 @@ public partial class MainViewModel : ObservableObject
             return;
         }
         Log.Write("trigger","accepted",new Dictionary<string,object?>{["end"]=decision.End+1,["source"]=signal.Source});
-        _=CaptureRuntimeCommand.ExecuteAsync(null);
+        _=CaptureTriggeredAsync();
+    }
+
+    private async Task CaptureTriggeredAsync()
+    {
+        if(!CanCapture)return;
+        await GuardAsync(async()=>
+        {
+            var frame=await RequestFrameAsync();
+            await InspectAsync(frame,MonotonicClock.MillisecondsSince(latestTimestamp));
+        });
+    }
+
+    /// <summary>
+    /// Returns the frame this trigger is about. A camera-line pulse already delivered one; a PLC signal
+    /// has to ask the camera for it, and waiting for a genuinely new frame is what keeps the image tied
+    /// to the signal that requested it.
+    /// </summary>
+    private async Task<ImageFrame> RequestFrameAsync()
+    {
+        if(cameraTrigger.Source!=CameraTriggerSource.Software)
+            return latest??throw new InvalidOperationException("Chưa có camera frame mới cho đầu này.");
+        var previous=latest?.Id;
+        await Task.Run(Camera.ExecuteSoftwareTrigger);
+        var started=MonotonicClock.Now;
+        while(MonotonicClock.MillisecondsSince(started)<3000)
+        {
+            if(latest is{}frame&&frame.Id!=previous)return frame;
+            await Task.Delay(5);
+        }
+        throw new TimeoutException("Camera không trả frame sau khi PLC kích trigger.");
     }
 
     /// <summary>Drops a bad first image so the operator can shoot it again without losing the product.</summary>
@@ -551,12 +710,34 @@ public partial class MainViewModel : ObservableObject
             if(result==null)return;
             target.Show(frame,result);waitingSince=DateTimeOffset.UtcNow;
             RecordTimings(result);
+            await ReportToPlcAsync();
             RunStatus=Session.Result?.Verdict.ToString().ToUpperInvariant()??"CHỜ ĐẦU 2";
             Message=Session.Result!=null?"Đã lưu kết quả và ảnh nguồn. Sản phẩm tiếp theo hoặc Stop.":"Đã kiểm tra đầu 1. Chờ đầu 2 cùng sản phẩm.";
         }
         catch {target.Status="ERROR";RunStatus="ERROR";throw;}
         finally{RefreshState();}
     }
+    private async Task ReportToPlcAsync()
+    {
+        if(plcReporter is not{}reporter)return;
+        try
+        {
+            if(Session.Result is{}product)
+            {
+                await reporter.ReportStageAsync(PlcStage.Idle,CancellationToken.None);
+                await reporter.ReportVerdictAsync(product.Verdict,CancellationToken.None);
+            }
+            else await reporter.ReportStageAsync(PlcStage.WaitingEnd2,CancellationToken.None);
+            PlcStatus=reporter.LastError??PlcStatus;
+        }
+        catch(Exception ex)
+        {
+            // A PLC write must never take down an inspection that already produced a verdict.
+            PlcStatus=$"Ghi PLC lỗi: {ex.Message}";
+            Log.Write("plc","report-failed",new Dictionary<string,object?>{["error"]=ex.Message});
+        }
+    }
+
     private void RecordTimings(EndResult result)
     {
         var product=Session.Result;
@@ -765,7 +946,8 @@ public partial class MainViewModel : ObservableObject
         {
             TriggerKind.CameraLine=>new CameraTrigger(CameraTriggerSource.Line,Whole(TriggerLine,"Trigger line"),
                 TriggerRisingEdge,Number(TriggerDelay,"Trigger delay"),Number(TriggerDebouncer,"Trigger debouncer")),
-            TriggerKind.Plc=>new CameraTrigger(CameraTriggerSource.Software),
+            // A PLC bit asks the camera for a frame, so the camera waits on its software trigger.
+            TriggerKind.Plc when CameraConnected=>new CameraTrigger(CameraTriggerSource.Software),
             _=>CameraTrigger.FreeRun
         };
         var settings=new TriggerSettings(TriggerKind,TriggerMapping,camera,Whole(TriggerRepeatBlock,"Chặn trigger lặp"));

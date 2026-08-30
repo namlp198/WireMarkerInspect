@@ -1,6 +1,16 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Phase D of the approved plan is done: RUN can be triggered from a PLC bit, and the verdict can be written back to the line.
+- `IPlcLink` and `IPlcAddressMap` keep every library type out of the application layer. `ModbusPlcLink` (NModbus 3.0.83, MIT) speaks Modbus TCP and RTU. Supporting another brand means adding an address map, not touching the application, which is what "generic across brands" had to mean in practice.
+- `DeltaDvpAddressMap` covers S, X, Y, T, M, C and D. The trap it closes: X and Y are numbered in OCTAL on a DVP, so X10 is the ninth input. Reading it as decimal would address the wrong contact and still look like working software. X is a physical input, so writes to it are refused.
+- `PlcTriggerSource` polls the configured bits and fires only on a rising edge; a held button or a latched bit cannot capture twice. A read failure shows in the status line rather than becoming a silently dead trigger.
+- A PLC signal drives the camera through its software trigger and then waits for a genuinely new frame, so the image stays tied to the signal that asked for it rather than to whatever was last in the buffer.
+- `PlcReporter` writes stage (waiting end 1/2, busy), verdict (OK/NG/ERROR) and a toggling heartbeat. Writing is opt-in, off by default, and every address is declared explicitly in `settings.json`: a PLC write reaches outside the software and can move machinery, so nothing is inferred. A failed write is reported and logged but never aborts an inspection that already produced a verdict.
+- Machine-level trigger and PLC configuration now lives in `settings.json` through `FileSettingsStore`. A corrupt file falls back to defaults and reports the problem instead of stopping the station.
+- `scripts/plc-probe.ps1 -ReadAddress X0 [-WriteAddress Y0]` is the acceptance gate, mirroring the camera probe. Reading is always safe; the write pulse is opt-in and warns first.
+- Verification: Release build 0 warnings/errors; managed 74/74 (repeated); native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-213608`.
+- Not verified: any real PLC. The address table, the link and the write handshake are covered only by fakes. Before acceptance the mapping must be checked against the connected DVP, and the write-back address list agreed with the line owner.
 - Phase C of the approved plan is done: RUN can be driven by a hardware trigger on the camera's I/O line, not only by the capture button.
 - `ITriggerSource` covers the manual and camera-line sources; the PLC source lands in phase D on the same seam. In triggered acquisition the arriving frame is the trigger event, so there is no second grab path to keep in step.
 - `TriggerRouter` owns the decision that matters: which end a signal belongs to. `Shared` follows the session state, `PerEnd` takes the end from the signal and refuses one that does not match what is expected. It blocks repeats inside a configurable window and ignores signals arriving while an image is being processed. Every ignored signal is logged with its reason — a mis-wired line shows up as a log entry instead of a wrong verdict.

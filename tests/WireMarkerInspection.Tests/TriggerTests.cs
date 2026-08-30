@@ -114,24 +114,26 @@ public sealed class TriggerTests
     }
 
     [Fact]
-    public void ACameraLineSourceArmsAndDisarmsTheDevice()
+    public void ACameraLineSourceDescribesItsWiringAndPublishesPulses()
     {
-        var camera=new RecordingCamera();
-        var trigger=new CameraTrigger(CameraTriggerSource.Line,2,false,50,1000);
-        var source=new CameraLineTriggerSource(camera,trigger);
+        // The device configuration itself belongs to the caller, which owns the stopped acquisition
+        // window; TriggerAcquisitionTests covers that. Here the source only has to describe and publish.
+        var trigger=new CameraTrigger(CameraTriggerSource.Line,2,RisingEdge:false,DelayUs:50,DebouncerUs:1000);
+        var source=new CameraLineTriggerSource(trigger);
         TriggerEvent? seen=null;
         source.Fired+=(_,e)=>seen=e;
 
         source.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
-        Assert.Equal(trigger,camera.Configured);
         Assert.Contains("Line 2",source.Status);
+        Assert.Contains("sườn xuống",source.Status);
 
         source.Fire(null,"camera-line");
         Assert.NotNull(seen);
         Assert.Equal("camera-line",seen!.Source);
+        Assert.Null(seen.End);
 
-        source.StopAsync().GetAwaiter().GetResult();
-        Assert.Equal(CameraTriggerSource.FreeRun,camera.Configured!.Source);   // SETTING gets free-run back
+        var invalid=new CameraLineTriggerSource(new CameraTrigger(CameraTriggerSource.Line,Line:-1));
+        Assert.Throws<InvalidOperationException>(()=>invalid.StartAsync(CancellationToken.None).GetAwaiter().GetResult());
     }
 
     private static ImageFrame Frame()=>new(100,100,300,new byte[30000],Guid.NewGuid(),DateTimeOffset.UtcNow,"TEST");
@@ -147,22 +149,5 @@ public sealed class TriggerTests
     {
         public List<ProductResult> Products{get;}=[];
         public Task SaveAsync(ProductResult r,ImageFrame[] f,CancellationToken c){Products.Add(r);return Task.CompletedTask;}
-    }
-    private sealed class RecordingCamera:ICamera
-    {
-        public CameraTrigger? Configured{get;private set;}
-        public IReadOnlyList<CameraDevice> Enumerate()=>[];
-        public void Open(CameraDevice device){}
-        public CameraInfo ReadInfo()=>new("REC","SN","Mono8",64,48,null,null);
-        public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>[];
-        public CameraSettings ReadSettings()=>new(1000,0);
-        public void ApplySettings(CameraSettings settings){}
-        public void ConfigureTrigger(CameraTrigger trigger)=>Configured=trigger;
-        public void ExecuteSoftwareTrigger(){}
-        public void Start(){}
-        public ImageFrame Grab(int timeoutMs)=>throw new TimeoutException();
-        public void Stop(){}
-        public void Close(){}
-        public void Dispose(){}
     }
 }

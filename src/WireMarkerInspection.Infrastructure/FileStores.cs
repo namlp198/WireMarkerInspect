@@ -140,3 +140,38 @@ public sealed class FileDiagnosticsLog(string root) : IDiagnosticsLog
         }
     }
 }
+
+/// <summary>
+/// Machine-level configuration: which PLC this station talks to and how RUN is triggered. It belongs to
+/// the machine, not to a model, so it lives beside the recipes rather than inside them.
+/// </summary>
+public sealed record MachineSettings(TriggerSettings Trigger, PlcSettings Plc)
+{
+    public static MachineSettings Default => new(new TriggerSettings(), new PlcSettings());
+}
+
+public sealed class FileSettingsStore(string root)
+{
+    private readonly string path = Path.Combine(root, "settings.json");
+    public string? LoadError { get; private set; }
+
+    public MachineSettings Load()
+    {
+        LoadError = null;
+        if (!File.Exists(path)) return MachineSettings.Default;
+        try
+        {
+            return JsonSerializer.Deserialize<MachineSettings>(File.ReadAllBytes(path), JsonFiles.Options)
+                ?? MachineSettings.Default;
+        }
+        catch (Exception ex)
+        {
+            // A broken settings file must not stop the station; it falls back and says so.
+            LoadError = $"{path}: {ex.Message}";
+            return MachineSettings.Default;
+        }
+    }
+
+    public void Save(MachineSettings settings) =>
+        JsonFiles.AtomicWrite(path, JsonSerializer.SerializeToUtf8Bytes(settings, JsonFiles.Options));
+}

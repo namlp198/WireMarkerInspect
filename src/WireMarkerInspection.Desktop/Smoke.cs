@@ -133,7 +133,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC trigger fields shown with write-back off until configured; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -175,6 +175,17 @@ internal static class Smoke
         }
         catch(InvalidOperationException){}
         vm.TriggerMapping=TriggerMapping.Shared;
+
+        // A PLC trigger shows its own fields and reports whether writing back is configured.
+        vm.TriggerKind=TriggerKind.Plc;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        window.UpdateLayout();
+        if(window.PlcTriggerPanel.Visibility!=Visibility.Visible||window.CameraTriggerPanel.Visibility==Visibility.Visible)
+            throw new Exception("Selecting a PLC trigger must show the PLC fields and hide the camera line fields.");
+        if(!window.PlcOutputsSummaryText.Text.Contains("tắt",StringComparison.Ordinal))
+            throw new Exception($"Writing back must be off until it is configured: {window.PlcOutputsSummaryText.Text}");
+        vm.TriggerKind=TriggerKind.CameraLine;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
 
         await vm.ArmTriggerAsync(vm.BuildTriggerSettings());
         if(!vm.TriggerStatus.Contains("Line 2",StringComparison.Ordinal))

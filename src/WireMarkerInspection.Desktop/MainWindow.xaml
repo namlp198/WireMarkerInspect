@@ -128,6 +128,33 @@
        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding TriggerRepeatBlock,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
        <CheckBox Grid.Row="4" Grid.ColumnSpan="3" x:Name="TriggerRisingEdgeCheckBox" Content="Kích theo sườn lên" IsChecked="{Binding TriggerRisingEdge}" IsEnabled="{Binding CanEditTrigger}" Margin="0,10,0,0"/>
       </Grid>
+      <Grid x:Name="PlcTriggerPanel" Margin="0,12,0,0">
+       <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding TriggerKind}" Value="Plc"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+       <CheckBox Grid.ColumnSpan="3" x:Name="PlcEnabledCheckBox" Content="Dùng PLC" IsChecked="{Binding PlcEnabled}" IsEnabled="{Binding CanEditTrigger}"/>
+       <TextBlock Grid.Row="1" Text="Hãng PLC" Style="{StaticResource Caption}" Margin="0,10,0,4"/><TextBlock Grid.Row="1" Grid.Column="2" Text="Kết nối" Style="{StaticResource Caption}" Margin="0,10,0,4"/>
+       <ComboBox Grid.Row="2" x:Name="PlcVendorSelector" ItemsSource="{Binding PlcVendors}" SelectedItem="{Binding PlcVendor}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource Input.Combo}" Height="28"/>
+       <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding PlcTransports}" SelectedItem="{Binding PlcTransport}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource Input.Combo}" Height="28"/>
+       <TextBlock Grid.Row="3" Text="IP / COM" Style="{StaticResource Caption}" Margin="0,10,0,4"/><TextBlock Grid.Row="3" Grid.Column="2" Text="Cổng / Baud" Style="{StaticResource Caption}" Margin="0,10,0,4"/>
+       <TextBox Grid.Row="4" x:Name="PlcHostTextBox" Text="{Binding PlcHost,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}" Visibility="{Binding PlcUsesNetwork,Converter={StaticResource BoolToVisibility}}"/>
+       <TextBox Grid.Row="4" x:Name="PlcSerialPortTextBox" Text="{Binding PlcSerialPort,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}" Visibility="{Binding PlcUsesSerial,Converter={StaticResource BoolToVisibility}}"/>
+       <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding PlcPort,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}" Visibility="{Binding PlcUsesNetwork,Converter={StaticResource BoolToVisibility}}"/>
+       <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding PlcBaudRate,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}" Visibility="{Binding PlcUsesSerial,Converter={StaticResource BoolToVisibility}}"/>
+       <TextBlock Grid.Row="5" Text="Unit ID" Style="{StaticResource Caption}" Margin="0,10,0,4"/><TextBlock Grid.Row="5" Grid.Column="2" Text="Chu kỳ đọc (ms)" Style="{StaticResource Caption}" Margin="0,10,0,4"/>
+       <TextBox Grid.Row="6" Text="{Binding PlcUnitId,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding PlcPollMs,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <TextBlock Grid.Row="7" Text="Bit trigger / đầu 1" Style="{StaticResource Caption}" Margin="0,10,0,4"/><TextBlock Grid.Row="7" Grid.Column="2" Text="Bit đầu 2 (khi tách hai đầu)" Style="{StaticResource Caption}" Margin="0,10,0,4"/>
+       <TextBox Grid.Row="8" x:Name="PlcTriggerAddressTextBox" Text="{Binding PlcTriggerAddress,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}" ToolTip="Địa chỉ theo cú pháp của hãng, ví dụ X0. Delta DVP đánh số X/Y theo hệ bát phân."/>
+       <TextBox Grid.Row="8" Grid.Column="2" Text="{Binding PlcEnd2Address,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+      </Grid>
+      <TextBlock x:Name="PlcOutputsSummaryText" Text="{Binding PlcOutputsSummary}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                 Visibility="{Binding PlcSelected,Converter={StaticResource BoolToVisibility}}"/>
+      <TextBlock x:Name="PlcStatusText" Text="{Binding PlcStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+      <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+       <Button x:Name="TestPlcButton" Content="Test PLC" Style="{StaticResource Button.Apply}" ToolTip="Kết nối, đọc thử bit trigger rồi ngắt" AutomationProperties.Name="Test PLC" Command="{Binding TestPlcCommand}" IsEnabled="{Binding CanEditTrigger}"/>
+       <Button x:Name="SaveMachineSettingsButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Save}" ToolTip="Lưu cấu hình trigger và PLC của máy" AutomationProperties.Name="Lưu cấu hình máy" Command="{Binding SaveMachineSettingsCommand}" IsEnabled="{Binding CanEditTrigger}" Margin="6,0,0,0"/>
+      </StackPanel>
       <TextBlock x:Name="TriggerStatusText" Text="{Binding TriggerStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"/>
       <TextBlock Text="Trigger phần cứng chỉ áp dụng khi RUN; SETTING luôn dùng free-run để căn ROI." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,20,0,20"/>

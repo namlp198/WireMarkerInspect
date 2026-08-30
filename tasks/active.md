@@ -75,8 +75,17 @@
 - [ ] Verify a physical pulse on the 6-pin I/O cable: TriggerSource=Line, activation edge and debouncer.
 - [ ] Confirm the trigger-to-frame latency budget against the measured frame-interval jitter.
 
-## Phase D — PLC trigger and result write-back — not started
-## Phase D — PLC trigger and result write-back — not started
+## Phase D — PLC trigger and result write-back — completed 2026-08-30
+- [x] Define `IPlcLink` and `IPlcAddressMap` so no library type crosses into the application.
+- [x] Implement `ModbusPlcLink` over Modbus TCP and RTU with NModbus (MIT).
+- [x] Map Delta DVP addresses, honouring the octal numbering of X and Y and refusing writes to inputs.
+- [x] Poll PLC bits and fire only on a rising edge, with shared and per-end mappings.
+- [x] Drive the camera software trigger from a PLC signal and wait for a genuinely new frame.
+- [x] Write stage, verdict and heartbeat back to the PLC, opt-in and off by default.
+- [x] Move machine-level trigger and PLC configuration into `settings.json`.
+- [x] Add `scripts/plc-probe.ps1` as the hardware acceptance gate.
+- [ ] Verify against a real Delta DVP: confirm the address table, the trigger bit and the write handshake.
+- [ ] Agree the write-back address list and clearing behaviour with the line owner before enabling it.
 
 ## Awaiting external inputs / acceptance
 - [x] Use the installed official Hikrobot MVS SDK and its C# samples/runtime.

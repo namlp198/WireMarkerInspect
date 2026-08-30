@@ -1,6 +1,16 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- Phase D of the approved plan: RUN can be triggered from a PLC bit, and the verdict can be written back.
+- `IPlcLink` and `IPlcAddressMap` keep every library type out of the application. `ModbusPlcLink` (NModbus, MIT) speaks Modbus TCP and RTU; supporting another brand means adding an address map, not changing the app.
+- `DeltaDvpAddressMap` covers S, X, Y, T, M, C and D. X and Y are numbered in OCTAL on a DVP, so X10 is the ninth input: a decimal reading would address the wrong contact and still appear to work. X is a physical input and is refused for writes.
+- `PlcTriggerSource` polls the configured bits and fires only on a rising edge, so a held button or latched bit cannot capture repeatedly. A read failure is surfaced in the status line, not swallowed into a dead trigger.
+- A PLC trigger drives the camera through its software trigger and waits for a genuinely new frame, so the image stays tied to the signal that requested it.
+- `PlcReporter` writes stage (waiting end 1/2, busy), verdict (OK/NG/ERROR) and a heartbeat. Writing is opt-in and off by default, every address is declared explicitly in `settings.json`, and a failed write is reported without aborting an inspection that already produced a verdict.
+- Machine-level configuration moved to `settings.json` via `FileSettingsStore`. A corrupt file falls back to defaults and says so instead of stopping the station.
+- `scripts/plc-probe.ps1 -ReadAddress X0 [-WriteAddress Y0]` is the hardware acceptance gate. Reading is safe; the write pulse is opt-in and warns, because a PLC write can move machinery.
+- Not verified: any real PLC. The Delta address table and the whole link are covered only by fakes; the mapping must be checked against the connected PLC before acceptance.
+- Managed suite is 74/74.
 - Phase C of the approved plan: RUN can be driven by a hardware trigger on the camera's I/O line instead of only a button.
 - `ITriggerSource` covers manual and camera-line sources today and leaves the PLC source for phase D. In triggered acquisition the arriving frame is the trigger event, so no second grab path exists.
 - `TriggerRouter` decides which end a signal belongs to: `Shared` follows the session state, `PerEnd` takes the end from the signal and refuses one that does not match what is expected. It blocks repeats inside a configurable window and ignores signals while an image is being processed. Every ignored signal is logged with its reason, never dropped silently.

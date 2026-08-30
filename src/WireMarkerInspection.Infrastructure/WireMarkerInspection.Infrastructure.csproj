@@ -7,6 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="../WireMarkerInspection.Domain/WireMarkerInspection.Domain.csproj" />
     <ProjectReference Include="../WireMarkerInspection.Application/WireMarkerInspection.Application.csproj" />
+    <PackageReference Include="NModbus" />
+    <PackageReference Include="NModbus.Serial" />
     <Reference Include="MvCameraControl.Net" HintPath="$(MvsManagedSdkPath)" Private="true" Condition="'$(MvsManagedSdkPath)' != ''" />
   </ItemGroup>
 </Project>

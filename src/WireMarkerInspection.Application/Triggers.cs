@@ -82,20 +82,15 @@ public sealed class ManualTriggerSource : PushTriggerSource
 
 /// <summary>
 /// A pulse on the camera's I/O line. The camera only delivers a frame when it is triggered, so an
-/// arriving frame is the trigger event; this source owns the camera-side configuration.
+/// arriving frame is the trigger event. The device configuration belongs to the caller, which owns the
+/// stopped window a trigger-mode change requires.
 /// </summary>
-public sealed class CameraLineTriggerSource(ICamera camera, CameraTrigger trigger) : PushTriggerSource
+public sealed class CameraLineTriggerSource(CameraTrigger trigger) : PushTriggerSource
 {
     public override string Status => $"Trigger phần cứng · Line {trigger.Line} · {(trigger.RisingEdge ? "sườn lên" : "sườn xuống")}";
     public override Task StartAsync(CancellationToken token)
     {
         if (trigger.Validate() is { } error) throw new InvalidOperationException(error);
-        camera.ConfigureTrigger(trigger);
-        return Task.CompletedTask;
-    }
-    public override Task StopAsync()
-    {
-        camera.ConfigureTrigger(CameraTrigger.FreeRun);
         return Task.CompletedTask;
     }
 }
