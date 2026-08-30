@@ -24,7 +24,7 @@ internal static class PlcProbe
         {
             var settings=new FileSettingsStore(JsonFiles.DataRoot).Load().Plc;
             report["plc"]=settings.Describe();
-            if(settings.Validate(TriggerMapping.Shared) is{}invalid&&settings.Enabled)throw new InvalidOperationException(invalid);
+            if(settings.ValidateConnection() is{}invalid)throw new InvalidOperationException(invalid);
             var map=PlcAddressMaps.For(settings.Vendor);
             report["resolvedRead"]=map.Translate(readAddress);
             await using var link=new ModbusPlcLink(settings,map);

@@ -21,7 +21,7 @@ One cycle snapshots a full recipe revision and owns copied frame bytes.
 WaitingEnd1 -> ProcessingEnd1 -> WaitingEnd2 -> ProcessingEnd2 -> Completed.
 Stop increments generation and cancels pending work; a late result cannot populate another cycle.
 Duplicate frame identity, wrong image dimensions, bad recipe, missing model and persistence failures cannot produce OK.
-Manual capture uses a new live frame after entering the next waiting state. External trigger pairing is not implemented yet.
+Manual capture uses a new live frame after entering the next waiting state. Camera-line and PLC sources enter through `TriggerRouter`; PLC may use a shared rising edge or distinct per-end inputs.
 
 ## Persistence
 Versioned JSON recipes with immutable generation-named reference images. JSON rename is the publication point.
@@ -32,10 +32,15 @@ Concurrent multi-process recipe editing is not supported; one application instan
 ## Camera acquisition
 The Desktop composes `HikrobotMvsCamera` through `ICamera`. It uses the official Hikrobot MVS .NET wrapper and native runtime for GigE/USB enumeration, device lifecycle, continuous acquisition, parameter writes and owned-buffer release. The app copies every frame to packed BGR24 before releasing the SDK buffer. Mono8 and RGB8/BGR8 have direct conversions; Bayer and packed formats use the MVS pixel converter. Frame dimensions, lengths and repeated SDK frame numbers are rejected.
 
-The SDK is initialized lazily on Scan; startup and offline UI smoke never connect to hardware. GigE open applies the SDK-recommended packet size. The current UI deliberately selects continuous mode with trigger off; PLC/external trigger pairing is a later slice.
+The SDK is initialized lazily on Scan; startup and offline UI smoke never connect to hardware. GigE open applies the SDK-recommended packet size. SETTING uses free-run; RUN stops acquisition around a change to camera-line/software trigger and restores free-run when disarmed.
 
 The production MainWindow invokes camera discovery once from its Loaded event with a five-second UI timeout. The ViewModel exposes explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error states and derived enable rules; it does not reuse the broad model-editing flag for camera controls. A timed-out native enumeration remains tracked so retry can consume its eventual result without starting concurrent SDK calls. Offline smoke disables auto-discovery explicitly.
 
 Hardware validation on 2026-08-30 passed enumerate/open/ExposureTime/Gain/start/three-frame grab/stop/close against MV-CE120-10GM serial `00G29911748`, IP `169.254.172.4`, producing 4024×3036 BGR24 frames.
 
 `NAcquireCamera` remains a legacy implementation of the same interface. Its inspected checkout has a synthetic OpenCV provider and a placeholder Hikrobot target, so it is not composed into the production Desktop.
+
+## PLC connection
+`IPlcLink` isolates the application from NModbus. `ModbusPlcLink` supports Ethernet IP and serial COM; COM selects Modbus ASCII or RTU plus baud/data/parity/stop/timeout. The Delta DVP default is the proven prior configuration COM11/9600/ASCII/7E1/unit 1. `DeltaDvpAddressMap` maps X as a read-only discrete input (function 02), Y/M as coils, D as holding registers, and interprets X/Y suffixes as octal.
+
+The Desktop owns one explicit PLC connection. Connect probes the configured input, then locks physical settings. A PLC-trigger source borrows this link during RUN and does not close it when RUN stops; explicit Disconnect or application shutdown owns disposal. Write-back remains opt-in because outputs can move machinery.

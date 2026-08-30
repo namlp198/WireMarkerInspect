@@ -1,6 +1,10 @@
 namespace WireMarkerInspection.Application;
 
-public enum PlcTransport { Tcp, SerialRtu }
+/// <summary>The physical connection between this station and the PLC.</summary>
+public enum PlcTransport { EthernetIp = 0, Com = 1 }
+public enum PlcSerialProtocol { ModbusAscii = 0, ModbusRtu = 1 }
+public enum PlcSerialParity { None = 0, Even = 1, Odd = 2 }
+public enum PlcSerialStopBits { One = 0, Two = 1 }
 
 /// <summary>Modbus areas a vendor address can land in.</summary>
 public enum ModbusArea { Coil, DiscreteInput, HoldingRegister, InputRegister }
@@ -51,26 +55,46 @@ public sealed record PlcOutputs(bool Enabled = false, string WaitingEndRegister 
 }
 
 public sealed record PlcSettings(bool Enabled = false, string Vendor = "delta-dvp",
-    PlcTransport Transport = PlcTransport.Tcp, string Host = "192.168.1.5", int Port = 502,
-    string SerialPort = "COM1", int BaudRate = 9600, byte UnitId = 1, int PollMs = 20,
-    string TriggerAddress = "", string End1Address = "", string End2Address = "", PlcOutputs? Outputs = null)
+    PlcTransport Transport = PlcTransport.Com, string Host = "192.168.1.5", int Port = 502,
+    string SerialPort = "COM11", int BaudRate = 9600, byte UnitId = 1, int PollMs = 20,
+    string TriggerAddress = "", string End1Address = "", string End2Address = "", PlcOutputs? Outputs = null,
+    PlcSerialProtocol SerialProtocol = PlcSerialProtocol.ModbusAscii, int DataBits = 7,
+    PlcSerialParity Parity = PlcSerialParity.Even, PlcSerialStopBits StopBits = PlcSerialStopBits.One,
+    int TimeoutMs = 1000)
 {
     public PlcOutputs Writes => Outputs ?? new PlcOutputs();
-    public string Describe() => Transport == PlcTransport.Tcp
-        ? $"{Vendor} · {Host}:{Port} · unit {UnitId}"
-        : $"{Vendor} · {SerialPort} {BaudRate} · unit {UnitId}";
+    public string Describe() => Transport == PlcTransport.EthernetIp
+        ? $"{Vendor} · Ethernet IP {Host}:{Port} · unit {UnitId}"
+        : $"{Vendor} · COM {SerialPort} {BaudRate} · {ProtocolLabel} {DataBits}{ParityCode}{StopBitsCode} · unit {UnitId}";
+
+    public string ProtocolLabel => SerialProtocol == PlcSerialProtocol.ModbusAscii ? "Modbus ASCII" : "Modbus RTU";
+    private char ParityCode => Parity switch { PlcSerialParity.Even => 'E', PlcSerialParity.Odd => 'O', _ => 'N' };
+    private int StopBitsCode => StopBits == PlcSerialStopBits.Two ? 2 : 1;
+
+    public string? ValidateConnection()
+    {
+        if (Vendor.Length == 0) return "Chọn hãng PLC.";
+        if (UnitId is 0 or > 247) return "Unit ID phải trong khoảng 1–247.";
+        if (PollMs is < 5 or > 5000) return "Chu kỳ đọc PLC phải trong khoảng 5–5000 ms.";
+        if (TimeoutMs is < 100 or > 30000) return "Timeout PLC phải trong khoảng 100–30000 ms.";
+        if (Transport == PlcTransport.EthernetIp)
+        {
+            if (Host.Length == 0) return "Nhập địa chỉ IP của PLC.";
+            if (Port is < 1 or > 65535) return "Cổng Ethernet PLC không hợp lệ.";
+        }
+        else
+        {
+            if (SerialPort.Length == 0) return "Chọn cổng COM của PLC.";
+            if (BaudRate <= 0) return "Baud rate phải lớn hơn 0.";
+            if (DataBits is < 5 or > 8) return "Data bits phải trong khoảng 5–8.";
+        }
+        return null;
+    }
 
     public string? Validate(TriggerMapping mapping)
     {
         if (!Enabled) return null;
-        if (Vendor.Length == 0) return "Chọn hãng PLC.";
-        if (PollMs is < 5 or > 5000) return "Chu kỳ đọc PLC phải trong khoảng 5–5000 ms.";
-        if (Transport == PlcTransport.Tcp)
-        {
-            if (Host.Length == 0) return "Nhập địa chỉ IP của PLC.";
-            if (Port is < 1 or > 65535) return "Cổng PLC không hợp lệ.";
-        }
-        else if (SerialPort.Length == 0) return "Chọn cổng COM của PLC.";
+        if (ValidateConnection() is { } connectionError) return connectionError;
         if (mapping == TriggerMapping.Shared)
         {
             if (TriggerAddress.Length == 0) return "Nhập địa chỉ bit trigger.";
@@ -86,7 +110,7 @@ public sealed record PlcSettings(bool Enabled = false, string Vendor = "delta-dv
 /// a latched bit cannot capture repeatedly.
 /// </summary>
 public sealed class PlcTriggerSource(IPlcLink link, PlcSettings settings, TriggerMapping mapping,
-    IDiagnosticsLog? log = null) : PushTriggerSource
+    IDiagnosticsLog? log = null, bool manageLinkLifecycle = true) : PushTriggerSource
 {
     private readonly Dictionary<string, bool> previous = [];
     private CancellationTokenSource? polling;
@@ -97,7 +121,8 @@ public sealed class PlcTriggerSource(IPlcLink link, PlcSettings settings, Trigge
 
     public override async Task StartAsync(CancellationToken token)
     {
-        await link.ConnectAsync(token).ConfigureAwait(false);
+        if (manageLinkLifecycle) await link.ConnectAsync(token).ConfigureAwait(false);
+        else if (!link.IsConnected) throw new InvalidOperationException("PLC chưa được kết nối từ phần PLC CONNECTION.");
         status = $"Trigger PLC · {settings.Describe()}";
         previous.Clear();
         polling = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -109,7 +134,7 @@ public sealed class PlcTriggerSource(IPlcLink link, PlcSettings settings, Trigge
         polling?.Cancel();
         if (loop != null) { try { await loop.ConfigureAwait(false); } catch (OperationCanceledException) { } }
         polling?.Dispose(); polling = null; loop = null;
-        await link.DisconnectAsync().ConfigureAwait(false);
+        if (manageLinkLifecycle) await link.DisconnectAsync().ConfigureAwait(false);
         status = "PLC đã ngắt";
     }
 
@@ -160,7 +185,7 @@ public sealed class PlcTriggerSource(IPlcLink link, PlcSettings settings, Trigge
     public override async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
-        await link.DisposeAsync().ConfigureAwait(false);
+        if (manageLinkLifecycle) await link.DisposeAsync().ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }
 }

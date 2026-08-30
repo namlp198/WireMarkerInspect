@@ -20,6 +20,8 @@ Live acquisition now uses the official Hikrobot MVS .NET SDK directly. On 2026-0
 
 When the main window loads it automatically searches MVS for up to five seconds. During Finding all camera inputs/actions are locked and a prominent progress indicator is shown. NotFound/timeout leaves only Search enabled; Found enables device selection and Connect; Connected disables Connect and enables Disconnect, parameters and Start Acquisition. While Acquiring, the same action becomes a compact rounded-square Stop button with a red border. Live Camera can be expanded into a continuously bound large viewer.
 
+PLC now has an independent **PLC CONNECTION** section with two explicit physical choices: **Ethernet IP** and **COM**. COM exposes port, baud rate, Modbus ASCII/RTU, data bits, parity and stop bits; Ethernet exposes host and port. The Delta DVP defaults follow the previously working station code: `COM11`, 9600 baud, Modbus ASCII, 7E1, unit 1. Connect opens the link and reads the configured input once before reporting success; settings are locked while connected, Disconnect is enabled, and stopping RUN leaves that operator-owned PLC connection open. Delta `X` inputs use Modbus function 02 and X/Y addresses retain their octal numbering.
+
 ## Build and run
 
 Prerequisites: Windows, .NET SDK with .NET 8 Windows Desktop targeting pack, Visual Studio C++ tools, CMake, OpenCV SDK and ONNX Runtime SDK. Live camera builds also require Hikrobot MVS; the project discovers its AnyCpu `MvCameraControl.Net.dll` from the installed MVS SDK or `vendor/camera`.
@@ -33,13 +35,14 @@ The build script accepts -OpenCvRoot and -OrtRoot; defaults match this developme
 
 1. SETTING → + Model, or select an existing model from the selector/library. The Add/Edit dialog labels model code and model name, validates required/duplicate values, and Cancel leaves the current draft unchanged. Selecting an existing row loads its images and recipe automatically.
 2. The app automatically searches for Hikrobot cameras after loading. When Found, select/connect the camera, apply parameters if needed and start acquisition; otherwise use Search to retry. Load Image remains available for offline setup.
-3. Draw **one search ROI per end**. The OCR core detects multiple text regions inside it.
-4. Enter expected text with **one detected region per line**, ordered top-to-bottom, then left-to-right in a row. This is a data format, not two manually drawn OCR ROIs.
-5. Select the required direction per end: Thuận (must detect 0°), Nghịch (must detect 180°), or Auto (do not reject by direction).
-6. Apply each end; the Save icon in the Model Library header publishes both ends as one revision. The saved row is selected and reloaded immediately. Edit Model updates the same identity and increments its revision.
-7. RUN uses a frozen saved recipe. Load the first offline image or capture a fresh camera frame, then the second end of the same product.
-8. Both ends must match exact text and their configured direction. Stop cancels the current cycle. Sản phẩm tiếp begins a fresh cycle.
-9. RUN can instead be driven by a hardware trigger on the camera's 6-pin I/O line. One shared signal follows the session from end 1 to end 2; a per-end mapping needs two separate signals and is therefore a PLC feature, not something one camera line can provide. Repeated signals inside the configured window, and signals arriving while an image is being processed, are ignored and logged. Chụp lại đầu này drops a bad first image without losing the product.
+3. In **PLC CONNECTION**, choose Ethernet IP or COM, enter the physical parameters, select the actual COM port when using the current Delta PLC, then Connect PLC. A green connected status means the PLC answered the configured read address. Choose `Plc` as the RUN trigger only after this succeeds.
+4. Draw **one search ROI per end**. The OCR core detects multiple text regions inside it.
+5. Enter expected text with **one detected region per line**, ordered top-to-bottom, then left-to-right in a row. This is a data format, not two manually drawn OCR ROIs.
+6. Select the required direction per end: Thuận (must detect 0°), Nghịch (must detect 180°), or Auto (do not reject by direction).
+7. Apply each end; the Save icon in the Model Library header publishes both ends as one revision. The saved row is selected and reloaded immediately. Edit Model updates the same identity and increments its revision.
+8. RUN uses a frozen saved recipe. Load the first offline image or capture a fresh camera frame, then the second end of the same product.
+9. Both ends must match exact text and their configured direction. Stop cancels the current cycle. Sản phẩm tiếp begins a fresh cycle.
+10. RUN can instead be driven by a hardware trigger on the camera's 6-pin I/O line. One shared signal follows the session from end 1 to end 2; a per-end mapping needs two separate signals and is therefore a PLC feature, not something one camera line can provide. Repeated signals inside the configured window, and signals arriving while an image is being processed, are ignored and logged. Chụp lại đầu này drops a bad first image without losing the product.
 
 The current wire-marker OCR alphabet is alphanumeric plus `.` and `/`; layout whitespace is removed and the recognizer's `:`/`,` dot confusions are mapped to `.` before comparison. Case and field order are preserved. The domain comparison remains ordinal and exact, then independently checks detected 0°/180° against the per-end recipe. No similarity threshold, cross-end repair, O/0 substitution, or target-conditioned orientation selection is used.
 
@@ -76,8 +79,9 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
     powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1 -Grab
     powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1 -SoftwareTrigger
     powershell -ExecutionPolicy Bypass -File scripts/camera-soak.ps1 -Minutes 30
+    powershell -ExecutionPolicy Bypass -File scripts/plc-probe.ps1 -ReadAddress X0
 
-The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Only `camera-probe.ps1` and `camera-soak.ps1` contact hardware; the soak reports frame rate, frame-interval spread, timeouts and temperature drift over the requested period. `camera-probe.ps1` `-Grab` opens the first discovered camera, applies ExposureTime 10000/Gain 0, acquires three fresh frames, saves the last PNG and then closes the device.
+The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. `camera-probe.ps1`, `camera-soak.ps1` and `plc-probe.ps1` contact real hardware; the PLC probe reads only unless a write address is supplied explicitly. The camera soak reports frame rate, frame-interval spread, timeouts and temperature drift over the requested period. `camera-probe.ps1` `-Grab` opens the first discovered camera, applies ExposureTime 10000/Gain 0, acquires three fresh frames, saves the last PNG and then closes the device.
 
 ## Deployment
 

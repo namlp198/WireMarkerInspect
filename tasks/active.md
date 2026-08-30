@@ -77,14 +77,18 @@
 
 ## Phase D — PLC trigger and result write-back — completed 2026-08-30
 - [x] Define `IPlcLink` and `IPlcAddressMap` so no library type crosses into the application.
-- [x] Implement `ModbusPlcLink` over Modbus TCP and RTU with NModbus (MIT).
+- [x] Implement `ModbusPlcLink` over Ethernet IP and COM with Modbus ASCII/RTU using NModbus (MIT).
+- [x] Add an independent PLC CONNECTION panel with Ethernet IP/COM settings, COM-port discovery and explicit Connect/Disconnect state.
+- [x] Preserve the proven Delta serial defaults from the reference implementation: COM11, 9600 baud, Modbus ASCII, 7E1, unit 1.
+- [x] Keep the PLC connection open across RUN stop/start; require a verified connection before arming a PLC trigger.
+- [x] Read Delta X inputs as discrete inputs (Modbus function 02), matching the prior working implementation.
 - [x] Map Delta DVP addresses, honouring the octal numbering of X and Y and refusing writes to inputs.
 - [x] Poll PLC bits and fire only on a rising edge, with shared and per-end mappings.
 - [x] Drive the camera software trigger from a PLC signal and wait for a genuinely new frame.
 - [x] Write stage, verdict and heartbeat back to the PLC, opt-in and off by default.
 - [x] Move machine-level trigger and PLC configuration into `settings.json`.
 - [x] Add `scripts/plc-probe.ps1` as the hardware acceptance gate.
-- [ ] Verify against a real Delta DVP: confirm the address table, the trigger bit and the write handshake.
+- [ ] Select the actual attached COM port and verify against the real Delta DVP: connection/read, address table, trigger bit and write handshake. The development PC exposed COM3–COM6 during this session; COM11 from the old configuration was not present.
 - [ ] Agree the write-back address list and clearing behaviour with the line owner before enabling it.
 
 ## Awaiting external inputs / acceptance

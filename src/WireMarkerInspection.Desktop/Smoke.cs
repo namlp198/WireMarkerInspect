@@ -26,6 +26,10 @@ internal static class Smoke
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyPlcConnectionUi(window,vm);
+            window.SettingsScroll.ScrollToEnd();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Capture(window,Path.Combine(output,"plc-connection.png"));
+            window.SettingsScroll.ScrollToHome();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyCameraControls(window,search:true,connect:false,disconnect:false,acquisition:false,parameters:false);
             if(!window.LiveCameraHud.CanExpand)throw new Exception("Live Camera HUD must expose Expand.");
             vm.FindingCamera=true;vm.CameraState=CameraUiState.Finding;vm.CameraStatus="ĐANG TÌM CAMERA HIKROBOT...";
@@ -133,7 +137,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC trigger fields shown with write-back off until configured; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option, visible Connect/Disconnect states, and trigger fields shown with write-back off until configured; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -142,6 +146,22 @@ internal static class Smoke
             File.WriteAllText(Path.Combine(output,"result.txt"),ex.ToString());
             System.Windows.Application.Current.Shutdown(1);
         }
+    }
+    private static void VerifyPlcConnectionUi(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(window.PlcComPanel.Visibility!=Visibility.Visible||window.PlcEthernetPanel.Visibility==Visibility.Visible)
+            throw new Exception("PLC must default to the COM physical connection, separate from Ethernet IP.");
+        if(vm.PlcSerialPort!="COM11"||vm.PlcBaudRate!="9600"||vm.PlcSerialProtocol!=PlcSerialProtocol.ModbusAscii||
+           vm.PlcDataBits!="7"||vm.PlcParity!=PlcSerialParity.Even||vm.PlcStopBits!=PlcSerialStopBits.One)
+            throw new Exception("PLC COM defaults must preserve the proven COM11 / 9600 / Modbus ASCII / 7E1 setup.");
+        if(!Equals(window.PlcSerialPortSelector.SelectedItem,"COM11"))
+            throw new Exception("The configured COM port is not visible in the PLC connection selector.");
+        if(!window.ConnectPlcButton.IsEnabled||window.DisconnectPlcButton.IsEnabled)
+            throw new Exception("PLC must offer Connect only before a physical link is open.");
+        var ethernet=vm.PlcTransports.Single(option=>option.Value==PlcTransport.EthernetIp);
+        var com=vm.PlcTransports.Single(option=>option.Value==PlcTransport.Com);
+        if(ethernet.Label!="Ethernet IP"||com.Label!="COM")throw new Exception("PLC transport labels are not operator-facing.");
     }
     /// <summary>
     /// Drives the real acquisition loop with a synthetic camera so Grab Image is verified end to end:

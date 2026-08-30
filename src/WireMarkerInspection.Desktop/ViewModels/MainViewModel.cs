@@ -26,7 +26,11 @@ public sealed class RecipeRow(Recipe recipe,FileRecipeStore store)
     public BitmapSource Second=>second??=ImageFiles.Decode(store.LoadReference(Recipe,1),112);
 }
 public sealed record ModelIdentity(string Code,string Name);
+public sealed record PlcTransportOption(PlcTransport Value,string Label);
+public sealed record PlcSerialProtocolOption(PlcSerialProtocol Value,string Label);
+public sealed record PlcStopBitsOption(PlcSerialStopBits Value,string Label);
 public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring, Reconnecting, Error }
+public enum PlcConnectionState { Disconnected, Connecting, Connected, Error }
 public partial class MainViewModel : ObservableObject
 {
     public FileRecipeStore Store{get;}
@@ -61,6 +65,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ManualTriggerSource manualTrigger=new();
     private PlcReporter? plcReporter;
     private IPlcLink? plcLink;
+    private PlcSettings? connectedPlcSettings;
+    private readonly Func<PlcSettings,IPlcLink> plcFactory;
     private CameraSettings? appliedSettings;
     private long latestTimestamp;
     private static readonly TimeSpan[] ReconnectDelays=
@@ -118,17 +124,23 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string lastTrigger="Chưa có trigger.";
     [ObservableProperty]private bool plcEnabled;
     [ObservableProperty]private string plcVendor="delta-dvp";
-    [ObservableProperty]private PlcTransport plcTransport=PlcTransport.Tcp;
+    [ObservableProperty]private PlcTransport plcTransport=PlcTransport.Com;
     [ObservableProperty]private string plcHost="192.168.1.5";
     [ObservableProperty]private string plcPort="502";
-    [ObservableProperty]private string plcSerialPort="COM1";
+    [ObservableProperty]private string plcSerialPort="COM11";
     [ObservableProperty]private string plcBaudRate="9600";
+    [ObservableProperty]private PlcSerialProtocol plcSerialProtocol=PlcSerialProtocol.ModbusAscii;
+    [ObservableProperty]private string plcDataBits="7";
+    [ObservableProperty]private PlcSerialParity plcParity=PlcSerialParity.Even;
+    [ObservableProperty]private PlcSerialStopBits plcStopBits=PlcSerialStopBits.One;
     [ObservableProperty]private string plcUnitId="1";
     [ObservableProperty]private string plcPollMs="20";
+    [ObservableProperty]private string plcTimeoutMs="1000";
     [ObservableProperty]private string plcTriggerAddress="X0";
     [ObservableProperty]private string plcEnd1Address="X0";
     [ObservableProperty]private string plcEnd2Address="X1";
     [ObservableProperty]private string plcStatus="PLC chưa cấu hình.";
+    [ObservableProperty]private PlcConnectionState plcConnectionState=PlcConnectionState.Disconnected;
     [ObservableProperty]private string plcOutputsSummary="Ghi kết quả về PLC: tắt.";
     [ObservableProperty]private string message="Chọn một model hoặc Add Model để bắt đầu setup.";
     [ObservableProperty]private string runStatus="CHƯA CHẠY";
@@ -167,10 +179,26 @@ public partial class MainViewModel : ObservableObject
     public string ModelCount=>$"{Models.Count} MODELS";
     public TriggerKind[] TriggerKinds{get;}=[TriggerKind.Manual,TriggerKind.CameraLine,TriggerKind.Plc];
     public IReadOnlyList<string> PlcVendors{get;}=PlcAddressMaps.Vendors;
-    public PlcTransport[] PlcTransports{get;}=[PlcTransport.Tcp,PlcTransport.SerialRtu];
+    public PlcTransportOption[] PlcTransports{get;}=
+    [
+        new(PlcTransport.EthernetIp,"Ethernet IP"),
+        new(PlcTransport.Com,"COM")
+    ];
+    public PlcSerialProtocolOption[] PlcSerialProtocols{get;}=
+    [
+        new(PlcSerialProtocol.ModbusAscii,"Modbus ASCII"),
+        new(PlcSerialProtocol.ModbusRtu,"Modbus RTU")
+    ];
+    public PlcSerialParity[] PlcParities{get;}=[PlcSerialParity.None,PlcSerialParity.Even,PlcSerialParity.Odd];
+    public PlcStopBitsOption[] PlcStopBitOptions{get;}=[new(PlcSerialStopBits.One,"1"),new(PlcSerialStopBits.Two,"2")];
+    public ObservableCollection<string> PlcSerialPorts{get;}=[];
     public bool PlcSelected=>TriggerKind==TriggerKind.Plc;
-    public bool PlcUsesNetwork=>PlcTransport==PlcTransport.Tcp;
-    public bool PlcUsesSerial=>PlcTransport==PlcTransport.SerialRtu;
+    public bool PlcUsesNetwork=>PlcTransport==PlcTransport.EthernetIp;
+    public bool PlcUsesSerial=>PlcTransport==PlcTransport.Com;
+    public bool PlcConnected=>PlcConnectionState==PlcConnectionState.Connected&&plcLink?.IsConnected==true;
+    public bool CanConfigurePlc=>CanEditTrigger&&PlcConnectionState is not PlcConnectionState.Connecting and not PlcConnectionState.Connected;
+    public bool CanConnectPlc=>CanEditTrigger&&PlcConnectionState is PlcConnectionState.Disconnected or PlcConnectionState.Error;
+    public bool CanDisconnectPlc=>CanEditTrigger&&PlcConnected;
     private PlcOutputs plcOutputs=new();
     public TriggerMapping[] TriggerMappings{get;}=[TriggerMapping.Shared,TriggerMapping.PerEnd];
     public bool CanEditTrigger=>CanEdit&&!Running;
@@ -199,9 +227,11 @@ public partial class MainViewModel : ObservableObject
     public string CycleLabel=>Session.CycleId==Guid.Empty?"—":Session.CycleId.ToString("N")[..12].ToUpperInvariant();
     public string ActiveModel=>runtimeRecipe is null?"CHƯA CHỌN":$"{runtimeRecipe.ModelCode} / v{runtimeRecipe.Revision}";
     public Func<string,bool>? Confirm{get;set;}
-    public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null)
+    public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null,
+        Func<PlcSettings,IPlcLink>? plcFactory=null)
     {
         Camera=camera??new HikrobotMvsCamera();
+        this.plcFactory=plcFactory??(settings=>new ModbusPlcLink(settings,PlcAddressMaps.For(settings.Vendor)));
         // The view model is created on the UI thread; the acquisition loop marshals frames back through this dispatcher.
         dispatcher=System.Windows.Application.Current?.Dispatcher??System.Windows.Threading.Dispatcher.CurrentDispatcher;
         AutoDiscoverCameraOnLoad=autoDiscoverCameraOnLoad;
@@ -214,7 +244,7 @@ public partial class MainViewModel : ObservableObject
         ModelsView=CollectionViewSource.GetDefaultView(Models);
         ModelsView.Filter=o=>o is RecipeRow r&&(r.Code.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase));
         End1.Changed+=(_,_)=>{if(!loading)Dirty=true;};End2.Changed+=(_,_)=>{if(!loading)Dirty=true;};
-        Reload();RefreshOcr();LoadMachineSettings();
+        Reload();RefreshOcr();LoadMachineSettings();RefreshPlcPorts();
     }
 
     private void LoadMachineSettings()
@@ -232,7 +262,9 @@ public partial class MainViewModel : ObservableObject
             var plc=machine.Plc;
             PlcEnabled=plc.Enabled;PlcVendor=plc.Vendor;PlcTransport=plc.Transport;
             PlcHost=plc.Host;PlcPort=plc.Port.ToString();PlcSerialPort=plc.SerialPort;
-            PlcBaudRate=plc.BaudRate.ToString();PlcUnitId=plc.UnitId.ToString();PlcPollMs=plc.PollMs.ToString();
+            PlcBaudRate=plc.BaudRate.ToString();PlcSerialProtocol=plc.SerialProtocol;PlcDataBits=plc.DataBits.ToString();
+            PlcParity=plc.Parity;PlcStopBits=plc.StopBits;PlcUnitId=plc.UnitId.ToString();
+            PlcPollMs=plc.PollMs.ToString();PlcTimeoutMs=plc.TimeoutMs.ToString();
             PlcTriggerAddress=plc.TriggerAddress.Length>0?plc.TriggerAddress:PlcTriggerAddress;
             PlcEnd1Address=plc.End1Address.Length>0?plc.End1Address:PlcEnd1Address;
             PlcEnd2Address=plc.End2Address.Length>0?plc.End2Address:PlcEnd2Address;
@@ -258,7 +290,8 @@ public partial class MainViewModel : ObservableObject
     public PlcSettings BuildPlcSettings()=>new(
         PlcEnabled,PlcVendor,PlcTransport,PlcHost.Trim(),Whole(PlcPort,"Cổng PLC"),PlcSerialPort.Trim(),
         Whole(PlcBaudRate,"Baud rate"),checked((byte)Whole(PlcUnitId,"Unit ID")),Whole(PlcPollMs,"Chu kỳ đọc PLC"),
-        PlcTriggerAddress.Trim(),PlcEnd1Address.Trim(),PlcEnd2Address.Trim(),plcOutputs);
+        PlcTriggerAddress.Trim(),PlcEnd1Address.Trim(),PlcEnd2Address.Trim(),plcOutputs,PlcSerialProtocol,
+        Whole(PlcDataBits,"Data bits"),PlcParity,PlcStopBits,Whole(PlcTimeoutMs,"Timeout PLC"));
 
     /// <summary>Persists the machine-level trigger and PLC configuration.</summary>
     [RelayCommand]private void SaveMachineSettings()=>Guard(()=>
@@ -270,22 +303,62 @@ public partial class MainViewModel : ObservableObject
         Message="Đã lưu cấu hình trigger và PLC của máy.";
     });
 
-    /// <summary>Connects, reads the configured trigger bit once and disconnects, without arming anything.</summary>
-    [RelayCommand]private async Task TestPlcAsync()
+    /// <summary>Opens the selected physical link and verifies communication by reading one configured input.</summary>
+    [RelayCommand]private async Task ConnectPlcAsync()
     {
-        var settings=BuildPlcSettings();
-        await GuardAsync(async()=>
+        if(!CanConnectPlc)return;
+        Busy=true;PlcConnectionState=PlcConnectionState.Connecting;
+        PlcStatus=$"ĐANG KẾT NỐI PLC · {(PlcUsesSerial?"COM":"ETHERNET IP")}...";
+        IPlcLink? candidate=null;
+        try
         {
-            if(settings.Validate(TriggerMapping) is{}error)throw new InvalidOperationException(error);
-            await using var link=new ModbusPlcLink(settings,PlcAddressMaps.For(settings.Vendor));
-            await link.ConnectAsync(CancellationToken.None);
+            var settings=BuildPlcSettings();
+            if(settings.ValidateConnection() is{}error)throw new InvalidOperationException(error);
             var address=TriggerMapping==TriggerMapping.Shared?settings.TriggerAddress:settings.End1Address;
-            var value=await link.ReadBitAsync(address,CancellationToken.None);
-            PlcStatus=$"PLC OK · {settings.Describe()} · {address} = {(value?"ON":"OFF")}";
-            await link.DisconnectAsync();
-        });
-        if(Message.StartsWith("Không",StringComparison.Ordinal)||Message.Contains("PLC",StringComparison.Ordinal))
-            PlcStatus=Message;
+            if(string.IsNullOrWhiteSpace(address))throw new InvalidOperationException("Nhập địa chỉ bit để kiểm tra kết nối PLC.");
+            candidate=plcFactory(settings);
+            await candidate.ConnectAsync(CancellationToken.None);
+            var value=await candidate.ReadBitAsync(address,CancellationToken.None);
+            plcLink=candidate;candidate=null;connectedPlcSettings=settings;
+            PlcConnectionState=PlcConnectionState.Connected;
+            PlcStatus=$"ĐÃ KẾT NỐI PLC · {settings.Describe()} · {address} = {(value?"ON":"OFF")}";
+            Message="PLC đã kết nối và phản hồi lệnh đọc.";
+        }
+        catch(Exception ex)
+        {
+            if(candidate!=null)try{await candidate.DisposeAsync();}catch{/* Keep the original connection error. */}
+            plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Error;
+            PlcStatus=$"LỖI KẾT NỐI PLC · {ex.Message}";Message=PlcStatus;
+        }
+        finally{Busy=false;RefreshState();}
+    }
+
+    [RelayCommand]private async Task DisconnectPlcAsync()
+    {
+        if(!CanDisconnectPlc)return;
+        Busy=true;
+        try
+        {
+            if(plcLink!=null)await plcLink.DisposeAsync();
+            plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Disconnected;
+            PlcStatus="PLC ĐÃ NGẮT KẾT NỐI.";Message="Đã ngắt kết nối PLC.";
+        }
+        catch(Exception ex)
+        {
+            plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Error;
+            PlcStatus=$"LỖI NGẮT PLC · {ex.Message}";Message=PlcStatus;
+        }
+        finally{Busy=false;RefreshState();}
+    }
+
+    [RelayCommand]private void RefreshPlcPorts()
+    {
+        if(!CanConfigurePlc)return;
+        var selected=PlcSerialPort;
+        PlcSerialPorts.Clear();
+        foreach(var port in ModbusPlcLink.AvailableSerialPorts())PlcSerialPorts.Add(port);
+        if(selected.Length>0&&!PlcSerialPorts.Contains(selected,StringComparer.OrdinalIgnoreCase))PlcSerialPorts.Add(selected);
+        PlcSerialPort=selected;
     }
     partial void OnSearchChanged(string value)=>ModelsView.Refresh();
     partial void OnTriggerKindChanged(TriggerKind value)=>OnPropertyChanged(nameof(PlcSelected));
@@ -293,6 +366,7 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PlcUsesNetwork));OnPropertyChanged(nameof(PlcUsesSerial));
     }
+    partial void OnPlcConnectionStateChanged(PlcConnectionState value)=>RefreshPlcState();
     partial void OnModelCodeChanged(string value){if(!loading)Dirty=true;}
     partial void OnModelNameChanged(string value){if(!loading)Dirty=true;}
     partial void OnDirtyChanged(bool value)=>OnPropertyChanged(nameof(CanSaveRecipe));
@@ -320,9 +394,16 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
         OnPropertyChanged(nameof(CanCapture));OnPropertyChanged(nameof(CanNext));
         OnPropertyChanged(nameof(CanEditTrigger));OnPropertyChanged(nameof(CanRetakeEnd));
+        RefreshPlcState();
         RetakeEndCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CaptureLabel));OnPropertyChanged(nameof(CycleLabel));OnPropertyChanged(nameof(ActiveModel));
         RefreshCameraState();
+    }
+    private void RefreshPlcState()
+    {
+        OnPropertyChanged(nameof(PlcConnected));OnPropertyChanged(nameof(CanConfigurePlc));
+        OnPropertyChanged(nameof(CanConnectPlc));OnPropertyChanged(nameof(CanDisconnectPlc));
+        ConnectPlcCommand.NotifyCanExecuteChanged();DisconnectPlcCommand.NotifyCanExecuteChanged();
     }
     private void RefreshCameraState()
     {
@@ -553,9 +634,12 @@ public partial class MainViewModel : ObservableObject
         {
             var plc=BuildPlcSettings() with {Enabled=true};
             if(plc.Validate(settings.Mapping) is{}invalid)throw new InvalidOperationException(invalid);
-            plcLink=new ModbusPlcLink(plc,PlcAddressMaps.For(plc.Vendor));
+            if(!PlcConnected||plcLink==null||connectedPlcSettings==null)
+                throw new InvalidOperationException("Kết nối PLC trong phần PLC CONNECTION trước khi RUN.");
+            if(!SamePhysicalConnection(plc,connectedPlcSettings))
+                throw new InvalidOperationException("Cấu hình PLC đã thay đổi. Ngắt kết nối rồi kết nối lại trước khi RUN.");
             plcReporter=new(plcLink,plc.Writes,Log);
-            source=new PlcTriggerSource(plcLink,plc,settings.Mapping,Log);
+            source=new PlcTriggerSource(plcLink,plc,settings.Mapping,Log,manageLinkLifecycle:false);
         }
         else source=manualTrigger;
         if(settings.CameraTrigger.IsTriggered)
@@ -602,11 +686,24 @@ public partial class MainViewModel : ObservableObject
             try{await reporter.ReportStageAsync(PlcStage.Idle,CancellationToken.None);}
             catch(Exception ex){Log.Write("plc","stage-failed",new Dictionary<string,object?>{["error"]=ex.Message});}
         }
-        plcReporter=null;plcLink=null;PlcStatus="PLC đã ngắt.";
+        plcReporter=null;
+        if(plcLink!=null&&!plcLink.IsConnected)
+        {
+            try{await plcLink.DisposeAsync();}catch{/* The link is already unusable. */}
+            plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Error;
+            PlcStatus="MẤT KẾT NỐI PLC · Disconnect và kiểm tra cáp/cấu hình trước khi kết nối lại.";
+        }
+        else if(PlcConnected&&connectedPlcSettings!=null)PlcStatus=$"ĐÃ KẾT NỐI PLC · {connectedPlcSettings.Describe()}";
         if(!ReferenceEquals(source,manualTrigger))await source.DisposeAsync();
         TriggerStatus=manualTrigger.Status;
         Log.Write("trigger","disarmed",null);
     }
+
+    private static bool SamePhysicalConnection(PlcSettings left,PlcSettings right) =>
+        left.Vendor==right.Vendor&&left.Transport==right.Transport&&left.Host==right.Host&&left.Port==right.Port&&
+        left.SerialPort==right.SerialPort&&left.BaudRate==right.BaudRate&&left.UnitId==right.UnitId&&
+        left.SerialProtocol==right.SerialProtocol&&left.DataBits==right.DataBits&&left.Parity==right.Parity&&
+        left.StopBits==right.StopBits&&left.TimeoutMs==right.TimeoutMs;
 
     private async Task SwitchAcquisitionAsync(CameraTrigger trigger,Func<Task> configure)
     {
@@ -1137,7 +1234,13 @@ public partial class MainViewModel : ObservableObject
         CameraStatus=Cameras.Count>0?"ĐÃ NGẮT CAMERA · SẴN SÀNG KẾT NỐI LẠI":"ĐÃ NGẮT CAMERA";
         Message="ACQUISITION · Đã ngắt kết nối camera.";
     }
-    public async Task ShutdownAsync(){StopRun();try{await DisarmTriggerAsync();}catch{/* Shutdown continues. */}await StopAcquisitionAsync();await Task.Run(()=>{Camera.Dispose();Ocr.Dispose();});}
+    public async Task ShutdownAsync()
+    {
+        StopRun();try{await DisarmTriggerAsync();}catch{/* Shutdown continues. */}
+        if(plcLink!=null)try{await plcLink.DisposeAsync();}catch{/* Shutdown continues. */}
+        plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Disconnected;
+        await StopAcquisitionAsync();await Task.Run(()=>{Camera.Dispose();Ocr.Dispose();});
+    }
     private static string? ChooseImage()
     {
         var dialog=new OpenFileDialog{Filter="Images|*.png;*.bmp;*.jpg;*.jpeg;*.tif;*.tiff",CheckFileExists=true};

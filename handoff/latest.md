@@ -1,8 +1,13 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- PLC physical connectivity is now explicit and operator-owned. SETTING has a dedicated PLC CONNECTION section with `Ethernet IP` and `COM`, visible fields for each transport, COM-port refresh, Connect/Disconnect, colored status, and locked physical settings while connected.
+- The reference implementation at `D:\entry\NCore\NProjects\NVisionInspect_ReadCode\gui\NVisionInspectGUI\Manager\Class\IOManager_PLC_Delta_DVP.cs` was read-only input. It proves the prior Delta connection was Modbus ASCII on COM11, 9600 baud, 7 data bits, even parity, one stop bit. Those values are now the new/default legacy-upgrade settings; RTU remains selectable.
+- Connect performs a real read of the configured trigger input before showing success. A PLC-triggered RUN now requires this verified connection and reuses it; stopping RUN no longer tears down the PLC connection. Shutdown and explicit Disconnect still close it.
+- Delta X inputs now map to `DiscreteInput`, so NModbus uses function 02 as the prior working code did. X/Y octal numbering and the ban on writes to X remain intact.
+- Release build passed; managed tests are 77/77; native contract is 1/1; WPF smoke passed at `artifacts/smoke-20260830-224311` and includes `plc-connection.png` for the COM settings. No real PLC command was sent. A read-only OS scan exposed COM3, COM4, COM5 and COM6; the old COM11 was not currently present, so the real port still needs operator selection and hardware acceptance.
 - Phase D of the approved plan is done: RUN can be triggered from a PLC bit, and the verdict can be written back to the line.
-- `IPlcLink` and `IPlcAddressMap` keep every library type out of the application layer. `ModbusPlcLink` (NModbus 3.0.83, MIT) speaks Modbus TCP and RTU. Supporting another brand means adding an address map, not touching the application, which is what "generic across brands" had to mean in practice.
+- `IPlcLink` and `IPlcAddressMap` keep every library type out of the application layer. `ModbusPlcLink` (NModbus 3.0.83, MIT) speaks Modbus over Ethernet IP or COM (ASCII/RTU). Supporting another brand means adding an address map, not touching the application, which is what "generic across brands" means in practice.
 - `DeltaDvpAddressMap` covers S, X, Y, T, M, C and D. The trap it closes: X and Y are numbered in OCTAL on a DVP, so X10 is the ninth input. Reading it as decimal would address the wrong contact and still look like working software. X is a physical input, so writes to it are refused.
 - `PlcTriggerSource` polls the configured bits and fires only on a rising edge; a held button or a latched bit cannot capture twice. A read failure shows in the status line rather than becoming a silently dead trigger.
 - A PLC signal drives the camera through its software trigger and then waits for a genuinely new frame, so the image stays tied to the signal that asked for it rather than to whatever was last in the buffer.

@@ -1,8 +1,13 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- PLC connection is now split into two operator-facing physical types: Ethernet IP and COM. The independent PLC CONNECTION panel owns configuration, COM scan, Connect/Disconnect and colored connection state; settings lock while connected.
+- The prior Delta DVP code used COM11, 9600 baud, Modbus ASCII, 7E1, unit 1. These are the defaults and legacy-settings upgrade path; COM also permits RTU, while Ethernet uses host/port.
+- Connect must receive a PLC response from the configured read bit before it reports success. PLC RUN requires that connection and leaves it open when RUN stops; explicit Disconnect/app shutdown owns teardown.
+- Delta X inputs use Modbus function 02 (`DiscreteInput`) at the existing octal 0x0400 base, matching the prior working implementation.
+- Verification: Release build PASS; managed 77/77; native contract 1/1; WPF smoke PASS at `artifacts/smoke-20260830-224311`. Real PLC was not contacted. The OS listed COM3–COM6, not the old COM11, so actual-port selection and real link/trigger/write acceptance remain open.
 - Phase D of the approved plan: RUN can be triggered from a PLC bit, and the verdict can be written back.
-- `IPlcLink` and `IPlcAddressMap` keep every library type out of the application. `ModbusPlcLink` (NModbus, MIT) speaks Modbus TCP and RTU; supporting another brand means adding an address map, not changing the app.
+- `IPlcLink` and `IPlcAddressMap` keep every library type out of the application. `ModbusPlcLink` (NModbus, MIT) speaks Modbus over Ethernet IP or COM (ASCII/RTU); supporting another brand means adding an address map, not changing the app.
 - `DeltaDvpAddressMap` covers S, X, Y, T, M, C and D. X and Y are numbered in OCTAL on a DVP, so X10 is the ninth input: a decimal reading would address the wrong contact and still appear to work. X is a physical input and is refused for writes.
 - `PlcTriggerSource` polls the configured bits and fires only on a rising edge, so a held button or latched bit cannot capture repeatedly. A read failure is surfaced in the status line, not swallowed into a dead trigger.
 - A PLC trigger drives the camera through its software trigger and waits for a genuinely new frame, so the image stays tied to the signal that requested it.

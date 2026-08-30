@@ -7,8 +7,8 @@ using WireMarkerInspection.Application;
 namespace WireMarkerInspection.Infrastructure;
 
 /// <summary>
-/// Modbus TCP or RTU client addressed in the PLC's own syntax. Delta DVP speaks Modbus natively, and the
-/// same driver serves any other Modbus PLC once its address map exists.
+/// Modbus Ethernet or serial client addressed in the PLC's own syntax. COM supports both ASCII and RTU;
+/// the Delta DVP station previously used Modbus ASCII at 9600 baud with a 7E1 frame.
 /// </summary>
 public sealed class ModbusPlcLink(PlcSettings settings, IPlcAddressMap map) : IPlcLink
 {
@@ -22,25 +22,35 @@ public sealed class ModbusPlcLink(PlcSettings settings, IPlcAddressMap map) : IP
 
     public async Task ConnectAsync(CancellationToken token)
     {
-        await gate.WaitAsync(token).ConfigureAwait(false);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(settings.TimeoutMs);
+        await gate.WaitAsync(timeout.Token).ConfigureAwait(false);
         try
         {
             Release();
             var factory = new ModbusFactory();
-            if (settings.Transport == PlcTransport.Tcp)
+            if (settings.Transport == PlcTransport.EthernetIp)
             {
                 tcp = new TcpClient();
-                await tcp.ConnectAsync(settings.Host, settings.Port, token).ConfigureAwait(false);
+                await tcp.ConnectAsync(settings.Host, settings.Port, timeout.Token).ConfigureAwait(false);
                 master = factory.CreateMaster(tcp);
             }
             else
             {
-                serial = new SerialPort(settings.SerialPort, settings.BaudRate, Parity.Even, 7, StopBits.One);
+                serial = new SerialPort(settings.SerialPort, settings.BaudRate, ToParity(settings.Parity),
+                    settings.DataBits, ToStopBits(settings.StopBits))
+                {
+                    ReadTimeout = settings.TimeoutMs,
+                    WriteTimeout = settings.TimeoutMs
+                };
                 serial.Open();
-                master = factory.CreateRtuMaster(new SerialPortAdapter(serial));
+                var adapter = new SerialPortAdapter(serial);
+                master = settings.SerialProtocol == PlcSerialProtocol.ModbusAscii
+                    ? factory.CreateAsciiMaster(adapter)
+                    : factory.CreateRtuMaster(adapter);
             }
-            master.Transport.ReadTimeout = 1000;
-            master.Transport.WriteTimeout = 1000;
+            master.Transport.ReadTimeout = settings.TimeoutMs;
+            master.Transport.WriteTimeout = settings.TimeoutMs;
             IsConnected = true;
             Status = $"Đã kết nối {settings.Describe()}";
         }
@@ -114,6 +124,19 @@ public sealed class ModbusPlcLink(PlcSettings settings, IPlcAddressMap map) : IP
         tcp?.Dispose(); tcp = null;
         IsConnected = false;
     }
+
+    public static IReadOnlyList<string> AvailableSerialPorts() =>
+        SerialPort.GetPortNames().OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
+
+    private static Parity ToParity(PlcSerialParity value) => value switch
+    {
+        PlcSerialParity.Even => Parity.Even,
+        PlcSerialParity.Odd => Parity.Odd,
+        _ => Parity.None
+    };
+
+    private static StopBits ToStopBits(PlcSerialStopBits value) =>
+        value == PlcSerialStopBits.Two ? StopBits.Two : StopBits.One;
 
     public async ValueTask DisposeAsync()
     {

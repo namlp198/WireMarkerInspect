@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using WireMarkerInspection.Application;
 using WireMarkerInspection.Domain;
 using WireMarkerInspection.Infrastructure;
@@ -15,9 +16,9 @@ public sealed class PlcTests
     {
         // X10 is the ninth input on a DVP, not the tenth. Reading it as decimal would address the wrong
         // contact and still "work", which is worse than failing.
-        Assert.Equal(new ModbusTarget(ModbusArea.Coil,0x0400,false),map.Translate("X0"));
-        Assert.Equal(new ModbusTarget(ModbusArea.Coil,0x0407,false),map.Translate("X7"));
-        Assert.Equal(new ModbusTarget(ModbusArea.Coil,0x0408,false),map.Translate("X10"));
+        Assert.Equal(new ModbusTarget(ModbusArea.DiscreteInput,0x0400,false),map.Translate("X0"));
+        Assert.Equal(new ModbusTarget(ModbusArea.DiscreteInput,0x0407,false),map.Translate("X7"));
+        Assert.Equal(new ModbusTarget(ModbusArea.DiscreteInput,0x0408,false),map.Translate("X10"));
         Assert.Equal(new ModbusTarget(ModbusArea.Coil,0x0500,true),map.Translate("Y0"));
         Assert.Equal(new ModbusTarget(ModbusArea.Coil,0x0508,true),map.Translate("Y10"));
 
@@ -147,11 +148,52 @@ public sealed class PlcTests
     public void PlcConfigurationIsCheckedBeforeAnythingIsArmed()
     {
         Assert.Null(new PlcSettings().Validate(TriggerMapping.Shared));            // disabled needs nothing
+        var serial=new PlcSettings();
+        Assert.Equal(PlcTransport.Com,serial.Transport);
+        Assert.Equal("COM11",serial.SerialPort);
+        Assert.Equal(PlcSerialProtocol.ModbusAscii,serial.SerialProtocol);
+        Assert.Equal(7,serial.DataBits);
+        Assert.Equal(PlcSerialParity.Even,serial.Parity);
+        Assert.Equal(PlcSerialStopBits.One,serial.StopBits);
+        Assert.Contains("7E1",serial.Describe());
         Assert.Contains("địa chỉ bit trigger",new PlcSettings(Enabled:true).Validate(TriggerMapping.Shared)!);
         Assert.Contains("đầu 1",new PlcSettings(Enabled:true,TriggerAddress:"X0").Validate(TriggerMapping.PerEnd)!);
         Assert.Contains("Chu kỳ đọc",new PlcSettings(Enabled:true,TriggerAddress:"X0",PollMs:0).Validate(TriggerMapping.Shared)!);
-        Assert.Contains("IP",new PlcSettings(Enabled:true,TriggerAddress:"X0",Host:"").Validate(TriggerMapping.Shared)!);
+        Assert.Contains("IP",new PlcSettings(Enabled:true,Transport:PlcTransport.EthernetIp,TriggerAddress:"X0",Host:"").Validate(TriggerMapping.Shared)!);
+        Assert.Contains("COM",new PlcSettings(Transport:PlcTransport.Com,SerialPort:"").ValidateConnection()!);
+        Assert.Contains("Data bits",new PlcSettings(DataBits:9).ValidateConnection()!);
         Assert.Null(new PlcSettings(Enabled:true,TriggerAddress:"X0").Validate(TriggerMapping.Shared));
+    }
+
+    [Fact]
+    public void LegacySerialSettingsUpgradeToTheProvenAsciiFrame()
+    {
+        var settings=JsonSerializer.Deserialize<PlcSettings>(
+            "{\"Transport\":1,\"SerialPort\":\"COM7\",\"BaudRate\":9600}",JsonFiles.Options)!;
+
+        Assert.Equal(PlcTransport.Com,settings.Transport);
+        Assert.Equal("COM7",settings.SerialPort);
+        Assert.Equal(PlcSerialProtocol.ModbusAscii,settings.SerialProtocol);
+        Assert.Equal(7,settings.DataBits);
+        Assert.Equal(PlcSerialParity.Even,settings.Parity);
+        Assert.Equal(PlcSerialStopBits.One,settings.StopBits);
+    }
+
+    [Fact]
+    public async Task APreconnectedLinkStaysConnectedWhenRunTriggerStops()
+    {
+        var link=new FakePlcLink();
+        await link.ConnectAsync(CancellationToken.None);
+        var source=new PlcTriggerSource(link,new PlcSettings(Enabled:true,TriggerAddress:"X0"),
+            TriggerMapping.Shared,manageLinkLifecycle:false);
+
+        await source.StartAsync(CancellationToken.None);
+        await source.StopAsync();
+        await source.DisposeAsync();
+
+        Assert.True(link.IsConnected);
+        Assert.Equal(1,link.ConnectCount);
+        Assert.Equal(0,link.DisconnectCount);
     }
 
     [Fact]
@@ -166,7 +208,8 @@ public sealed class PlcTests
             var machine=new MachineSettings(
                 new TriggerSettings(TriggerKind.Plc,TriggerMapping.PerEnd,new CameraTrigger(CameraTriggerSource.Software),300),
                 new PlcSettings(Enabled:true,TriggerAddress:"X0",End1Address:"X0",End2Address:"X1",
-                    Outputs:new PlcOutputs(Enabled:true,OkBit:"M11",NgBit:"M12")));
+                    Outputs:new PlcOutputs(Enabled:true,OkBit:"M11",NgBit:"M12"),
+                    SerialProtocol:PlcSerialProtocol.ModbusRtu,DataBits:8,Parity:PlcSerialParity.None));
             store.Save(machine);
 
             var loaded=new FileSettingsStore(root).Load();
@@ -176,6 +219,9 @@ public sealed class PlcTests
             Assert.Equal("X1",loaded.Plc.End2Address);
             Assert.True(loaded.Plc.Writes.Enabled);
             Assert.Equal("M11",loaded.Plc.Writes.OkBit);
+            Assert.Equal(PlcSerialProtocol.ModbusRtu,loaded.Plc.SerialProtocol);
+            Assert.Equal(8,loaded.Plc.DataBits);
+            Assert.Equal(PlcSerialParity.None,loaded.Plc.Parity);
 
             // A corrupt settings file must not stop the station, but it must say so.
             File.WriteAllText(Path.Combine(root,"settings.json"),"{ not json");
@@ -192,10 +238,12 @@ public sealed class PlcTests
         public Dictionary<string,short> Words{get;}=[];
         public List<string> Written{get;}=[];
         public bool FailWrites{get;init;}
+        public int ConnectCount{get;private set;}
+        public int DisconnectCount{get;private set;}
         public bool IsConnected{get;private set;}
         public string Status=>IsConnected?"fake connected":"fake idle";
-        public Task ConnectAsync(CancellationToken token){IsConnected=true;return Task.CompletedTask;}
-        public Task DisconnectAsync(){IsConnected=false;return Task.CompletedTask;}
+        public Task ConnectAsync(CancellationToken token){ConnectCount++;IsConnected=true;return Task.CompletedTask;}
+        public Task DisconnectAsync(){DisconnectCount++;IsConnected=false;return Task.CompletedTask;}
         public Task<bool> ReadBitAsync(string address,CancellationToken token)=>
             Task.FromResult(Bits.TryGetValue(address,out var value)&&value);
         public Task WriteBitAsync(string address,bool value,CancellationToken token)

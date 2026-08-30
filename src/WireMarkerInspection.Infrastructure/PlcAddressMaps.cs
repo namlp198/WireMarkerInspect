@@ -15,7 +15,7 @@ public sealed class DeltaDvpAddressMap : IPlcAddressMap
     private static readonly Device[] Devices =
     [
         new('S', 0x0000, 1023, 10, ModbusArea.Coil, true),
-        new('X', 0x0400, 255, 8, ModbusArea.Coil, false),   // X0-X377 octal; physical inputs are never written
+        new('X', 0x0400, 255, 8, ModbusArea.DiscreteInput, false), // X0-X377 octal; read with Modbus function 02
         new('Y', 0x0500, 255, 8, ModbusArea.Coil, true),   // Y0-Y377 octal
         new('T', 0x0600, 255, 10, ModbusArea.Coil, true),
         new('M', 0x0800, 1535, 10, ModbusArea.Coil, true),
