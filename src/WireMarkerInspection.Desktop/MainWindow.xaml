@@ -96,8 +96,8 @@
     </Border>
     <Grid x:Name="ModelSetupEditors" Grid.Row="2" IsEnabled="{Binding CanConfigureModel}">
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <views:EndEditorView DataContext="{Binding End1}" Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Window}}"/>
-     <views:EndEditorView Grid.Column="2" DataContext="{Binding End2}" Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Window}}"/>
+     <views:EndEditorView x:Name="FirstEndEditor" DataContext="{Binding End1}" Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Window}}"/>
+     <views:EndEditorView x:Name="SecondEndEditor" Grid.Column="2" DataContext="{Binding End2}" Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Window}}"/>
     </Grid>
    </Grid>
    <Border Grid.Column="4" Style="{StaticResource Panel}">

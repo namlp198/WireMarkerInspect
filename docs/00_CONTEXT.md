@@ -1,6 +1,12 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- Grab Image in both SETTING end editors is now a real, state-driven action. `GrabReferenceCommand` has a `CanGrabReference` guard, so the HUD button is disabled unless a model draft/selection is active and acquisition is delivering frames no older than two seconds.
+- The acquisition loop marshals frames through a dispatcher captured when the view model is constructed instead of `Application.Current`, and it refreshes Grab availability whenever a frame arrives or acquisition stops.
+- A grabbed frame is copied per end with a fresh frame id, so the two ends never share a captured buffer, and the grab clears that end's ROI/Applied state like Load Image does.
+- Blocked grabs report why (`Chưa có ảnh live...` / `Frame live đã quá cũ...`) instead of failing silently.
+- New managed tests drive the real acquisition loop with a fake camera on a pumped STA dispatcher; the WPF smoke drives it with a synthetic camera and asserts the button disabled/enabled/disabled around an actual grab. Managed suite is 44/44.
+- Grab Image has not been exercised against the real MV-CE120-10GM yet; that remains a hardware acceptance step.
 - ACQUISITION now has an explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error state machine and auto-searches on production MainWindow Loaded with a five-second timeout.
 - Finding shows a warning progress indicator; timeout/no device disables all acquisition inputs/actions except Search. Found enables selector/Connect; Connected enables Disconnect/parameters/Start and disables Connect; Acquiring changes the same action to a red outlined rounded-square Stop.
 - Live Camera now uses ImageHud Expand and stays bound to current live frames in the large viewer. Important camera states use warning/success/error/brand colors.

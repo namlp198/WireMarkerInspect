@@ -19,7 +19,8 @@ internal static class Smoke
         try
         {
             // Each run owns fresh data; re-running release smoke must not collide with its prior recipe.
-            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),autoDiscoverCameraOnLoad:false);
+            var camera=new SmokeCamera();
+            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),camera,autoDiscoverCameraOnLoad:false);
             window=new MainWindow(vm){Width=1920,Height=1080,Title="OFFLINE SMOKE · SYNTHETIC UI FIXTURES"};
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
@@ -56,6 +57,7 @@ internal static class Smoke
             vm.NewModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture"));
             if(!vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("A new model draft must unlock setup without enabling selected-model actions.");
             VerifyModelControls(window,true,true,false,true);
+            await VerifyLiveGrab(window,vm);
             vm.End1.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End2.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End1.Roi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
@@ -127,7 +129,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -136,6 +138,39 @@ internal static class Smoke
             File.WriteAllText(Path.Combine(output,"result.txt"),ex.ToString());
             System.Windows.Application.Current.Shutdown(1);
         }
+    }
+    /// <summary>
+    /// Drives the real acquisition loop with a synthetic camera so Grab Image is verified end to end:
+    /// disabled without a live frame, enabled while acquiring, and it stores the frame in the end editor.
+    /// </summary>
+    private static async Task VerifyLiveGrab(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(window.FirstEndEditor.GrabButton.IsEnabled||window.SecondEndEditor.GrabButton.IsEnabled)
+            throw new Exception("Grab Image must be disabled without a live camera frame.");
+        await vm.InitializeCameraAsync();
+        await vm.ConnectCommand.ExecuteAsync(null);
+        await vm.AcquisitionCommand.ExecuteAsync(null);
+        var deadline=DateTime.UtcNow.AddSeconds(10);
+        while(!vm.CanGrabReference)
+        {
+            if(DateTime.UtcNow>deadline)throw new Exception($"No live frame reached the view model: {vm.Message}");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+        window.UpdateLayout();
+        if(!window.FirstEndEditor.GrabButton.IsEnabled||!window.SecondEndEditor.GrabButton.IsEnabled)
+            throw new Exception("Grab Image must be enabled while a fresh live frame is available.");
+        vm.GrabReferenceCommand.Execute("1");
+        if(vm.End1.Frame==null||vm.End1.Image==null||vm.End1.Frame.Width!=SmokeCamera.FrameWidth)
+            throw new Exception($"Grab Image did not store the live frame: {vm.Message}");
+        await vm.StopAcquisitionAsync();
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        window.UpdateLayout();
+        if(window.FirstEndEditor.GrabButton.IsEnabled||window.SecondEndEditor.GrabButton.IsEnabled)
+            throw new Exception("Grab Image must be disabled again after acquisition stops.");
+        await vm.DisconnectCommand.ExecuteAsync(null);
+        vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
+        vm.End1.Clear();
     }
     private static void Capture(FrameworkElement element,string path)
     {
@@ -213,6 +248,39 @@ internal static class Smoke
             throw new Exception("Stop button does not have a red border while RUN is active.");
     }
     private static Color ColorOf(Brush brush)=>brush is SolidColorBrush solid?solid.Color:throw new Exception("Expected a solid status brush.");
+    /// <summary>Synthetic frame source for the offline smoke. It never touches acquisition hardware.</summary>
+    private sealed class SmokeCamera:ICamera
+    {
+        public const int FrameWidth=640;
+        public const int FrameHeight=360;
+        private readonly object gate=new();
+        private bool grabbing;
+        private int grabs;
+        public IReadOnlyList<CameraDevice> Enumerate()=>[new("smoke-live","Synthetic smoke camera","smoke",false)];
+        public void Open(CameraDevice device){}
+        public void SetParameter(string name,string value){}
+        public void Start(){lock(gate)grabbing=true;}
+        public ImageFrame Grab(int timeoutMs)
+        {
+            lock(gate)
+            {
+                if(!grabbing)throw new InvalidOperationException("Acquisition has not started.");
+                var stride=FrameWidth*3;
+                var pixels=new byte[stride*FrameHeight];
+                for(var y=0;y<FrameHeight;y++)
+                    for(var x=0;x<FrameWidth;x++)
+                    {
+                        var i=y*stride+x*3;
+                        pixels[i]=(byte)(x%256);pixels[i+1]=(byte)(y%256);pixels[i+2]=(byte)((grabs+x+y)%256);
+                    }
+                grabs++;
+                return new(FrameWidth,FrameHeight,stride,pixels,Guid.NewGuid(),DateTimeOffset.UtcNow,"SYNTHETIC SMOKE CAMERA · NOT LIVE");
+            }
+        }
+        public void Stop(){lock(gate)grabbing=false;}
+        public void Close(){}
+        public void Dispose(){}
+    }
     private static BitmapSource Fixture()
     {
         var visual=new DrawingVisual();

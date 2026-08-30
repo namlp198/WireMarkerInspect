@@ -1,4 +1,3 @@
-using System.Runtime.ExceptionServices;
 using System.IO;
 using WireMarkerInspection.Application;
 using WireMarkerInspection.Desktop.ViewModels;
@@ -12,7 +11,7 @@ public sealed class CameraAcquisitionStateTests:IDisposable
     private readonly string root=Path.Combine(Path.GetTempPath(),"wmi-camera-state-"+Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public void DiscoveryAndConnectionExposeOnlyValidControls()=>Sta(async()=>
+    public void DiscoveryAndConnectionExposeOnlyValidControls()=>DispatcherTestHost.Sta(async()=>
     {
         var device=new CameraDevice("camera-1","MV-CE120-10GM · TEST","hikrobot-mvs-gige",false);
         var camera=new FakeCamera([device]);
@@ -64,7 +63,7 @@ public sealed class CameraAcquisitionStateTests:IDisposable
     });
 
     [Fact]
-    public void DiscoveryTimeoutLeavesOnlySearchAndRetryUsesCompletedResult()=>Sta(async()=>
+    public void DiscoveryTimeoutLeavesOnlySearchAndRetryUsesCompletedResult()=>DispatcherTestHost.Sta(async()=>
     {
         var device=new CameraDevice("slow-camera","Slow camera","hikrobot-mvs-gige",false);
         var camera=new FakeCamera([device],TimeSpan.FromMilliseconds(120));
@@ -89,13 +88,6 @@ public sealed class CameraAcquisitionStateTests:IDisposable
         finally{await vm.ShutdownAsync();}
     });
 
-    private static void Sta(Func<Task> action)
-    {
-        Exception? failure=null;
-        var thread=new Thread(()=>{try{action().GetAwaiter().GetResult();}catch(Exception ex){failure=ex;}});
-        thread.SetApartmentState(ApartmentState.STA);thread.Start();thread.Join();
-        if(failure!=null)ExceptionDispatchInfo.Capture(failure).Throw();
-    }
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
 
     private sealed class FakeCamera(IReadOnlyList<CameraDevice> devices,TimeSpan? delay=null):ICamera

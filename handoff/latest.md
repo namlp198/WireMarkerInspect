@@ -1,6 +1,16 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Verification: Release build 0 warnings/errors; managed 46/46; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-160520`.
+- Grab Image in both SETTING end editors now works as a state-driven action instead of an always-enabled button that could only report an error into the main status line.
+- `GrabReferenceCommand` gained a `CanGrabReference` guard (`CanConfigureModel` + acquisition running + a live frame at most two seconds old), so the HUD button is genuinely disabled when a grab is impossible and enables as soon as frames arrive. The tooltip now says the action needs Start Acquisition.
+- The acquisition loop publishes frames through a dispatcher captured when the view model is constructed rather than `Application.Current.Dispatcher`, and refreshes Grab availability when a frame lands, when acquisition stops and when the model draft changes.
+- A grab stores a per-end copy of the buffer with a fresh frame id, clears that end's ROI/Applied state exactly like Load Image, and reports the source and frame size.
+- New `GrabReferenceTests` drive the real acquisition loop with a fake camera on a pumped STA dispatcher: availability transitions, a blocked grab that explains itself, independent per-end buffers and captured references surviving Stop.
+- The offline WPF smoke now drives a synthetic camera through connect/start/grab/stop and asserts the Grab buttons are disabled, then enabled, then disabled again, with the grabbed frame stored in end 1.
+- Test helpers were consolidated into `DispatcherTestHost` (STA thread plus dispatcher pumping) and shared by the model, camera, grab and control test files.
+- Verification: Release build 0 warnings/errors; managed 44/44; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-154507`.
+- Not yet accepted: grabbing a reference image from the real MV-CE120-10GM. Only the synthetic/fake camera paths have been exercised for this feature.
 - Hardened ACQUISITION with explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error states and a five-second auto-discovery timeout launched only from production MainWindow Loaded.
 - Finding has a visible warning/progress indicator. On timeout/no device only Search is enabled; Found enables selector/Connect; successful connection disables Connect and enables Disconnect, parameters and Start. During acquisition only the same red outlined rounded-square Stop action remains available among lifecycle actions.
 - Live Camera now exposes shared-HUD Expand; the expanded non-modal window remains bound to live frames. Camera status text uses warning/success/error/brand colors.

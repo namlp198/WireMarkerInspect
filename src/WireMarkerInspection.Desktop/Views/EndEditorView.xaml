@@ -15,7 +15,7 @@
     <Border Grid.Row="2" Style="{StaticResource Hud.Container}" HorizontalAlignment="Left" Margin="8,0,8,4" Padding="4">
      <StackPanel Orientation="Horizontal">
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="Load Image" AutomationProperties.Name="Load Image" Command="{Binding Tag.LoadReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="Grab Image" AutomationProperties.Name="Grab Image" Command="{Binding Tag.GrabReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
+      <Button x:Name="GrabButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="Grab Image · lấy frame live hiện tại; cần Start Acquisition" AutomationProperties.Name="Grab Image" Command="{Binding Tag.GrabReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Ocr}" ToolTip="Test OCR" AutomationProperties.Name="Test OCR" Command="{Binding Tag.TestOcrCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
       <Button Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Apply đầu dây" AutomationProperties.Name="Apply đầu dây" Command="{Binding Tag.ApplyEndCommand,ElementName=Root}" CommandParameter="{Binding Key}" Margin="4,0,0,0"/>
      </StackPanel>

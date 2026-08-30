@@ -1,4 +1,3 @@
-using System.Runtime.ExceptionServices;
 using System.IO;
 using WireMarkerInspection.Desktop.ViewModels;
 using WireMarkerInspection.Domain;
@@ -12,7 +11,7 @@ public sealed class ModelWorkflowTests:IDisposable
     private readonly string root=Path.Combine(Path.GetTempPath(),"wmi-model-flow-"+Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public void AddSaveReloadEditAndDeleteUseOnePersistentIdentity()=>Sta(()=>
+    public void AddSaveReloadEditAndDeleteUseOnePersistentIdentity()=>DispatcherTestHost.Sta(()=>
     {
         var vm=new MainViewModel(root){Confirm=_=>true};
         try
@@ -61,7 +60,7 @@ public sealed class ModelWorkflowTests:IDisposable
     });
 
     [Fact]
-    public void SelectingLibraryRowLoadsRecipeAndClearingSelectionLocksSetup()=>Sta(()=>
+    public void SelectingLibraryRowLoadsRecipeAndClearingSelectionLocksSetup()=>DispatcherTestHost.Sta(()=>
     {
         var author=new MainViewModel(root){Confirm=_=>true};
         try
@@ -110,7 +109,7 @@ public sealed class ModelWorkflowTests:IDisposable
     });
 
     [Fact]
-    public void IdentityValidationRejectsEmptyAndDuplicateCodes()=>Sta(()=>
+    public void IdentityValidationRejectsEmptyAndDuplicateCodes()=>DispatcherTestHost.Sta(()=>
     {
         var vm=new MainViewModel(root){Confirm=_=>true};
         try
@@ -137,13 +136,6 @@ public sealed class ModelWorkflowTests:IDisposable
         }
     }
 
-    private static void Sta(Action action)
-    {
-        Exception? failure=null;
-        var thread=new Thread(()=>{try{action();}catch(Exception ex){failure=ex;}});
-        thread.SetApartmentState(ApartmentState.STA);thread.Start();thread.Join();
-        if(failure!=null)ExceptionDispatchInfo.Capture(failure).Throw();
-    }
 
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
 }

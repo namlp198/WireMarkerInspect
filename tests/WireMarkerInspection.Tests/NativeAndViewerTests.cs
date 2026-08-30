@@ -1,5 +1,4 @@
 using System.IO;
-using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
@@ -18,7 +17,7 @@ public class NativeAndViewerTests
     [DllImport(Dll,CallingConvention=CallingConvention.Cdecl)]private static extern int wmi_abi_version();
     [DllImport(Dll,CallingConvention=CallingConvention.Cdecl)]private static extern IntPtr wmi_crop(byte[] bgr,int w,int h,int stride,int shape,double[] xy,int points);
     [DllImport(Dll,CallingConvention=CallingConvention.Cdecl)]private static extern void wmi_free(IntPtr p);
-    [Fact]public void NativeCircleAndPolygonUseActualMask()=>Sta(()=>
+    [Fact]public void NativeCircleAndPolygonUseActualMask()=>DispatcherTestHost.Sta(()=>
     {
         Assert.Equal(1,wmi_abi_version());
         var pixels=new byte[100*100*3];Array.Fill(pixels,(byte)20);
@@ -35,7 +34,7 @@ public class NativeAndViewerTests
             Assert.Equal(255,output[((bgr.PixelHeight-1)*bgr.PixelWidth)*3]);
         }
     });
-    [Fact]public void ViewerTransformsAndEditorUndoRemainIndependent()=>Sta(()=>
+    [Fact]public void ViewerTransformsAndEditorUndoRemainIndependent()=>DispatcherTestHost.Sta(()=>
     {
         var bitmap=BitmapSource.Create(100,100,96,96,PixelFormats.Bgr24,null,new byte[30000],300);bitmap.Freeze();
         var editor=new ImageEditor{Source=bitmap};editor.Measure(new(500,400));editor.Arrange(new(0,0,500,400));editor.Fit();
@@ -56,7 +55,7 @@ public class NativeAndViewerTests
         Assert.Contains("Missing OCR asset",engine.AvailabilityError);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>engine.ReadAsync(InspectionTests.Frame(),InspectionTests.End("A"),CancellationToken.None));
     }
-    [Fact]public void HudSynchronizesToolsAndHistoryWithoutChangingRecipe()=>Sta(()=>
+    [Fact]public void HudSynchronizesToolsAndHistoryWithoutChangingRecipe()=>DispatcherTestHost.Sta(()=>
     {
         var bitmap=BitmapSource.Create(100,100,96,96,PixelFormats.Bgr24,null,new byte[30000],300);
         var editor=new ImageEditor{Source=bitmap};
@@ -76,7 +75,7 @@ public class NativeAndViewerTests
         Assert.True(Part<ToggleButton>("SelectButton").IsChecked);Assert.False(circle.IsChecked);
         Assert.Equal(Visibility.Collapsed,Part<Border>("PolygonStrip").Visibility);
     });
-    [Fact]public void HudReadOnlyViewerAndSourceReplacementKeepCorrectState()=>Sta(()=>
+    [Fact]public void HudReadOnlyViewerAndSourceReplacementKeepCorrectState()=>DispatcherTestHost.Sta(()=>
     {
         var viewer=new ImageViewer();var hud=new ImageHud{Viewer=viewer};
         Assert.Equal(Visibility.Collapsed,((Border)hud.FindName("DrawingRail")).Visibility);
@@ -92,7 +91,7 @@ public class NativeAndViewerTests
         replacement.Tool=EditorTool.Polygon;
         Assert.True(((ToggleButton)hud.FindName("PolygonButton")).IsChecked);
     });
-    [Fact]public void HudResetButtonRestoresInitialFitInsteadOfOneToOne()=>Sta(()=>
+    [Fact]public void HudResetButtonRestoresInitialFitInsteadOfOneToOne()=>DispatcherTestHost.Sta(()=>
     {
         var viewer=new ImageViewer();
         viewer.Measure(new(300,200));viewer.Arrange(new(0,0,300,200));
@@ -107,18 +106,11 @@ public class NativeAndViewerTests
         ((Button)hud.FindName("ResetViewButton")).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Assert.Equal(fittedZoom,viewer.Zoom,8);
     });
-    [Fact]public void ChevronButtonTailModeIsExplicitAndDefaultsToNotched()=>Sta(()=>
+    [Fact]public void ChevronButtonTailModeIsExplicitAndDefaultsToNotched()=>DispatcherTestHost.Sta(()=>
     {
         var button=new ChevronButton();
         Assert.Equal(ChevronTailMode.Notched,button.TailMode);
         button.TailMode=ChevronTailMode.Straight;
         Assert.Equal(ChevronTailMode.Straight,button.TailMode);
     });
-    private static void Sta(Action action)
-    {
-        Exception? failure=null;
-        var thread=new Thread(()=>{try{action();}catch(Exception ex){failure=ex;}});
-        thread.SetApartmentState(ApartmentState.STA);thread.Start();thread.Join();
-        if(failure!=null)ExceptionDispatchInfo.Capture(failure).Throw();
-    }
 }

@@ -46,6 +46,9 @@ public partial class MainViewModel : ObservableObject
     private bool loading;
     private bool modelSetupActive;
     private ImageFrame? latest;
+    private bool liveFrameReady;
+    private readonly System.Windows.Threading.Dispatcher dispatcher;
+    private static readonly TimeSpan LiveFrameMaxAge=TimeSpan.FromSeconds(2);
     private CancellationTokenSource? acquisition;
     private Task? acquisitionTask;
     private DateTimeOffset waitingSince;
@@ -83,6 +86,8 @@ public partial class MainViewModel : ObservableObject
     public bool CanDisconnectCamera=>CanEdit&&CameraConnected&&!Acquiring;
     public bool CanToggleAcquisition=>CanEdit&&CameraConnected;
     public bool CanEditCameraParameters=>CanEdit&&CameraConnected&&!Acquiring;
+    public bool HasLiveFrame=>Acquiring&&latest!=null&&DateTimeOffset.UtcNow-latest.CapturedAt<=LiveFrameMaxAge;
+    public bool CanGrabReference=>CanConfigureModel&&HasLiveFrame;
     public string AcquisitionActionLabel=>Acquiring?"Stop Acquisition":"Start Acquisition";
     public bool CanCapture=>Running&&!Busy&&Session.State is InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2;
     public bool CanNext=>Running&&!Busy&&Session.State==InspectionState.Completed;
@@ -94,6 +99,8 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null)
     {
         Camera=camera??new HikrobotMvsCamera();
+        // The view model is created on the UI thread; the acquisition loop marshals frames back through this dispatcher.
+        dispatcher=System.Windows.Application.Current?.Dispatcher??System.Windows.Threading.Dispatcher.CurrentDispatcher;
         AutoDiscoverCameraOnLoad=autoDiscoverCameraOnLoad;
         this.cameraSearchTimeout=cameraSearchTimeout??TimeSpan.FromSeconds(5);
         if(this.cameraSearchTimeout<=TimeSpan.Zero)throw new ArgumentOutOfRangeException(nameof(cameraSearchTimeout));
@@ -126,6 +133,15 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanSearchCamera));OnPropertyChanged(nameof(CanSelectCamera));OnPropertyChanged(nameof(CanConnectCamera));
         OnPropertyChanged(nameof(CanDisconnectCamera));OnPropertyChanged(nameof(CanToggleAcquisition));OnPropertyChanged(nameof(CanEditCameraParameters));
         OnPropertyChanged(nameof(AcquisitionActionLabel));
+        RefreshGrabState();
+    }
+    private void RefreshGrabState()
+    {
+        var ready=CanGrabReference;
+        if(ready==liveFrameReady)return;
+        liveFrameReady=ready;
+        OnPropertyChanged(nameof(HasLiveFrame));OnPropertyChanged(nameof(CanGrabReference));
+        GrabReferenceCommand.NotifyCanExecuteChanged();
     }
     partial void OnSelectedModelChanged(RecipeRow? oldValue,RecipeRow? newValue)
     {
@@ -153,7 +169,7 @@ public partial class MainViewModel : ObservableObject
     private void SetModelSetupActive(bool value)
     {
         if(modelSetupActive==value)return;
-        modelSetupActive=value;OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));
+        modelSetupActive=value;OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));RefreshGrabState();
     }
     private void ClearModelSetup()
     {
@@ -246,12 +262,18 @@ public partial class MainViewModel : ObservableObject
         var file=ChooseImage();if(file==null)return;
         Editor(end).SetFrame(ImageFiles.Load(file));
     });
-    [RelayCommand]private void GrabReference(string end)=>Guard(()=>
+    [RelayCommand(CanExecute=nameof(CanGrabReference))]private void GrabReference(string end)=>Guard(()=>
     {
         if(!CanConfigureModel)return;
-        if(latest==null||!Acquiring||DateTimeOffset.UtcNow-latest.CapturedAt>TimeSpan.FromSeconds(2))
-            throw new InvalidOperationException("Cần live frame mới. Start Acquisition hoặc Load Image.");
-        Editor(end).SetFrame(latest with {Bgr=[..latest.Bgr]});
+        var live=latest;
+        if(!HasLiveFrame||live==null)
+            throw new InvalidOperationException(Acquiring
+                ?"Frame live đã quá cũ. Chờ frame mới rồi Grab Image, hoặc dùng Load Image."
+                :"Chưa có ảnh live. Kết nối camera và Start Acquisition trước khi Grab Image.");
+        // Each end owns its own copy; ends must never share a captured buffer.
+        var editor=Editor(end);
+        editor.SetFrame(live with {Bgr=[..live.Bgr],Id=Guid.NewGuid()});
+        Message=$"Đầu {editor.Number} · đã lấy ảnh live {live.Width} × {live.Height} từ {live.Source}.";
     });
     [RelayCommand]private void ApplyEnd(string end)=>Guard(()=>{if(CanConfigureModel)Editor(end).Apply();});
     [RelayCommand]private async Task TestOcrAsync(string end)
@@ -423,12 +445,13 @@ public partial class MainViewModel : ObservableObject
                             continue;
                         }
                         var bitmap=ImageFiles.Bitmap(frame);
-                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(()=>
+                        await dispatcher.InvokeAsync(()=>
                         {
                             if(!token.IsCancellationRequested)
                             {
                                 latest=frame;LiveImage=bitmap;
                                 CameraStatus=$"ĐANG ACQUISITION · {frame.Width} × {frame.Height}";
+                                RefreshGrabState();
                             }
                         });
                         await Task.Delay(15,token);
@@ -437,7 +460,7 @@ public partial class MainViewModel : ObservableObject
                 catch(OperationCanceledException)when(token.IsCancellationRequested){}
                 catch(Exception ex)
                 {
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(()=>
+                    await dispatcher.InvokeAsync(()=>
                     {
                         Acquiring=false;latest=null;CameraState=CameraUiState.Error;
                         CameraStatus="LỖI ACQUISITION";Message=$"ACQUISITION · {ex.Message}";

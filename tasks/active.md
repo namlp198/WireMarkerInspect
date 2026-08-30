@@ -28,6 +28,15 @@
 - [x] Remove editor caption/helper text, reduce HUD to 32/16 DIP and 53% alpha, remove crosshair/visibility actions.
 - [x] Replace practical camera/OCR/recipe/runtime text actions with icons and tooltips.
 
+## Grab Image from live camera — completed 2026-08-30
+- [x] Give GrabReference a real CanExecute so the HUD button is disabled when no fresh live frame exists.
+- [x] Keep the two-second freshness rule but report the blocking reason instead of failing silently.
+- [x] Copy the live buffer per end with a fresh frame id so ends never share a captured buffer.
+- [x] Marshal live frames through a dispatcher captured at construction and refresh Grab availability on each frame and on stop.
+- [x] Cover the whole start-acquisition → live frame → grab path with managed tests on a pumped dispatcher.
+- [x] Assert the disabled/enabled/disabled button states and a real grab in the WPF smoke.
+- [ ] Acceptance on the real MV-CE120-10GM: grab a reference image from the actual camera at production optics/exposure.
+
 ## Awaiting external inputs / acceptance
 - [x] Use the installed official Hikrobot MVS SDK and its C# samples/runtime.
 - [ ] Obtain PaddleOCR detector, recognizer and exact dictionary.
