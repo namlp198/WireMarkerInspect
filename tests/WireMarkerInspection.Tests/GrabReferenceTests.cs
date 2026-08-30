@@ -110,7 +110,17 @@ public sealed class GrabReferenceTests:IDisposable
         public byte[][] Buffers{get{lock(gate)return [..buffers];}}
         public IReadOnlyList<CameraDevice> Enumerate()=>[new("live-fake","Fake live camera","test",false)];
         public void Open(CameraDevice device){}
-        public void SetParameter(string name,string value){}
+        public CameraSettings? Applied{get;private set;}
+        public CameraInfo ReadInfo()=>new("FAKE-MODEL","SN-FAKE","Mono8",FrameWidth,FrameHeight,30,35);
+        public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>
+        [
+            new("ExposureTime","us",10,1000000,0,10000,true),
+            new("Gain","dB",0,20,0,0,true),
+            new("Width","px",8,FrameWidth,8,FrameWidth,true),
+            new("Height","px",8,FrameHeight,8,FrameHeight,true)
+        ];
+        public CameraSettings ReadSettings()=>Applied??new(10000,0);
+        public void ApplySettings(CameraSettings settings)=>Applied=settings;
         public void Start(){lock(gate)grabbing=true;}
         public ImageFrame Grab(int timeoutMs)
         {

@@ -66,8 +66,9 @@ public sealed class CameraAcquisitionStateTests:IDisposable
     public void DiscoveryTimeoutLeavesOnlySearchAndRetryUsesCompletedResult()=>DispatcherTestHost.Sta(async()=>
     {
         var device=new CameraDevice("slow-camera","Slow camera","hikrobot-mvs-gige",false);
-        var camera=new FakeCamera([device],TimeSpan.FromMilliseconds(120));
-        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromMilliseconds(20));
+        using var discovery=new ManualResetEventSlim(false);
+        var camera=new FakeCamera([device],discovery);
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromMilliseconds(50));
         try
         {
             await vm.InitializeCameraAsync();
@@ -79,7 +80,8 @@ public sealed class CameraAcquisitionStateTests:IDisposable
             Assert.False(vm.CanToggleAcquisition);
             Assert.False(vm.CanEditCameraParameters);
 
-            await Task.Delay(150);
+            discovery.Set();
+            Assert.True(camera.Finished.Wait(TimeSpan.FromSeconds(10)),"Discovery never completed.");
             await vm.InitializeCameraAsync();
             Assert.Equal(CameraUiState.Found,vm.CameraState);
             Assert.Equal(device,vm.SelectedCamera);
@@ -90,17 +92,33 @@ public sealed class CameraAcquisitionStateTests:IDisposable
 
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
 
-    private sealed class FakeCamera(IReadOnlyList<CameraDevice> devices,TimeSpan? delay=null):ICamera
+    private sealed class FakeCamera(IReadOnlyList<CameraDevice> devices,ManualResetEventSlim? gate=null):ICamera
     {
         public int OpenCount{get;private set;}
         public int CloseCount{get;private set;}
+        /// <summary>Signals that a discovery call has returned, so a test can wait for it instead of sleeping.</summary>
+        public ManualResetEventSlim Finished{get;}=new(false);
         public IReadOnlyList<CameraDevice> Enumerate()
         {
-            if(delay is { } wait)Thread.Sleep(wait);
-            return devices;
+            try
+            {
+                if(gate!=null&&!gate.Wait(TimeSpan.FromSeconds(10)))throw new TimeoutException("Discovery gate was never released.");
+                return devices;
+            }
+            finally{Finished.Set();}
         }
         public void Open(CameraDevice device)=>OpenCount++;
-        public void SetParameter(string name,string value){}
+        public CameraSettings? Applied{get;private set;}
+        public CameraInfo ReadInfo()=>new("FAKE-MODEL","SN-FAKE","Mono8",64,48,30,35);
+        public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>
+        [
+            new("ExposureTime","us",10,1000000,0,10000,true),
+            new("Gain","dB",0,20,0,0,true),
+            new("Width","px",8,64,8,64,true),
+            new("Height","px",8,48,8,48,true)
+        ];
+        public CameraSettings ReadSettings()=>Applied??new(10000,0);
+        public void ApplySettings(CameraSettings settings)=>Applied=settings;
         public void Start(){}
         public ImageFrame Grab(int timeoutMs)=>throw new TimeoutException();
         public void Stop(){}

@@ -46,6 +46,8 @@ public partial class MainViewModel : ObservableObject
     private bool loading;
     private bool modelSetupActive;
     private ImageFrame? latest;
+    private IReadOnlyList<CameraParameterInfo> cameraParameters=[];
+    private bool loadingCamera;
     private bool liveFrameReady;
     private readonly System.Windows.Threading.Dispatcher dispatcher;
     private static readonly TimeSpan LiveFrameMaxAge=TimeSpan.FromSeconds(2);
@@ -73,6 +75,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string cameraStatus="Chưa kết nối camera";
     [ObservableProperty]private string exposure="10000";
     [ObservableProperty]private string gain="0";
+    [ObservableProperty]private bool gammaEnabled;
+    [ObservableProperty]private string gamma="1";
+    [ObservableProperty]private bool blackLevelEnabled;
+    [ObservableProperty]private string blackLevel="0";
+    [ObservableProperty]private bool sensorRoiEnabled;
+    [ObservableProperty]private string sensorOffsetX="0";
+    [ObservableProperty]private string sensorOffsetY="0";
+    [ObservableProperty]private string sensorWidth="0";
+    [ObservableProperty]private string sensorHeight="0";
+    [ObservableProperty]private bool strobeEnabled;
+    [ObservableProperty]private string strobeLine="0";
+    [ObservableProperty]private string strobeDuration="0";
+    [ObservableProperty]private string strobeDelay="0";
+    [ObservableProperty]private string cameraInfo="Chưa kết nối camera.";
+    [ObservableProperty]private bool showAdvancedCamera;
     [ObservableProperty]private string message="Chọn một model hoặc Add Model để bắt đầu setup.";
     [ObservableProperty]private string runStatus="CHƯA CHẠY";
     [ObservableProperty]private string ocrStatus="";
@@ -87,6 +104,21 @@ public partial class MainViewModel : ObservableObject
     public bool CanToggleAcquisition=>CanEdit&&CameraConnected;
     public bool CanEditCameraParameters=>CanEdit&&CameraConnected&&!Acquiring;
     public bool HasLiveFrame=>Acquiring&&latest!=null&&DateTimeOffset.UtcNow-latest.CapturedAt<=LiveFrameMaxAge;
+    public string ExposureRange=>Range("ExposureTime");
+    public string GainRange=>Range("Gain");
+    public string GammaRange=>Range("Gamma");
+    public string BlackLevelRange=>Range("BlackLevel");
+    public string SensorRange=>cameraParameters.Count==0?"":$"Width {Range("Width")} · Height {Range("Height")}";
+    private string Range(string parameter)=>
+        cameraParameters.FirstOrDefault(p=>p.Name==parameter) is{}info
+            ?$"{info.Minimum:0.###} – {info.Maximum:0.###} {info.Unit}".TrimEnd()
+            :cameraParameters.Count==0?"":"camera không hỗ trợ";
+    private bool Supports(string parameter)=>cameraParameters.Any(p=>p.Name==parameter);
+    public bool CanEditGamma=>CanEditCameraParameters&&Supports("Gamma");
+    public bool CanEditBlackLevel=>CanEditCameraParameters&&Supports("BlackLevel");
+    public bool CanEditSensorRoi=>CanEditCameraParameters&&Supports("Width")&&Supports("Height");
+    // Strobe nodes only become readable after a line is selected, so availability cannot be probed up front.
+    public bool CanEditStrobe=>CanEditCameraParameters;
     public bool CanGrabReference=>CanConfigureModel&&HasLiveFrame;
     public string AcquisitionActionLabel=>Acquiring?"Stop Acquisition":"Start Acquisition";
     public bool CanCapture=>Running&&!Busy&&Session.State is InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2;
@@ -121,6 +153,19 @@ public partial class MainViewModel : ObservableObject
     partial void OnCameraConnectedChanged(bool value)=>RefreshCameraState();
     partial void OnAcquiringChanged(bool value)=>RefreshCameraState();
     partial void OnFindingCameraChanged(bool value)=>RefreshCameraState();
+    private static readonly HashSet<string> CameraDraftProperties=
+    [
+        nameof(Exposure),nameof(Gain),nameof(GammaEnabled),nameof(Gamma),nameof(BlackLevelEnabled),nameof(BlackLevel),
+        nameof(SensorRoiEnabled),nameof(SensorOffsetX),nameof(SensorOffsetY),nameof(SensorWidth),nameof(SensorHeight),
+        nameof(StrobeEnabled),nameof(StrobeLine),nameof(StrobeDuration),nameof(StrobeDelay)
+    ];
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        // Camera settings are stored with the recipe, so changing them is an unsaved recipe change.
+        if(!loading&&!loadingCamera&&modelSetupActive&&e.PropertyName is{}name&&CameraDraftProperties.Contains(name))
+            Dirty=true;
+    }
     private void RefreshState()
     {
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
@@ -133,6 +178,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanSearchCamera));OnPropertyChanged(nameof(CanSelectCamera));OnPropertyChanged(nameof(CanConnectCamera));
         OnPropertyChanged(nameof(CanDisconnectCamera));OnPropertyChanged(nameof(CanToggleAcquisition));OnPropertyChanged(nameof(CanEditCameraParameters));
         OnPropertyChanged(nameof(AcquisitionActionLabel));
+        RefreshCameraCapabilities();
         RefreshGrabState();
     }
     private void RefreshGrabState()
@@ -205,6 +251,12 @@ public partial class MainViewModel : ObservableObject
         try {saved=recipe;draftId=recipe.Id;ModelCode=recipe.ModelCode;ModelName=recipe.Name;End1.Load(recipe.Ends[0],p1);End2.Load(recipe.Ends[1],p2);Dirty=false;}
         finally {loading=false;}
         Message=$"Đã nạp {recipe.ModelCode} · v{recipe.Revision}.";
+        if(recipe.Camera is not{}settings)return;
+        ShowCameraSettings(settings);
+        if(!CameraConnected)return;
+        if(Acquiring){Message+=" Dừng acquisition rồi Apply để áp thông số camera của model.";return;}
+        try{Camera.ApplySettings(settings);RefreshCameraParameters();Message+=" Đã áp thông số camera của model.";}
+        catch(Exception ex){Message+=$" Không áp được thông số camera: {ex.Message}";}
     }
     private void Reload()
     {
@@ -258,7 +310,8 @@ public partial class MainViewModel : ObservableObject
     {
         if(!CanSaveRecipe)return;
         if(!End1.Applied||!End2.Applied)throw new InvalidOperationException("Apply cả hai đầu trước khi Save Recipe.");
-        var draft=new Recipe(draftId,ModelCode.Trim(),ModelName.Trim(),saved?.Revision??0,[End1.Spec(),End2.Spec()],DateTimeOffset.UtcNow);
+        var draft=new Recipe(draftId,ModelCode.Trim(),ModelName.Trim(),saved?.Revision??0,[End1.Spec(),End2.Spec()],
+            DateTimeOffset.UtcNow,1,BuildCameraSettings());
         var updated=Store.Save(draft,[ImageFiles.Png(End1.Image!),ImageFiles.Png(End2.Image!)]);
         loading=true;try{Reload();SelectedModel=Models.First(r=>r.Recipe.Id==updated.Id);}finally{loading=false;}
         Load(updated);Message=$"Đã lưu {updated.ModelCode} · v{updated.Revision}.";
@@ -413,6 +466,7 @@ public partial class MainViewModel : ObservableObject
             CameraConnected=true;CameraState=CameraUiState.Connected;
             SourceStatus=target.IsSimulation?"SIMULATION":"CAMERA CONNECTED";
             CameraStatus=$"ĐÃ KẾT NỐI · {target.Name}";
+            RefreshCameraParameters();
             Message="ACQUISITION · Kết nối camera thành công. Có thể chỉnh thông số hoặc Start Acquisition.";
         });
         if(!CameraConnected)
@@ -426,15 +480,120 @@ public partial class MainViewModel : ObservableObject
         var applied=false;
         await GuardAsync(()=>Task.Run(()=>
         {
-            if(!double.TryParse(Exposure,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var exp)||!double.IsFinite(exp)||exp<=0||
-               !double.TryParse(Gain,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var g)||!double.IsFinite(g)||g<0)
-                throw new InvalidOperationException("Exposure/Gain không hợp lệ. Dùng dấu chấm thập phân.");
-            Camera.SetParameter("ExposureTime",exp.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            Camera.SetParameter("Gain",g.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var settings=BuildCameraSettings();
+            ValidateAgainstCamera(settings);
+            Camera.ApplySettings(settings);
             applied=true;
         }));
-        if(applied)Message="ACQUISITION · Đã áp dụng Exposure và Gain.";
+        if(applied)
+        {
+            RefreshCameraParameters();
+            Message="ACQUISITION · Đã áp dụng thông số camera vào thiết bị.";
+        }
     }
+
+    /// <summary>Reads the live device values back into the form so a taught setup starts from reality.</summary>
+    [RelayCommand]private async Task ReadCameraSettingsAsync()
+    {
+        if(!CanEditCameraParameters)return;
+        CameraSettings? settings=null;
+        await GuardAsync(()=>Task.Run(()=>settings=Camera.ReadSettings()));
+        if(settings==null)return;
+        ShowCameraSettings(settings);
+        RefreshCameraParameters();
+        Message="ACQUISITION · Đã đọc thông số hiện tại từ camera.";
+    }
+
+    /// <summary>Builds the acquisition setup stored with the recipe from the operator's form values.</summary>
+    public CameraSettings BuildCameraSettings()
+    {
+        var settings=new CameraSettings(
+            Number(Exposure,"Exposure"),Number(Gain,"Gain"),
+            GammaEnabled?Number(Gamma,"Gamma"):null,
+            BlackLevelEnabled?Number(BlackLevel,"Black level"):null,
+            SensorRoiEnabled?new SensorRoi(Whole(SensorOffsetX,"Offset X"),Whole(SensorOffsetY,"Offset Y"),
+                Whole(SensorWidth,"Width"),Whole(SensorHeight,"Height")):null,
+            StrobeEnabled?new StrobeSettings(true,Whole(StrobeLine,"Strobe line"),
+                Number(StrobeDuration,"Strobe duration"),Number(StrobeDelay,"Strobe delay")):null);
+        if(settings.Validate() is{}error)throw new InvalidOperationException(error);
+        return settings;
+    }
+
+    private void ShowCameraSettings(CameraSettings settings)
+    {
+        loadingCamera=true;
+        try
+        {
+            var culture=System.Globalization.CultureInfo.InvariantCulture;
+            Exposure=settings.ExposureTimeUs.ToString("0.###",culture);
+            Gain=settings.Gain.ToString("0.###",culture);
+            GammaEnabled=settings.Gamma!=null;
+            if(settings.Gamma is{}gamma)Gamma=gamma.ToString("0.###",culture);
+            BlackLevelEnabled=settings.BlackLevel!=null;
+            if(settings.BlackLevel is{}black)BlackLevel=black.ToString("0.###",culture);
+            SensorRoiEnabled=settings.Roi!=null;
+            if(settings.Roi is{}roi)
+            {
+                SensorOffsetX=roi.OffsetX.ToString(culture);SensorOffsetY=roi.OffsetY.ToString(culture);
+                SensorWidth=roi.Width.ToString(culture);SensorHeight=roi.Height.ToString(culture);
+            }
+            StrobeEnabled=settings.Strobe?.Enabled==true;
+            if(settings.Strobe is{}strobe)
+            {
+                StrobeLine=strobe.Line.ToString(culture);
+                StrobeDuration=strobe.DurationUs.ToString("0.###",culture);
+                StrobeDelay=strobe.DelayUs.ToString("0.###",culture);
+            }
+        }
+        finally{loadingCamera=false;}
+    }
+
+    private void ValidateAgainstCamera(CameraSettings settings)
+    {
+        void Check(string parameter,double value)
+        {
+            if(cameraParameters.FirstOrDefault(p=>p.Name==parameter) is{}info&&info.Validate(value) is{}error)
+                throw new InvalidOperationException(error);
+        }
+        Check("ExposureTime",settings.ExposureTimeUs);Check("Gain",settings.Gain);
+        if(settings.Gamma is{}gamma)Check("Gamma",gamma);
+        if(settings.BlackLevel is{}black)Check("BlackLevel",black);
+        if(settings.Roi is{}roi)
+        {
+            Check("Width",roi.Width);Check("Height",roi.Height);
+            Check("OffsetX",roi.OffsetX);Check("OffsetY",roi.OffsetY);
+        }
+    }
+
+    private void RefreshCameraParameters()
+    {
+        try{cameraParameters=Camera.DescribeParameters();}
+        catch(Exception){cameraParameters=[];}
+        try
+        {
+            var info=Camera.ReadInfo();
+            CameraInfo=$"{info.Model} · {info.Serial} · {info.PixelFormat} · {info.SensorWidth}×{info.SensorHeight}"+
+                (info.FrameRate is{}fps?$" · {fps:0.#} fps":"")+
+                (info.TemperatureCelsius is{}temp?$" · {temp:0.#} °C":"");
+        }
+        catch(Exception){CameraInfo="Không đọc được thông tin camera.";}
+        RefreshCameraCapabilities();
+    }
+    private void RefreshCameraCapabilities()
+    {
+        OnPropertyChanged(nameof(ExposureRange));OnPropertyChanged(nameof(GainRange));
+        OnPropertyChanged(nameof(GammaRange));OnPropertyChanged(nameof(BlackLevelRange));
+        OnPropertyChanged(nameof(SensorRange));
+        OnPropertyChanged(nameof(CanEditGamma));OnPropertyChanged(nameof(CanEditBlackLevel));
+        OnPropertyChanged(nameof(CanEditSensorRoi));OnPropertyChanged(nameof(CanEditStrobe));
+    }
+
+    private static double Number(string text,string label)=>
+        double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var value)&&double.IsFinite(value)
+            ?value:throw new InvalidOperationException($"{label} không hợp lệ. Dùng dấu chấm thập phân.");
+    private static int Whole(string text,string label)=>
+        int.TryParse(text,System.Globalization.NumberStyles.Integer,System.Globalization.CultureInfo.InvariantCulture,out var value)
+            ?value:throw new InvalidOperationException($"{label} phải là số nguyên.");
     [RelayCommand]private async Task AcquisitionAsync()
     {
         if(!CanToggleAcquisition)return;
@@ -503,6 +662,8 @@ public partial class MainViewModel : ObservableObject
     {
         if(!CanDisconnectCamera)return;
         StopRun();await Task.Run(Camera.Close);CameraConnected=false;SourceStatus="OFFLINE";
+        cameraParameters=[];CameraInfo="Chưa kết nối camera.";
+        RefreshCameraCapabilities();
         CameraState=Cameras.Count>0?CameraUiState.Found:CameraUiState.NotFound;
         CameraStatus=Cameras.Count>0?"ĐÃ NGẮT CAMERA · SẴN SÀNG KẾT NỐI LẠI":"ĐÃ NGẮT CAMERA";
         Message="ACQUISITION · Đã ngắt kết nối camera.";

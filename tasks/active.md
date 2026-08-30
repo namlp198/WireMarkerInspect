@@ -44,6 +44,19 @@
 - [x] Report the declined change to the operator instead of silently keeping the old status text.
 - [x] Managed regression test that fails against the synchronous restore, plus a real-DataGrid decline/accept check in the WPF smoke.
 
+## Phase A — per-model camera parameters — completed 2026-08-30
+- [x] Store exposure, gain, gamma, black level, sensor ROI and strobe with the recipe; keep older recipes loadable.
+- [x] Replace the untyped camera parameter API with typed read/describe/apply.
+- [x] Show the device's real limits and disable parameters the camera does not expose.
+- [x] Restore and apply a model's taught setup when it is opened.
+- [x] Show camera name and serial only, without the GigE address.
+- [x] Managed tests, WPF smoke assertions and a hardware probe on the real camera.
+- [ ] Tune exposure/gain/gamma against production optics and lighting (needs the real fixture).
+
+## Phase B — timing, soak and reconnect — not started
+## Phase C — hardware trigger over the camera I/O line — not started
+## Phase D — PLC trigger and result write-back — not started
+
 ## Awaiting external inputs / acceptance
 - [x] Use the installed official Hikrobot MVS SDK and its C# samples/runtime.
 - [ ] Obtain PaddleOCR detector, recognizer and exact dictionary.

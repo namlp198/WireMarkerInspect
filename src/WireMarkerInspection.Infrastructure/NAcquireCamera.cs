@@ -43,7 +43,37 @@ public sealed class NAcquireCamera : ICamera
             device=selected;lastFrame=null;
         }
     }
-    public void SetParameter(string name,string value) {lock(gate){RequireOpen();Check(Native.NAcquire_SetParameter(camera,name,value));}}
+    public CameraInfo ReadInfo()
+    {
+        lock(gate)
+        {
+            RequireOpen();
+            // NAcquire C ABI 0.1 exposes no device query; report what enumeration already told us.
+            var parts=device!.Name.Split('·',StringSplitOptions.TrimEntries);
+            return new(parts[0],parts.Length>1?parts[1]:string.Empty,"unknown",0,0,null,null);
+        }
+    }
+
+    /// <summary>NAcquire C ABI 0.1 has no parameter introspection, so no range can be reported.</summary>
+    public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>[];
+
+    public CameraSettings ReadSettings()=>
+        throw new NotSupportedException("NAcquire C ABI 0.1 khong doc lai duoc thong so camera.");
+
+    public void ApplySettings(CameraSettings settings)
+    {
+        if(settings.Validate() is{}invalid)throw new ArgumentException(invalid,nameof(settings));
+        // Fail loudly rather than pretend a recorded setting was applied.
+        if(settings.Gamma!=null||settings.BlackLevel!=null||settings.Roi!=null||settings.Strobe!=null)
+            throw new NotSupportedException("NAcquire chi ho tro ExposureTime va Gain.");
+        lock(gate)
+        {
+            RequireOpen();
+            var culture=System.Globalization.CultureInfo.InvariantCulture;
+            Check(Native.NAcquire_SetParameter(camera,"ExposureTime",settings.ExposureTimeUs.ToString(culture)));
+            Check(Native.NAcquire_SetParameter(camera,"Gain",settings.Gain.ToString(culture)));
+        }
+    }
     public void Start() {lock(gate){RequireOpen();Check(Native.NAcquire_StartGrabbing(camera));grabbing=true;}}
     public ImageFrame Grab(int timeoutMs)
     {

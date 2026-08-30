@@ -1,6 +1,13 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- Phase A of the approved trigger/PLC plan: acquisition settings are now taught per model. `Recipe` carries an optional `CameraSettings` (exposure, gain, gamma, black level, sensor ROI, strobe); recipes written before this field still load and simply keep the current machine setup.
+- `ICamera` replaced the untyped `SetParameter(name,value)` with `ReadInfo`, `DescribeParameters`, `ReadSettings` and `ApplySettings`. The UI shows the device's real GenICam limits instead of hard-coded numbers, and only offers parameters the connected camera actually exposes.
+- Selecting a model restores its taught setup and pushes it to a connected camera; editing any camera value marks the recipe dirty because it is part of the recipe.
+- The camera selector shows name and serial only. The GigE address is no longer in the operator list.
+- Hardware check on MV-CE120-10GM `00G29911748`: name/serial/pixel format/sensor size read back correctly, real limits are ExposureTime 34–1999733 us, Gain 0–19.996 dB, Gamma 0–4, and full-resolution ResultingFrameRate is 7.65 fps. The camera exposes no BlackLevel node, so that row is disabled rather than failing on Apply. Evidence: `artifacts/camera-probe-phase-a.json`.
+- Fixed a pre-existing flaky test: camera discovery timeout raced a 120 ms sleep against a 20 ms timeout. Discovery now blocks on a gate the test releases, so the timeout path is deterministic.
+- Managed suite is 51/51.
 - Fixed a crash: answering No to `Bỏ thay đổi chưa lưu và mở model đã chọn?` threw an unhandled `ArgumentNullException` from `DataGridItemAutomationPeer`. `OnSelectedModelChanged` wrote the previous selection back while the DataGrid/ComboBox was still inside its own selection change, and that re-entrant write made WPF build an item automation peer for a null item.
 - `RestoreSelection` now defers the write-back to the dispatcher at Background priority and skips it when a newer selection has already superseded the rejected one. The accepted path still loads synchronously.
 - Declining now also reports `Giữ lại thay đổi chưa lưu...` instead of leaving the previous status text.

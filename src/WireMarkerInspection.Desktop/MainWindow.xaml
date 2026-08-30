@@ -69,12 +69,45 @@
        </Style></TextBlock.Style>
       </TextBlock>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
-      <TextBlock Text="CAMERA PARAMETERS" Style="{StaticResource SectionLabel}"/>
-      <TextBlock Text="Exposure (µs)" Style="{StaticResource Caption}" Margin="0,4"/>
+      <DockPanel Margin="0,0,0,4">
+       <Button x:Name="ReadCameraSettingsButton" DockPanel.Dock="Right" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Sync}" ToolTip="Đọc thông số hiện tại từ camera" AutomationProperties.Name="Đọc thông số từ camera" Command="{Binding ReadCameraSettingsCommand}" IsEnabled="{Binding CanEditCameraParameters}"/>
+       <TextBlock Text="CAMERA PARAMETERS" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+      </DockPanel>
+      <TextBlock x:Name="CameraInfoText" Text="{Binding CameraInfo}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Thông số được lưu theo từng model recipe." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <DockPanel Margin="0,4,0,4"><TextBlock DockPanel.Dock="Right" Text="{Binding ExposureRange}" Style="{StaticResource Caption}"/><TextBlock Text="Exposure (µs)" Style="{StaticResource Caption}"/></DockPanel>
       <TextBox x:Name="ExposureTextBox" Text="{Binding Exposure,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditCameraParameters}" Style="{StaticResource TextEditor}"/>
-      <TextBlock Text="Gain (dB)" Style="{StaticResource Caption}" Margin="0,12,0,4"/>
+      <DockPanel Margin="0,12,0,4"><TextBlock DockPanel.Dock="Right" Text="{Binding GainRange}" Style="{StaticResource Caption}"/><TextBlock Text="Gain (dB)" Style="{StaticResource Caption}"/></DockPanel>
       <TextBox x:Name="GainTextBox" Text="{Binding Gain,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditCameraParameters}" Style="{StaticResource TextEditor}"/>
-      <Button x:Name="ApplyCameraParametersButton" Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Áp dụng thông số camera" AutomationProperties.Name="Áp dụng thông số camera" Command="{Binding CameraParametersCommand}" IsEnabled="{Binding CanEditCameraParameters}" Margin="0,8,0,8"/>
+      <DockPanel Margin="0,12,0,4"><TextBlock DockPanel.Dock="Right" Text="{Binding GammaRange}" Style="{StaticResource Caption}"/><CheckBox x:Name="GammaCheckBox" Content="Gamma" IsChecked="{Binding GammaEnabled}" IsEnabled="{Binding CanEditGamma}" Margin="0"/></DockPanel>
+      <TextBox x:Name="GammaTextBox" Text="{Binding Gamma,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding GammaEnabled}" Style="{StaticResource TextEditor}"/>
+      <DockPanel Margin="0,12,0,4"><TextBlock DockPanel.Dock="Right" Text="{Binding BlackLevelRange}" Style="{StaticResource Caption}"/><CheckBox x:Name="BlackLevelCheckBox" Content="Black level" IsChecked="{Binding BlackLevelEnabled}" IsEnabled="{Binding CanEditBlackLevel}" Margin="0"/></DockPanel>
+      <TextBox x:Name="BlackLevelTextBox" Text="{Binding BlackLevel,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding BlackLevelEnabled}" Style="{StaticResource TextEditor}"/>
+      <CheckBox x:Name="AdvancedCameraCheckBox" Content="Thông số nâng cao" IsChecked="{Binding ShowAdvancedCamera}" Margin="0,14,0,0"/>
+      <StackPanel x:Name="AdvancedCameraPanel" Visibility="{Binding ShowAdvancedCamera,Converter={StaticResource BoolToVisibility}}">
+       <DockPanel Margin="0,10,0,4"><TextBlock DockPanel.Dock="Right" Text="{Binding SensorRange}" Style="{StaticResource Caption}"/><CheckBox x:Name="SensorRoiCheckBox" Content="Vùng đọc sensor" IsChecked="{Binding SensorRoiEnabled}" IsEnabled="{Binding CanEditSensorRoi}" Margin="0"/></DockPanel>
+       <Grid IsEnabled="{Binding SensorRoiEnabled}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="Offset X" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Offset Y" Style="{StaticResource Caption}"/>
+        <TextBox Grid.Row="1" x:Name="SensorOffsetXTextBox" Text="{Binding SensorOffsetX,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SensorOffsetY,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+        <TextBlock Grid.Row="2" Text="Width" Style="{StaticResource Caption}" Margin="0,8,0,0"/><TextBlock Grid.Row="2" Grid.Column="2" Text="Height" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
+        <TextBox Grid.Row="3" x:Name="SensorWidthTextBox" Text="{Binding SensorWidth,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SensorHeight,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+       </Grid>
+       <CheckBox x:Name="StrobeCheckBox" Content="Đèn strobe theo phơi sáng" IsChecked="{Binding StrobeEnabled}" IsEnabled="{Binding CanEditStrobe}" Margin="0,14,0,0"/>
+       <Grid IsEnabled="{Binding StrobeEnabled}" Margin="0,6,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="Line" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Duration (µs)" Style="{StaticResource Caption}"/><TextBlock Grid.Column="4" Text="Delay (µs)" Style="{StaticResource Caption}"/>
+        <TextBox Grid.Row="1" x:Name="StrobeLineTextBox" Text="{Binding StrobeLine,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding StrobeDuration,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+        <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding StrobeDelay,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+       </Grid>
+       <TextBlock Text="LineMode của chân strobe phải đặt sẵn trong MVS." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+      </StackPanel>
+      <Button x:Name="ApplyCameraParametersButton" Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Áp dụng thông số camera" AutomationProperties.Name="Áp dụng thông số camera" Command="{Binding CameraParametersCommand}" IsEnabled="{Binding CanEditCameraParameters}" Margin="0,12,0,8"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
       <TextBlock Text="INSPECTION MODULES" Style="{StaticResource SectionLabel}"/>
       <CheckBox Content="OCR text" IsChecked="True" IsEnabled="False" Margin="0,0,0,10"/>

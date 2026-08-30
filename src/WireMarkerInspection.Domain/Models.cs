@@ -73,8 +73,41 @@ public sealed record EndRecipe(string ReferenceImage, int Width, int Height, Sea
         (ExpectedLines.Length == 0 || ExpectedLines.Any(string.IsNullOrEmpty)
             ? "Enter expected text, one detected region per line. Empty lines are not allowed." : null);
 }
+/// <summary>Sensor readout window in sensor pixels. Null means the full sensor.</summary>
+public sealed record SensorRoi(int OffsetX, int OffsetY, int Width, int Height)
+{
+    public string? Validate() =>
+        Width <= 0 || Height <= 0 ? "Sensor ROI width and height must be positive." :
+        OffsetX < 0 || OffsetY < 0 ? "Sensor ROI offset cannot be negative." : null;
+}
+
+/// <summary>Strobe output that fires the inspection light in step with the exposure.</summary>
+public sealed record StrobeSettings(bool Enabled, int Line, double DurationUs, double DelayUs)
+{
+    public string? Validate() =>
+        Line < 0 ? "Strobe line must not be negative." :
+        DurationUs < 0 || DelayUs < 0 ? "Strobe duration and delay cannot be negative." : null;
+}
+
+/// <summary>
+/// Acquisition settings a model was taught with. Repeating the exposure, gain and lighting of the
+/// reference images is what makes a saved recipe reproducible, so they are stored with the recipe.
+/// </summary>
+public sealed record CameraSettings(double ExposureTimeUs, double Gain, double? Gamma = null,
+    double? BlackLevel = null, SensorRoi? Roi = null, StrobeSettings? Strobe = null)
+{
+    public string? Validate()
+    {
+        if (!double.IsFinite(ExposureTimeUs) || ExposureTimeUs <= 0) return "Exposure time must be a positive number.";
+        if (!double.IsFinite(Gain) || Gain < 0) return "Gain cannot be negative.";
+        if (Gamma is { } gamma && (!double.IsFinite(gamma) || gamma <= 0)) return "Gamma must be a positive number.";
+        if (BlackLevel is { } black && (!double.IsFinite(black) || black < 0)) return "Black level cannot be negative.";
+        return Roi?.Validate() ?? Strobe?.Validate();
+    }
+}
+
 public sealed record Recipe(Guid Id, string ModelCode, string Name, int Revision, EndRecipe[] Ends,
-    DateTimeOffset SavedAt, int SchemaVersion = 1)
+    DateTimeOffset SavedAt, int SchemaVersion = 1, CameraSettings? Camera = null)
 {
     public Recipe Copy() => this with { Ends = Ends.Select(e => e.Copy()).ToArray() };
     public string? Validate()
@@ -83,6 +116,8 @@ public sealed record Recipe(Guid Id, string ModelCode, string Name, int Revision
         if (Id == Guid.Empty || string.IsNullOrWhiteSpace(ModelCode) || string.IsNullOrWhiteSpace(Name))
             return "Model code and name are required.";
         if (Ends.Length != 2) return "Both ends must be configured.";
+        // Recipes saved before camera settings existed stay valid; they simply keep the current machine setup.
+        if (Camera?.Validate() is { } cameraError) return cameraError;
         return Ends.Select((e, i) => e.Validate() is { } error ? $"End {i + 1}: {error}" : null).FirstOrDefault(e => e != null);
     }
 }

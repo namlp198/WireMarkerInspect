@@ -78,26 +78,148 @@ public sealed class HikrobotMvsCamera : ICamera
         }
     }
 
-    public void SetParameter(string name,string value)
+    public CameraInfo ReadInfo()
     {
         lock(gate)
         {
             RequireOpen();
-            if(!float.TryParse(value,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var number)||!float.IsFinite(number))
-                throw new ArgumentException($"Invalid MVS parameter value: {value}",nameof(value));
-            switch(name)
+            var pixel=TryEnum("PixelFormat",out var pixelValue)
+                ?((MyCamera.MvGvspPixelType)pixelValue).ToString().Replace("PixelType_Gvsp_",string.Empty):"unknown";
+            return new(
+                TryString("DeviceModelName")??selected!.Name,
+                TryString("DeviceSerialNumber")??string.Empty,
+                pixel,
+                TryInt("WidthMax",out var maxWidth)?checked((int)maxWidth.nCurValue):0,
+                TryInt("HeightMax",out var maxHeight)?checked((int)maxHeight.nCurValue):0,
+                TryFloat("ResultingFrameRate",out var fps)?fps.fCurValue:null,
+                TryFloat("DeviceTemperature",out var temperature)?temperature.fCurValue:null);
+        }
+    }
+
+    /// <summary>Real GenICam limits, so the UI shows what this camera actually accepts.</summary>
+    public IReadOnlyList<CameraParameterInfo> DescribeParameters()
+    {
+        lock(gate)
+        {
+            RequireOpen();
+            var list=new List<CameraParameterInfo>();
+            void Float(string name,string unit)
             {
-                case "ExposureTime":
-                    Check(camera!.MV_CC_SetEnumValue_NET("ExposureAuto",0),"disable auto exposure");
-                    Check(camera.MV_CC_SetFloatValue_NET(name,number),"set exposure time");
-                    break;
-                case "Gain":
-                    Check(camera!.MV_CC_SetEnumValue_NET("GainAuto",0),"disable auto gain");
-                    Check(camera.MV_CC_SetFloatValue_NET(name,number),"set gain");
-                    break;
-                default: throw new NotSupportedException($"Unsupported MVS parameter: {name}");
+                if(TryFloat(name,out var value))list.Add(new(name,unit,value.fMin,value.fMax,0,value.fCurValue,true));
+            }
+            void Integer(string name,string unit)
+            {
+                if(TryInt(name,out var value))list.Add(new(name,unit,value.nMin,value.nMax,value.nInc,value.nCurValue,true));
+            }
+            Float("ExposureTime","us");Float("Gain","dB");Float("Gamma",string.Empty);Float("BlackLevel",string.Empty);
+            Integer("OffsetX","px");Integer("OffsetY","px");Integer("Width","px");Integer("Height","px");
+            Integer("StrobeLineDuration","us");Integer("StrobeLineDelay","us");
+            return list;
+        }
+    }
+
+    public CameraSettings ReadSettings()
+    {
+        lock(gate)
+        {
+            RequireOpen();
+            var exposure=TryFloat("ExposureTime",out var exposureValue)?exposureValue.fCurValue:0;
+            var gain=TryFloat("Gain",out var gainValue)?gainValue.fCurValue:0;
+            double? gamma=TryBool("GammaEnable",out var gammaEnabled)&&gammaEnabled&&TryFloat("Gamma",out var gammaValue)
+                ?gammaValue.fCurValue:null;
+            double? blackLevel=TryFloat("BlackLevel",out var black)?black.fCurValue:null;
+            SensorRoi? roi=TryInt("Width",out var width)&&TryInt("Height",out var height)
+                &&TryInt("OffsetX",out var offsetX)&&TryInt("OffsetY",out var offsetY)
+                ?new(checked((int)offsetX.nCurValue),checked((int)offsetY.nCurValue),
+                     checked((int)width.nCurValue),checked((int)height.nCurValue)):null;
+            return new(exposure,gain,gamma,blackLevel,roi,null);
+        }
+    }
+
+    /// <summary>
+    /// Applies a taught acquisition setup. A requested value this camera does not expose is an error
+    /// rather than a silent skip: the operator asked for it and the recipe recorded it.
+    /// </summary>
+    public void ApplySettings(CameraSettings settings)
+    {
+        if(settings.Validate() is{}invalid)throw new ArgumentException(invalid,nameof(settings));
+        lock(gate)
+        {
+            RequireOpen();
+            if(settings.Roi!=null&&grabbing)
+                throw new InvalidOperationException("Dung acquisition truoc khi doi vung doc sensor (ROI).");
+            if(settings.Roi is{}roi)
+            {
+                // Offsets must collapse before the window grows, otherwise MVS rejects an out-of-range window.
+                Require("OffsetX",camera!.MV_CC_SetIntValueEx_NET("OffsetX",0));
+                Require("OffsetY",camera.MV_CC_SetIntValueEx_NET("OffsetY",0));
+                Require("Width",camera.MV_CC_SetIntValueEx_NET("Width",roi.Width));
+                Require("Height",camera.MV_CC_SetIntValueEx_NET("Height",roi.Height));
+                Require("OffsetX",camera.MV_CC_SetIntValueEx_NET("OffsetX",roi.OffsetX));
+                Require("OffsetY",camera.MV_CC_SetIntValueEx_NET("OffsetY",roi.OffsetY));
+            }
+            Check(camera!.MV_CC_SetEnumValue_NET("ExposureAuto",0),"disable auto exposure");
+            Require("ExposureTime",camera.MV_CC_SetFloatValue_NET("ExposureTime",(float)settings.ExposureTimeUs));
+            Check(camera.MV_CC_SetEnumValue_NET("GainAuto",0),"disable auto gain");
+            Require("Gain",camera.MV_CC_SetFloatValue_NET("Gain",(float)settings.Gain));
+            if(settings.Gamma is{}gamma)
+            {
+                Require("GammaEnable",camera.MV_CC_SetBoolValue_NET("GammaEnable",true));
+                Require("Gamma",camera.MV_CC_SetFloatValue_NET("Gamma",(float)gamma));
+            }
+            else if(TryBool("GammaEnable",out _))camera.MV_CC_SetBoolValue_NET("GammaEnable",false);
+            if(settings.BlackLevel is{}blackLevel)
+            {
+                if(TryBool("BlackLevelEnable",out _))camera.MV_CC_SetBoolValue_NET("BlackLevelEnable",true);
+                Require("BlackLevel",camera.MV_CC_SetFloatValue_NET("BlackLevel",(float)blackLevel));
+            }
+            if(settings.Strobe is{}strobe)
+            {
+                Require("LineSelector",camera.MV_CC_SetEnumValue_NET("LineSelector",(uint)strobe.Line));
+                Require("StrobeEnable",camera.MV_CC_SetBoolValue_NET("StrobeEnable",strobe.Enabled));
+                if(strobe.Enabled)
+                {
+                    Require("StrobeLineDuration",camera.MV_CC_SetIntValueEx_NET("StrobeLineDuration",(long)strobe.DurationUs));
+                    Require("StrobeLineDelay",camera.MV_CC_SetIntValueEx_NET("StrobeLineDelay",(long)strobe.DelayUs));
+                }
             }
         }
+    }
+
+    private bool TryFloat(string name,out MyCamera.MVCC_FLOATVALUE value)
+    {
+        value=new();
+        return camera!.MV_CC_GetFloatValue_NET(name,ref value)==MyCamera.MV_OK;
+    }
+    private bool TryInt(string name,out MyCamera.MVCC_INTVALUE_EX value)
+    {
+        value=new();
+        return camera!.MV_CC_GetIntValueEx_NET(name,ref value)==MyCamera.MV_OK;
+    }
+    private bool TryBool(string name,out bool value)
+    {
+        value=false;
+        return camera!.MV_CC_GetBoolValue_NET(name,ref value)==MyCamera.MV_OK;
+    }
+    private bool TryEnum(string name,out uint value)
+    {
+        var result=new MyCamera.MVCC_ENUMVALUE();
+        var status=camera!.MV_CC_GetEnumValue_NET(name,ref result);
+        value=result.nCurValue;
+        return status==MyCamera.MV_OK;
+    }
+    private string? TryString(string name)
+    {
+        var value=new MyCamera.MVCC_STRINGVALUE();
+        if(camera!.MV_CC_GetStringValue_NET(name,ref value)!=MyCamera.MV_OK)return null;
+        var text=value.chCurValue?.TrimEnd('\0').Trim();
+        return string.IsNullOrEmpty(text)?null:text;
+    }
+    private static void Require(string parameter,int status)
+    {
+        if(status==MyCamera.MV_OK)return;
+        throw new InvalidOperationException(
+            $"Camera khong nhan thong so {parameter} (0x{unchecked((uint)status):X8}). Kiem tra gia tri nam trong dai cho phep.");
     }
 
     public void Start()
@@ -244,8 +366,8 @@ public sealed class HikrobotMvsCamera : ICamera
             var serial=Clean(value.chSerialNumber,$"index-{index}");
             var model=Clean(value.chModelName,"Hikrobot GigE");
             var user=Decode(value.chUserDefinedName);
-            var ip=$"{value.nCurrentIp>>24&255}.{value.nCurrentIp>>16&255}.{value.nCurrentIp>>8&255}.{value.nCurrentIp&255}";
-            return ("gige",serial,$"{(string.IsNullOrWhiteSpace(user)?model:user)} · {serial} · {ip}");
+            // The selector shows name and serial only; the address belongs in diagnostics, not an operator list.
+            return ("gige",serial,$"{(string.IsNullOrWhiteSpace(user)?model:user)} · {serial}");
         }
         if(info.nTLayerType==MyCamera.MV_USB_DEVICE)
         {
@@ -270,7 +392,10 @@ public sealed class HikrobotMvsCamera : ICamera
     private static Exception MissingSdk()=>new DllNotFoundException("Không tìm thấy Hikrobot MVS .NET SDK. Cài MVS hoặc đặt MvCameraControl.Net.dll trong vendor/camera rồi build lại.");
     public IReadOnlyList<CameraDevice> Enumerate()=>throw MissingSdk();
     public void Open(CameraDevice device)=>throw MissingSdk();
-    public void SetParameter(string name,string value)=>throw MissingSdk();
+    public CameraInfo ReadInfo()=>throw MissingSdk();
+    public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>throw MissingSdk();
+    public CameraSettings ReadSettings()=>throw MissingSdk();
+    public void ApplySettings(CameraSettings settings)=>throw MissingSdk();
     public void Start()=>throw MissingSdk();
     public ImageFrame Grab(int timeoutMs)=>throw MissingSdk();
     public void Stop(){}

@@ -29,9 +29,9 @@ internal static class CameraProbe
                 await Task.Run(()=>
                 {
                     camera.Open(devices[0]);
-                    camera.SetParameter("ExposureTime","10000");
-                    camera.SetParameter("Gain","0");
-                    report["parameters"]=new{ExposureTime=10000,Gain=0};
+                    camera.ApplySettings(new WireMarkerInspection.Domain.CameraSettings(10000,0));
+                    report["info"]=camera.ReadInfo();
+                    report["parameters"]=camera.DescribeParameters();
                     camera.Start();
                     try
                     {

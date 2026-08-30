@@ -1,6 +1,16 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Phase A of the approved trigger/PLC plan is done: acquisition settings are taught per model instead of being development defaults shared by every model.
+- `Recipe` gained an optional `CameraSettings` (exposure, gain, gamma, black level, sensor ROI, strobe). It is an additive optional field, so recipes saved by the previous build still load and simply keep the current machine setup; a regression test pins that.
+- `ICamera` now exposes `ReadInfo`, `DescribeParameters`, `ReadSettings` and `ApplySettings` in place of `SetParameter(name,value)`. `NAcquireCamera` implements the same contract and fails loudly for settings that ABI cannot apply.
+- The SETTING form shows the device's real GenICam limits beside each value, groups advanced values (sensor ROI, strobe) behind a toggle, and disables any parameter the connected camera does not expose.
+- Opening a model restores its taught setup and applies it to a connected camera; editing a camera value marks the recipe dirty.
+- The camera selector shows name and serial only; the GigE address is no longer in the operator list.
+- Hardware verified on MV-CE120-10GM `00G29911748`: identity and limits read back correctly (ExposureTime 34–1999733 us, Gain 0–19.996 dB, Gamma 0–4), full-resolution ResultingFrameRate is 7.65 fps, three frames grabbed. This camera has no BlackLevel node, so that row is disabled instead of failing on Apply. Evidence: `artifacts/camera-probe-phase-a.json`.
+- Fixed a pre-existing flaky test: the discovery-timeout case raced a 120 ms sleep against a 20 ms timeout and failed once under parallel load. Discovery now waits on a gate the test releases.
+- Verification: Release build 0 warnings/errors; managed 51/51 (repeated three times); native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-171225`; hardware probe PASS.
+- Still open for phase A: exposure/gain/gamma tuning against production optics and lighting.
 - Fixed the crash reported when declining the unsaved-draft question: creating a new model, leaving it unsaved, selecting another library row and answering No threw an unhandled `System.ArgumentNullException` from `DataGridItemAutomationPeer` and killed the application.
 - Cause: `OnSelectedModelChanged` restored the previous selection synchronously, so `SelectedItem` was written back while the DataGrid/ComboBox was still processing the selection change. The nested change made WPF construct an item automation peer for a null item.
 - Fix: `RestoreSelection` posts the write-back to the dispatcher at Background priority, after the originating change has completed, and skips it when a newer selection has already superseded the rejected one. The accepted path still loads the recipe synchronously.

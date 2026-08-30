@@ -130,7 +130,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -151,6 +151,7 @@ internal static class Smoke
             throw new Exception("Grab Image must be disabled without a live camera frame.");
         await vm.InitializeCameraAsync();
         await vm.ConnectCommand.ExecuteAsync(null);
+        VerifyCameraParameterForm(window,vm);
         await vm.AcquisitionCommand.ExecuteAsync(null);
         var deadline=DateTime.UtcNow.AddSeconds(10);
         while(!vm.CanGrabReference)
@@ -207,6 +208,36 @@ internal static class Smoke
                 throw new Exception("Accepting the discard must load the selected model.");
         }
         finally{vm.Confirm=confirm;}
+    }
+    /// <summary>
+    /// Camera parameters are taught per model, so the form must show the device limits and keep every
+    /// optional group disabled until the operator turns it on.
+    /// </summary>
+    private static void VerifyCameraParameterForm(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(!window.ReadCameraSettingsButton.IsEnabled||!window.ExposureTextBox.IsEnabled||!window.GainTextBox.IsEnabled)
+            throw new Exception("Camera parameters must be editable once connected.");
+        if(!vm.CameraInfo.Contains("FAKE-MODEL",StringComparison.Ordinal))
+            throw new Exception($"Camera identity was not read after connecting: {vm.CameraInfo}");
+        if(!vm.ExposureRange.Contains("1000000",StringComparison.Ordinal)||vm.GainRange.Length==0)
+            throw new Exception($"Camera limits were not read from the device: {vm.ExposureRange} / {vm.GainRange}");
+        if(window.GammaTextBox.IsEnabled||window.BlackLevelTextBox.IsEnabled)
+            throw new Exception("Optional camera values must stay disabled until they are enabled.");
+        // The device reports Gamma but no BlackLevel node, so the form must offer only what exists.
+        if(!window.GammaCheckBox.IsEnabled||window.BlackLevelCheckBox.IsEnabled)
+            throw new Exception("Camera parameter availability must follow the device parameter list.");
+        vm.GammaEnabled=true;
+        window.UpdateLayout();
+        if(!window.GammaTextBox.IsEnabled)throw new Exception("Enabling Gamma must enable its value.");
+        vm.GammaEnabled=false;
+        if(window.AdvancedCameraPanel.Visibility==Visibility.Visible)
+            throw new Exception("Advanced camera parameters must start collapsed.");
+        vm.ShowAdvancedCamera=true;
+        window.UpdateLayout();
+        if(window.AdvancedCameraPanel.Visibility!=Visibility.Visible||window.SensorWidthTextBox.IsEnabled)
+            throw new Exception("Advanced group must expand with the sensor ROI still disabled.");
+        vm.ShowAdvancedCamera=false;
     }
     private static void Capture(FrameworkElement element,string path)
     {
@@ -294,7 +325,18 @@ internal static class Smoke
         private int grabs;
         public IReadOnlyList<CameraDevice> Enumerate()=>[new("smoke-live","Synthetic smoke camera","smoke",false)];
         public void Open(CameraDevice device){}
-        public void SetParameter(string name,string value){}
+        public CameraSettings? Applied{get;private set;}
+        public CameraInfo ReadInfo()=>new("FAKE-MODEL","SN-FAKE","Mono8",FrameWidth,FrameHeight,30,35);
+        public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>
+        [
+            new("ExposureTime","us",10,1000000,0,10000,true),
+            new("Gain","dB",0,20,0,0,true),
+            new("Gamma",string.Empty,0,4,0,0.7,true),
+            new("Width","px",8,FrameWidth,8,FrameWidth,true),
+            new("Height","px",8,FrameHeight,8,FrameHeight,true)
+        ];
+        public CameraSettings ReadSettings()=>Applied??new(10000,0);
+        public void ApplySettings(CameraSettings settings)=>Applied=settings;
         public void Start(){lock(gate)grabbing=true;}
         public ImageFrame Grab(int timeoutMs)
         {
