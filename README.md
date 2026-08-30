@@ -14,11 +14,15 @@ Model setup is locked until an existing model is selected or Add Model creates a
 
 Save Recipe is dimmed and disabled when the active recipe is clean. Any draft change highlights Save and shows a red “CẦN LƯU” notification. RUN renders waiting states prominently, keeps Stop outlined in red, doubles total/per-end OK/NG text to 40 DIP, and colors recognized text plus result detail green for OK or red for NG/error.
 
-The supplied 26 BMP dataset now passes 26/26 in both the native CLI and the managed WPF Load Image path using a representative ROI and Auto 0°/180°. This is a regression baseline for the supplied images, not a production accuracy/throughput claim. The NAcquire checkout still has only a synthetic backend and placeholder Hikrobot target. Camera hardware, a larger representative dataset, model redistribution terms, throughput and vendor deployment require separate validation.
+The supplied 26 BMP dataset now passes 26/26 in both the native CLI and the managed WPF Load Image path using a representative ROI and Auto 0°/180°. This is a regression baseline for the supplied images, not a production accuracy/throughput claim.
+
+Live acquisition now uses the official Hikrobot MVS .NET SDK directly. On 2026-08-30 the adapter successfully enumerated, opened, configured and acquired three consecutive 4024×3036 frames from a real MV-CE120-10GM (serial `00G29911748`, GigE `169.254.172.4`). Production optics/exposure, long-run reconnect behavior, external trigger sequencing, throughput, target-PC deployment and vendor redistribution terms still require acceptance.
+
+When the main window loads it automatically searches MVS for up to five seconds. During Finding all camera inputs/actions are locked and a prominent progress indicator is shown. NotFound/timeout leaves only Search enabled; Found enables device selection and Connect; Connected disables Connect and enables Disconnect, parameters and Start Acquisition. While Acquiring, the same action becomes a compact rounded-square Stop button with a red border. Live Camera can be expanded into a continuously bound large viewer.
 
 ## Build and run
 
-Prerequisites: Windows, .NET SDK with .NET 8 Windows Desktop targeting pack, Visual Studio C++ tools, CMake, OpenCV SDK and ONNX Runtime SDK.
+Prerequisites: Windows, .NET SDK with .NET 8 Windows Desktop targeting pack, Visual Studio C++ tools, CMake, OpenCV SDK and ONNX Runtime SDK. Live camera builds also require Hikrobot MVS; the project discovers its AnyCpu `MvCameraControl.Net.dll` from the installed MVS SDK or `vendor/camera`.
 
     powershell -ExecutionPolicy Bypass -File scripts/build.ps1
     dotnet run --project src/WireMarkerInspection.Desktop -c Release
@@ -28,7 +32,7 @@ The build script accepts -OpenCvRoot and -OrtRoot; defaults match this developme
 ## Operator workflow
 
 1. SETTING → + Model, or select an existing model from the selector/library. The Add/Edit dialog labels model code and model name, validates required/duplicate values, and Cancel leaves the current draft unchanged. Selecting an existing row loads its images and recipe automatically.
-2. Load Image for each end, or connect the supplied validated camera and start acquisition, then Grab Image.
+2. The app automatically searches for Hikrobot cameras after loading. When Found, select/connect the camera, apply parameters if needed and start acquisition; otherwise use Search to retry. Load Image remains available for offline setup.
 3. Draw **one search ROI per end**. The OCR core detects multiple text regions inside it.
 4. Enter expected text with **one detected region per line**, ordered top-to-bottom, then left-to-right in a row. This is a data format, not two manually drawn OCR ROIs.
 5. Select the required direction per end: Thuận (must detect 0°), Nghịch (must detect 180°), or Auto (do not reject by direction).
@@ -47,7 +51,9 @@ See assets/ocr/README.md and vendor/camera/README.md.
 - assets/ocr/detector.onnx
 - assets/ocr/recognizer.onnx
 - assets/ocr/dictionary.txt
-- vendor/camera/NAcquireCAPI.dll and the validated camera dependencies
+- Hikrobot MVS runtime/driver installed on the workstation
+- vendor/camera/MvCameraControl.Net.dll (optional staging alternative to the installed SDK)
+- vendor/camera/NAcquireCAPI.dll and dependencies only for the retained legacy NAcquire adapter
 
 The currently inspected NAcquire C# example returns frame metadata only; this application's adapter also copies the owned pixel buffer before releasing the native frame. Camera acquisition is opt-in; startup never connects to hardware.
 
@@ -65,8 +71,10 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
     powershell -ExecutionPolicy Bypass -File scripts/test.ps1
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
     powershell -ExecutionPolicy Bypass -File scripts/test-real-images.ps1
+    powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1
+    powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1 -Grab
 
-The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Neither test contacts hardware.
+The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Only `camera-probe.ps1` contacts hardware; `-Grab` opens the first discovered camera, applies ExposureTime 10000/Gain 0, acquires three fresh frames, saves the last PNG and then closes the device.
 
 ## Deployment
 

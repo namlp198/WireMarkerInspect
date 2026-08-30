@@ -8,6 +8,8 @@
 - [x] Model/recipe store with two-end snapshot and exact text rules.
 - [x] C++ OCR core and managed C ABI adapter.
 - [x] NAcquire adapter matching the supplied C header, with simulation labeling.
+- [x] Direct Hikrobot MVS backend for GigE/USB enumeration, open/close, parameters, continuous acquisition and BGR24 frame ownership.
+- [x] Real MV-CE120-10GM hardware probe: enumerate, open, ExposureTime/Gain, three consecutive 4024×3036 frames, stop/close.
 - [x] Software tests and published WPF render verification.
 - [x] Build/publish/installer scripts and first development installer.
 
@@ -27,11 +29,12 @@
 - [x] Replace practical camera/OCR/recipe/runtime text actions with icons and tooltips.
 
 ## Awaiting external inputs / acceptance
-- [ ] Obtain the validated Hikrobot native package and actual C# test.
+- [x] Use the installed official Hikrobot MVS SDK and its C# samples/runtime.
 - [ ] Obtain PaddleOCR detector, recognizer and exact dictionary.
 - [ ] Obtain paired product images, model IDs and exact expected text.
 - [ ] Evaluate and tune actual text detection/recognition and ordering.
-- [ ] Validate live camera, parameters, frame format, trigger sequencing and disconnect handling.
+- [x] Validate live free-run camera, ExposureTime/Gain and frame format on the development workstation.
+- [ ] Validate external trigger sequencing, long-run disconnect/reconnect and production throughput.
 - [ ] Human review of ImageEditor mouse interactions and target DPI/resolution.
 - [ ] Clean target-PC install and production acceptance.
 
@@ -67,3 +70,12 @@ Color/template/print-quality and external PLC trigger integrations are outside t
 - [x] Restore both aspect-fit zoom and centered offset after operator zoom/pan.
 - [x] Update tooltip/accessibility text to describe the Fit reset.
 - [x] Add managed and WPF smoke coverage that distinguishes Fit zoom from 1.0.
+
+## Acquisition state hardening — completed 2026-08-30
+- [x] Auto-search Hikrobot MVS once after the production window loads, with a five-second timeout and visible Finding indicator.
+- [x] Lock camera controls by explicit NotFound, Found, Connected and Acquiring states; after timeout only Search remains enabled.
+- [x] Disable Connect after open; enable Disconnect, parameters and Start Acquisition only after a successful connection.
+- [x] Make Acquisition a two-state action; the Stop state is a rounded square with a red border.
+- [x] Add continuously bound Live Camera Expand using the shared ImageHud.
+- [x] Highlight Finding, Found/Connected, Acquiring and error/timeout messages.
+- [x] Add discovery timeout/retry managed tests and WPF control-state/render assertions.

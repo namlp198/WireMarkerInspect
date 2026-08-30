@@ -18,6 +18,11 @@ public partial class App : System.Windows.Application
             ShutdownMode=ShutdownMode.OnExplicitShutdown;
             RealImageSmoke.Run(e.Args[1],e.Args[2],e.Args[3]);return;
         }
+        if(e.Args.Length is 2 or 3&&e.Args[0]=="--camera-probe")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            CameraProbe.Run(e.Args[1],e.Args.Length==3&&e.Args[2]=="--grab");return;
+        }
         instance=new Mutex(true,"Local\\WireMarkerInspection."+Environment.UserName,out var created);
         if(!created)
         {

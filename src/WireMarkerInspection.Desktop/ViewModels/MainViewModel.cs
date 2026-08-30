@@ -26,11 +26,13 @@ public sealed class RecipeRow(Recipe recipe,FileRecipeStore store)
     public BitmapSource Second=>second??=ImageFiles.Decode(store.LoadReference(Recipe,1),112);
 }
 public sealed record ModelIdentity(string Code,string Name);
+public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring, Error }
 public partial class MainViewModel : ObservableObject
 {
     public FileRecipeStore Store{get;}
     public NativeOcrEngine Ocr{get;}
-    public NAcquireCamera Camera{get;}=new();
+    public ICamera Camera{get;}
+    public bool AutoDiscoverCameraOnLoad{get;}
     public InspectionSession Session{get;}
     public EndEditorViewModel End1{get;}=new(1);
     public EndEditorViewModel End2{get;}=new(2);
@@ -48,6 +50,8 @@ public partial class MainViewModel : ObservableObject
     private Task? acquisitionTask;
     private DateTimeOffset waitingSince;
     private Recipe? runtimeRecipe;
+    private readonly TimeSpan cameraSearchTimeout;
+    private Task<IReadOnlyList<CameraDevice>>? cameraDiscoveryTask;
     [ObservableProperty]private RecipeRow? selectedModel;
     [ObservableProperty]private CameraDevice? selectedCamera;
     [ObservableProperty]private string modelCode="";
@@ -59,6 +63,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private bool runPage;
     [ObservableProperty]private bool cameraConnected;
     [ObservableProperty]private bool acquiring;
+    [ObservableProperty]private bool findingCamera;
+    [ObservableProperty]private CameraUiState cameraState=CameraUiState.Idle;
     [ObservableProperty]private BitmapSource? liveImage;
     [ObservableProperty]private string sourceStatus="OFFLINE";
     [ObservableProperty]private string cameraStatus="Chưa kết nối camera";
@@ -71,6 +77,13 @@ public partial class MainViewModel : ObservableObject
     public bool CanConfigureModel=>CanEdit&&modelSetupActive;
     public bool CanSaveRecipe=>CanConfigureModel&&Dirty;
     public bool CanManageSelectedModel=>CanEdit&&SelectedModel!=null;
+    public bool CanSearchCamera=>CanEdit&&!FindingCamera&&!CameraConnected&&!Acquiring;
+    public bool CanSelectCamera=>CanEdit&&!FindingCamera&&!CameraConnected&&Cameras.Count>0;
+    public bool CanConnectCamera=>CanSelectCamera&&SelectedCamera!=null;
+    public bool CanDisconnectCamera=>CanEdit&&CameraConnected&&!Acquiring;
+    public bool CanToggleAcquisition=>CanEdit&&CameraConnected;
+    public bool CanEditCameraParameters=>CanEdit&&CameraConnected&&!Acquiring;
+    public string AcquisitionActionLabel=>Acquiring?"Stop Acquisition":"Start Acquisition";
     public bool CanCapture=>Running&&!Busy&&Session.State is InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2;
     public bool CanNext=>Running&&!Busy&&Session.State==InspectionState.Completed;
     public string CaptureLabel=>$"Nhận ảnh đầu {Session.NextEnd+1}";
@@ -78,8 +91,12 @@ public partial class MainViewModel : ObservableObject
     public string CycleLabel=>Session.CycleId==Guid.Empty?"—":Session.CycleId.ToString("N")[..12].ToUpperInvariant();
     public string ActiveModel=>runtimeRecipe is null?"CHƯA CHỌN":$"{runtimeRecipe.ModelCode} / v{runtimeRecipe.Revision}";
     public Func<string,bool>? Confirm{get;set;}
-    public MainViewModel(string dataRoot)
+    public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null)
     {
+        Camera=camera??new HikrobotMvsCamera();
+        AutoDiscoverCameraOnLoad=autoDiscoverCameraOnLoad;
+        this.cameraSearchTimeout=cameraSearchTimeout??TimeSpan.FromSeconds(5);
+        if(this.cameraSearchTimeout<=TimeSpan.Zero)throw new ArgumentOutOfRangeException(nameof(cameraSearchTimeout));
         Store=new(dataRoot);Ocr=new(Path.Combine(AppContext.BaseDirectory,"assets","ocr"));
         Session=new(Ocr,new FileResultStore(dataRoot));
         ModelsView=CollectionViewSource.GetDefaultView(Models);
@@ -93,11 +110,22 @@ public partial class MainViewModel : ObservableObject
     partial void OnDirtyChanged(bool value)=>OnPropertyChanged(nameof(CanSaveRecipe));
     partial void OnBusyChanged(bool value)=>RefreshState();
     partial void OnRunningChanged(bool value)=>RefreshState();
+    partial void OnSelectedCameraChanged(CameraDevice? value)=>RefreshCameraState();
+    partial void OnCameraConnectedChanged(bool value)=>RefreshCameraState();
+    partial void OnAcquiringChanged(bool value)=>RefreshCameraState();
+    partial void OnFindingCameraChanged(bool value)=>RefreshCameraState();
     private void RefreshState()
     {
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
         OnPropertyChanged(nameof(CanCapture));OnPropertyChanged(nameof(CanNext));
         OnPropertyChanged(nameof(CaptureLabel));OnPropertyChanged(nameof(CycleLabel));OnPropertyChanged(nameof(ActiveModel));
+        RefreshCameraState();
+    }
+    private void RefreshCameraState()
+    {
+        OnPropertyChanged(nameof(CanSearchCamera));OnPropertyChanged(nameof(CanSelectCamera));OnPropertyChanged(nameof(CanConnectCamera));
+        OnPropertyChanged(nameof(CanDisconnectCamera));OnPropertyChanged(nameof(CanToggleAcquisition));OnPropertyChanged(nameof(CanEditCameraParameters));
+        OnPropertyChanged(nameof(AcquisitionActionLabel));
     }
     partial void OnSelectedModelChanged(RecipeRow? oldValue,RecipeRow? newValue)
     {
@@ -293,19 +321,71 @@ public partial class MainViewModel : ObservableObject
         catch {target.Status="ERROR";RunStatus="ERROR";throw;}
         finally{RefreshState();}
     }
+    public Task InitializeCameraAsync()=>ScanCamerasAsync();
     [RelayCommand]private async Task ScanCamerasAsync()
     {
-        if(!CanEdit||Acquiring)return;
-        await GuardAsync(async()=>{var devices=await Task.Run(Camera.Enumerate);Cameras.Clear();foreach(var d in devices)Cameras.Add(d);SelectedCamera=Cameras.FirstOrDefault();CameraStatus=$"{Cameras.Count} thiết bị. Backend giả lập được đánh dấu trong tên nguồn.";});
+        if(!CanSearchCamera)return;
+        FindingCamera=true;CameraState=CameraUiState.Finding;
+        CameraStatus="ĐANG TÌM CAMERA HIKROBOT...";
+        Message="ACQUISITION · Đang tìm camera qua MVS.";
+        Cameras.Clear();SelectedCamera=null;RefreshCameraState();
+        try
+        {
+            cameraDiscoveryTask??=Task.Run(Camera.Enumerate);
+            _=cameraDiscoveryTask.ContinueWith(task=>{_ = task.Exception;},CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted|TaskContinuationOptions.ExecuteSynchronously,TaskScheduler.Default);
+            var devices=await cameraDiscoveryTask.WaitAsync(cameraSearchTimeout);
+            cameraDiscoveryTask=null;
+            foreach(var device in devices)Cameras.Add(device);
+            SelectedCamera=Cameras.FirstOrDefault();
+            if(Cameras.Count==0)
+            {
+                CameraState=CameraUiState.NotFound;
+                CameraStatus="KHÔNG TÌM THẤY CAMERA";
+                Message="ACQUISITION · Không tìm thấy camera Hikrobot. Kiểm tra nguồn/cáp mạng rồi bấm Tìm camera.";
+            }
+            else
+            {
+                CameraState=CameraUiState.Found;
+                CameraStatus=$"ĐÃ TÌM THẤY {Cameras.Count} CAMERA · SẴN SÀNG KẾT NỐI";
+                Message="ACQUISITION · Đã tìm thấy camera. Chọn thiết bị và bấm Kết nối.";
+            }
+        }
+        catch(TimeoutException)
+        {
+            CameraState=CameraUiState.NotFound;
+            CameraStatus=$"HẾT THỜI GIAN TÌM CAMERA ({cameraSearchTimeout.TotalSeconds:0.#}s)";
+            Message="ACQUISITION · Tìm camera quá thời gian. Chỉ nút Tìm camera được mở để thử lại.";
+        }
+        catch(Exception ex)
+        {
+            cameraDiscoveryTask=null;CameraState=CameraUiState.Error;
+            CameraStatus="LỖI TÌM CAMERA";
+            Message=$"ACQUISITION · {ex.Message}";
+        }
+        finally{FindingCamera=false;RefreshCameraState();}
     }
     [RelayCommand]private async Task ConnectAsync()
     {
-        if(!CanEdit||SelectedCamera==null||Acquiring)return;
-        await GuardAsync(async()=>{await Task.Run(()=>Camera.Open(SelectedCamera));CameraConnected=true;SourceStatus=SelectedCamera.IsSimulation?"SIMULATION":"CAMERA";CameraStatus=SelectedCamera.Name;});
+        if(!CanConnectCamera||SelectedCamera==null)return;
+        var target=SelectedCamera;
+        await GuardAsync(async()=>
+        {
+            await Task.Run(()=>Camera.Open(target));
+            CameraConnected=true;CameraState=CameraUiState.Connected;
+            SourceStatus=target.IsSimulation?"SIMULATION":"CAMERA CONNECTED";
+            CameraStatus=$"ĐÃ KẾT NỐI · {target.Name}";
+            Message="ACQUISITION · Kết nối camera thành công. Có thể chỉnh thông số hoặc Start Acquisition.";
+        });
+        if(!CameraConnected)
+        {
+            CameraState=CameraUiState.Error;CameraStatus="KẾT NỐI CAMERA THẤT BẠI";
+        }
     }
     [RelayCommand]private async Task CameraParametersAsync()
     {
-        if(!CanEdit||!CameraConnected||Acquiring)return;
+        if(!CanEditCameraParameters)return;
+        var applied=false;
         await GuardAsync(()=>Task.Run(()=>
         {
             if(!double.TryParse(Exposure,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var exp)||!double.IsFinite(exp)||exp<=0||
@@ -313,16 +393,19 @@ public partial class MainViewModel : ObservableObject
                 throw new InvalidOperationException("Exposure/Gain không hợp lệ. Dùng dấu chấm thập phân.");
             Camera.SetParameter("ExposureTime",exp.ToString(System.Globalization.CultureInfo.InvariantCulture));
             Camera.SetParameter("Gain",g.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            applied=true;
         }));
+        if(applied)Message="ACQUISITION · Đã áp dụng Exposure và Gain.";
     }
     [RelayCommand]private async Task AcquisitionAsync()
     {
-        if(Busy)return;
+        if(!CanToggleAcquisition)return;
         if(Acquiring){await StopAcquisitionAsync();return;}
-        if(!CameraConnected){Message="Kết nối camera trước.";return;}
         await GuardAsync(async()=>
         {
-            await Task.Run(Camera.Start);acquisition=new();Acquiring=true;
+            await Task.Run(Camera.Start);acquisition=new();Acquiring=true;CameraState=CameraUiState.Acquiring;
+            SourceStatus="CAMERA LIVE";CameraStatus="ĐANG ACQUISITION · CHỜ FRAME";
+            Message="ACQUISITION · Đã bắt đầu nhận ảnh camera.";
             var token=acquisition.Token;
             acquisitionTask=Task.Run(async()=>
             {
@@ -342,7 +425,11 @@ public partial class MainViewModel : ObservableObject
                         var bitmap=ImageFiles.Bitmap(frame);
                         await System.Windows.Application.Current.Dispatcher.InvokeAsync(()=>
                         {
-                            if(!token.IsCancellationRequested){latest=frame;LiveImage=bitmap;CameraStatus=frame.Source;}
+                            if(!token.IsCancellationRequested)
+                            {
+                                latest=frame;LiveImage=bitmap;
+                                CameraStatus=$"ĐANG ACQUISITION · {frame.Width} × {frame.Height}";
+                            }
                         });
                         await Task.Delay(15,token);
                     }
@@ -352,7 +439,8 @@ public partial class MainViewModel : ObservableObject
                 {
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(()=>
                     {
-                        Acquiring=false;latest=null;CameraStatus="Camera error";Message=ex.Message;
+                        Acquiring=false;latest=null;CameraState=CameraUiState.Error;
+                        CameraStatus="LỖI ACQUISITION";Message=$"ACQUISITION · {ex.Message}";
                         if(Running){Session.Stop();Running=false;RunStatus="ERROR";}
                     });
                 }
@@ -365,11 +453,20 @@ public partial class MainViewModel : ObservableObject
         acquisition?.Cancel();
         if(acquisitionTask!=null)await acquisitionTask;
         acquisition?.Dispose();acquisition=null;acquisitionTask=null;Acquiring=false;latest=null;
+        if(CameraConnected)
+        {
+            CameraState=CameraUiState.Connected;SourceStatus="CAMERA CONNECTED";
+            CameraStatus=SelectedCamera==null?"ĐÃ DỪNG ACQUISITION":$"ĐÃ DỪNG ACQUISITION · {SelectedCamera.Name}";
+            Message="ACQUISITION · Đã dừng nhận ảnh. Camera vẫn đang kết nối.";
+        }
     }
     [RelayCommand]private async Task DisconnectAsync()
     {
-        if(Busy)return;
-        StopRun();await StopAcquisitionAsync();await Task.Run(Camera.Close);CameraConnected=false;SourceStatus="OFFLINE";CameraStatus="Đã ngắt camera";
+        if(!CanDisconnectCamera)return;
+        StopRun();await Task.Run(Camera.Close);CameraConnected=false;SourceStatus="OFFLINE";
+        CameraState=Cameras.Count>0?CameraUiState.Found:CameraUiState.NotFound;
+        CameraStatus=Cameras.Count>0?"ĐÃ NGẮT CAMERA · SẴN SÀNG KẾT NỐI LẠI":"ĐÃ NGẮT CAMERA";
+        Message="ACQUISITION · Đã ngắt kết nối camera.";
     }
     public async Task ShutdownAsync(){StopRun();await StopAcquisitionAsync();await Task.Run(()=>{Camera.Dispose();Ocr.Dispose();});}
     private static string? ChooseImage()

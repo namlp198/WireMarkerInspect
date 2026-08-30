@@ -41,25 +41,40 @@
      <StackPanel>
       <TextBlock Text="ACQUISITION" Style="{StaticResource SectionLabel}"/>
       <TextBlock Text="Nguồn ảnh" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-      <controls:ImageHud Caption="LIVE CAMERA · READ ONLY" Height="230" Margin="-6,0,-6,8">
+      <controls:ImageHud x:Name="LiveCameraHud" Caption="LIVE CAMERA · READ ONLY" Height="230" Margin="-6,0,-6,8" CanExpand="True" ExpandRequested="ExpandLiveCamera">
        <controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding LiveImage}"/></controls:ImageHud.Viewer>
       </controls:ImageHud>
       <Border Style="{StaticResource Hud.Container}" HorizontalAlignment="Left" Padding="4" Margin="0,0,0,12"><StackPanel Orientation="Horizontal">
-       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Video}" ToolTip="Start / Stop Acquisition" AutomationProperties.Name="Start or stop acquisition" Command="{Binding AcquisitionCommand}"/>
-       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Search}" ToolTip="Tìm camera" AutomationProperties.Name="Tìm camera" Command="{Binding ScanCamerasCommand}" IsEnabled="{Binding CanEdit}"/>
-       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Connect}" ToolTip="Kết nối camera" AutomationProperties.Name="Kết nối camera" Command="{Binding ConnectCommand}" IsEnabled="{Binding CanEdit}"/>
-       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Disconnect}" ToolTip="Ngắt kết nối camera" AutomationProperties.Name="Ngắt kết nối camera" Command="{Binding DisconnectCommand}"/>
+       <Button x:Name="AcquisitionButton" Style="{StaticResource Acquisition.ToggleButton}" Content="{Binding AcquisitionActionLabel}" ToolTip="{Binding AcquisitionActionLabel}" AutomationProperties.Name="{Binding AcquisitionActionLabel}" Command="{Binding AcquisitionCommand}" IsEnabled="{Binding CanToggleAcquisition}" Margin="0,0,4,0"/>
+       <Button x:Name="ScanCameraButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Search}" ToolTip="Tìm camera" AutomationProperties.Name="Tìm camera" Command="{Binding ScanCamerasCommand}" IsEnabled="{Binding CanSearchCamera}"/>
+       <Button x:Name="ConnectCameraButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Connect}" ToolTip="Kết nối camera" AutomationProperties.Name="Kết nối camera" Command="{Binding ConnectCommand}" IsEnabled="{Binding CanConnectCamera}"/>
+       <Button x:Name="DisconnectCameraButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Disconnect}" ToolTip="Ngắt kết nối camera" AutomationProperties.Name="Ngắt kết nối camera" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnectCamera}"/>
       </StackPanel></Border>
-      <TextBlock Text="NAcquire / Hikrobot" Style="{StaticResource SectionLabel}"/>
-      <ComboBox ItemsSource="{Binding Cameras}" SelectedItem="{Binding SelectedCamera}" DisplayMemberPath="Name" IsEnabled="{Binding CanEdit}" Style="{StaticResource Input.Combo}" Margin="0,0,0,8"/>
-      <TextBlock Text="{Binding CameraStatus}" Style="{StaticResource Caption}" Margin="0,12,0,20"/>
+      <TextBlock Text="HIKROBOT MVS" Style="{StaticResource SectionLabel}"/>
+      <ComboBox x:Name="CameraSelector" ItemsSource="{Binding Cameras}" SelectedItem="{Binding SelectedCamera}" DisplayMemberPath="Name" IsEnabled="{Binding CanSelectCamera}" Style="{StaticResource Input.Combo}" Margin="0,0,0,8"/>
+      <Border x:Name="FindingIndicator" Background="{StaticResource Brush.Background.Selected}" BorderBrush="{StaticResource Brush.Status.Warning}" BorderThickness="1" CornerRadius="{StaticResource Radius.SM}" Padding="8,6" Margin="0,4,0,8" Visibility="{Binding FindingCamera,Converter={StaticResource BoolToVisibility}}">
+       <StackPanel><TextBlock Text="◌  FINDING CAMERA..." Foreground="{StaticResource Brush.Status.Warning}" FontWeight="Bold"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,6,0,0" Foreground="{StaticResource Brush.Status.Warning}"/></StackPanel>
+      </Border>
+      <TextBlock x:Name="CameraStatusText" Text="{Binding CameraStatus}" Margin="0,8,0,20" TextWrapping="Wrap">
+       <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Style.Triggers>
+         <DataTrigger Binding="{Binding CameraState}" Value="Finding"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Warning}"/></DataTrigger>
+         <DataTrigger Binding="{Binding CameraState}" Value="Found"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger>
+         <DataTrigger Binding="{Binding CameraState}" Value="Connected"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger>
+         <DataTrigger Binding="{Binding CameraState}" Value="Acquiring"><Setter Property="Foreground" Value="{StaticResource Brush.Brand.Primary}"/><Setter Property="FontSize" Value="13"/></DataTrigger>
+         <DataTrigger Binding="{Binding CameraState}" Value="NotFound"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger>
+         <DataTrigger Binding="{Binding CameraState}" Value="Error"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger>
+        </Style.Triggers>
+       </Style></TextBlock.Style>
+      </TextBlock>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
       <TextBlock Text="CAMERA PARAMETERS" Style="{StaticResource SectionLabel}"/>
       <TextBlock Text="Exposure (µs)" Style="{StaticResource Caption}" Margin="0,4"/>
-      <TextBox Text="{Binding Exposure,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}" Style="{StaticResource TextEditor}"/>
+      <TextBox x:Name="ExposureTextBox" Text="{Binding Exposure,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditCameraParameters}" Style="{StaticResource TextEditor}"/>
       <TextBlock Text="Gain (dB)" Style="{StaticResource Caption}" Margin="0,12,0,4"/>
-      <TextBox Text="{Binding Gain,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}" Style="{StaticResource TextEditor}"/>
-      <Button Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Áp dụng thông số camera" AutomationProperties.Name="Áp dụng thông số camera" Command="{Binding CameraParametersCommand}" IsEnabled="{Binding CanEdit}" Margin="0,8,0,8"/>
+      <TextBox x:Name="GainTextBox" Text="{Binding Gain,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditCameraParameters}" Style="{StaticResource TextEditor}"/>
+      <Button x:Name="ApplyCameraParametersButton" Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Áp dụng thông số camera" AutomationProperties.Name="Áp dụng thông số camera" Command="{Binding CameraParametersCommand}" IsEnabled="{Binding CanEditCameraParameters}" Margin="0,8,0,8"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
       <TextBlock Text="INSPECTION MODULES" Style="{StaticResource SectionLabel}"/>
       <CheckBox Content="OCR text" IsChecked="True" IsEnabled="False" Margin="0,0,0,10"/>

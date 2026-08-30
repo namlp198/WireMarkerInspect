@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using WireMarkerInspection.Controls;
+using WireMarkerInspection.Application;
 using WireMarkerInspection.Domain;
 using WireMarkerInspection.Desktop.Services;
 using WireMarkerInspection.Desktop.ViewModels;
@@ -18,10 +19,37 @@ internal static class Smoke
         try
         {
             // Each run owns fresh data; re-running release smoke must not collide with its prior recipe.
-            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")));
+            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),autoDiscoverCameraOnLoad:false);
             window=new MainWindow(vm){Width=1920,Height=1080,Title="OFFLINE SMOKE · SYNTHETIC UI FIXTURES"};
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyCameraControls(window,search:true,connect:false,disconnect:false,acquisition:false,parameters:false);
+            if(!window.LiveCameraHud.CanExpand)throw new Exception("Live Camera HUD must expose Expand.");
+            vm.FindingCamera=true;vm.CameraState=CameraUiState.Finding;vm.CameraStatus="ĐANG TÌM CAMERA HIKROBOT...";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:false,connect:false,disconnect:false,acquisition:false,parameters:false);
+            if(window.FindingIndicator.Visibility!=Visibility.Visible)throw new Exception("Camera finding indicator is not visible.");
+            Capture(window,Path.Combine(output,"camera-finding.png"));
+            vm.FindingCamera=false;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:true,connect:false,disconnect:false,acquisition:false,parameters:false);
+            var smokeCamera=new CameraDevice("smoke-camera","Hikrobot smoke device","smoke",false);
+            vm.Cameras.Add(smokeCamera);vm.SelectedCamera=smokeCamera;vm.CameraState=CameraUiState.Found;vm.CameraStatus="ĐÃ TÌM THẤY 1 CAMERA · SẴN SÀNG KẾT NỐI";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:true,connect:true,disconnect:false,acquisition:false,parameters:false);
+            vm.CameraConnected=true;vm.CameraState=CameraUiState.Connected;vm.CameraStatus="ĐÃ KẾT NỐI · Hikrobot smoke device";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:false,connect:false,disconnect:true,acquisition:true,parameters:true);
+            vm.Acquiring=true;vm.CameraState=CameraUiState.Acquiring;vm.CameraStatus="ĐANG ACQUISITION · 4024 × 3036";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:false,connect:false,disconnect:false,acquisition:true,parameters:false);
+            var cameraError=ColorOf((Brush)window.FindResource("Brush.Status.Error"));
+            if(window.AcquisitionButton.Width!=32||ColorOf(window.AcquisitionButton.BorderBrush)!=cameraError||window.AcquisitionButton.BorderThickness.Left<1)
+                throw new Exception("Stop Acquisition state must be a rounded square with a red border.");
+            Capture(window,Path.Combine(output,"camera-acquiring.png"));
+            vm.Acquiring=false;vm.CameraConnected=false;vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
             if(vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("Model setup must be locked before selection or Add Model.");
             VerifyModelControls(window,false,false,false,false);
             var image=Fixture();
@@ -99,7 +127,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -147,6 +175,16 @@ internal static class Smoke
             throw new Exception($"Unsaved notification state is invalid. Expected {notifyVisible}.");
         if(saveEnabled&&ColorOf(window.SaveRecipeButton.Foreground)!=ColorOf((Brush)window.FindResource("Brush.Brand.Secondary")))
             throw new Exception("Pending Save button is not highlighted.");
+    }
+    private static void VerifyCameraControls(MainWindow window,bool search,bool connect,bool disconnect,bool acquisition,bool parameters)
+    {
+        window.UpdateLayout();
+        if(window.ScanCameraButton.IsEnabled!=search||window.ConnectCameraButton.IsEnabled!=connect||
+           window.DisconnectCameraButton.IsEnabled!=disconnect||window.AcquisitionButton.IsEnabled!=acquisition)
+            throw new Exception($"Camera action state is invalid. Expected search/connect/disconnect/acquisition {search}/{connect}/{disconnect}/{acquisition}.");
+        if(window.CameraSelector.IsEnabled!=connect||window.ExposureTextBox.IsEnabled!=parameters||
+           window.GainTextBox.IsEnabled!=parameters||window.ApplyCameraParametersButton.IsEnabled!=parameters)
+            throw new Exception($"Camera selector/parameter state is invalid. Expected {connect}/{parameters}.");
     }
     private static void VerifyRunStatusVisuals(MainWindow window)
     {

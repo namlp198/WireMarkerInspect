@@ -29,8 +29,13 @@ Results include exact recipe, ordered OCR evidence, verdicts and full source PPM
 Deleted recipes are moved out of the catalog but remain recoverable.
 Concurrent multi-process recipe editing is not supported; one application instance per data directory is intended.
 
-## NAcquire integration
-Inspected checkout: NVision/NAcquire at the path supplied by the user, 2026-08-29.
-Its current implementation has a synthetic OpenCV provider, and Hikrobot is only an INTERFACE target. No Hikrobot DLL or actual C# test sample is present beyond wrapper skeletons.
-Adapter matches the C API header, validates version/stride/format, copies pixels before frame release and exposes simulation state.
-Real Hikrobot testing requires the validated native package and its dependencies. No camera is opened during app startup or UI smoke.
+## Camera acquisition
+The Desktop composes `HikrobotMvsCamera` through `ICamera`. It uses the official Hikrobot MVS .NET wrapper and native runtime for GigE/USB enumeration, device lifecycle, continuous acquisition, parameter writes and owned-buffer release. The app copies every frame to packed BGR24 before releasing the SDK buffer. Mono8 and RGB8/BGR8 have direct conversions; Bayer and packed formats use the MVS pixel converter. Frame dimensions, lengths and repeated SDK frame numbers are rejected.
+
+The SDK is initialized lazily on Scan; startup and offline UI smoke never connect to hardware. GigE open applies the SDK-recommended packet size. The current UI deliberately selects continuous mode with trigger off; PLC/external trigger pairing is a later slice.
+
+The production MainWindow invokes camera discovery once from its Loaded event with a five-second UI timeout. The ViewModel exposes explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error states and derived enable rules; it does not reuse the broad model-editing flag for camera controls. A timed-out native enumeration remains tracked so retry can consume its eventual result without starting concurrent SDK calls. Offline smoke disables auto-discovery explicitly.
+
+Hardware validation on 2026-08-30 passed enumerate/open/ExposureTime/Gain/start/three-frame grab/stop/close against MV-CE120-10GM serial `00G29911748`, IP `169.254.172.4`, producing 4024×3036 BGR24 frames.
+
+`NAcquireCamera` remains a legacy implementation of the same interface. Its inspected checkout has a synthetic OpenCV provider and a placeholder Hikrobot target, so it is not composed into the production Desktop.

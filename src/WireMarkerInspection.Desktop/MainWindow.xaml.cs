@@ -1,16 +1,38 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
+using WireMarkerInspection.Controls;
 using WireMarkerInspection.Desktop.ViewModels;
 namespace WireMarkerInspection.Desktop;
 public partial class MainWindow : Window
 {
     private bool closing;
+    private Window? liveCameraWindow;
     public MainViewModel Model{get;}
     public MainWindow(MainViewModel model)
     {
         InitializeComponent();Model=model;DataContext=model;
         model.Confirm=message=>MessageBox.Show(this,message,"Wire Marker Inspection",MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes;
-        Closing+=OnClosing;
+        Loaded+=OnLoaded;Closing+=OnClosing;
+    }
+    private async void OnLoaded(object sender,RoutedEventArgs e)
+    {
+        Loaded-=OnLoaded;
+        if(Model.AutoDiscoverCameraOnLoad)await Model.InitializeCameraAsync();
+    }
+    private void ExpandLiveCamera(object? sender,EventArgs e)
+    {
+        if(liveCameraWindow is {IsVisible:true}){liveCameraWindow.Activate();return;}
+        var viewer=new ImageViewer();
+        viewer.SetBinding(ImageViewer.SourceProperty,new Binding(nameof(MainViewModel.LiveImage)){Source=Model});
+        var hud=new ImageHud{Caption="LIVE CAMERA · EXPANDED",Viewer=viewer,CanExpand=false,Margin=new Thickness(16)};
+        liveCameraWindow=new Window
+        {
+            Title="Live Camera",Width=1280,Height=920,MinWidth=800,MinHeight=600,Owner=this,Content=hud,
+            Background=(System.Windows.Media.Brush)FindResource("Brush.Background.App"),WindowStartupLocation=WindowStartupLocation.CenterOwner
+        };
+        liveCameraWindow.Closed+=(_,_)=>liveCameraWindow=null;
+        liveCameraWindow.Show();
     }
     private void AddModel(object sender,RoutedEventArgs e)
     {

@@ -1,6 +1,15 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- ACQUISITION now has an explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error state machine and auto-searches on production MainWindow Loaded with a five-second timeout.
+- Finding shows a warning progress indicator; timeout/no device disables all acquisition inputs/actions except Search. Found enables selector/Connect; Connected enables Disconnect/parameters/Start and disables Connect; Acquiring changes the same action to a red outlined rounded-square Stop.
+- Live Camera now uses ImageHud Expand and stays bound to current live frames in the large viewer. Important camera states use warning/success/error/brand colors.
+- Managed discovery/timeout/retry and WPF control-state coverage bring the suite to 42/42. Latest camera-state smoke renders `camera-finding.png` and `camera-acquiring.png`.
+- Final verification: Release build 0 warnings/errors; managed 42/42; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-145501`; post-change hardware probe PASS at `artifacts/camera-probe-acquisition-state.json`.
+- Added a direct official Hikrobot MVS `ICamera` backend; Desktop no longer depends on the placeholder NAcquire Hikrobot target for live acquisition.
+- Real hardware passed enumerate/open/ExposureTime=10000/Gain=0/start/three fresh grabs/stop/close on MV-CE120-10GM serial `00G29911748`, GigE `169.254.172.4`; captured BGR24 frames are 4024×3036 with stride 12072.
+- `scripts/camera-probe.ps1` provides repeatable enumerate-only and `-Grab` diagnostics with JSON/PNG evidence.
+- MVS Mono8/RGB8 conversion regression tests are retained in the managed suite.
 - The final HUD navigation button (icon `[1]`) now restores the initial centered Fit view after zoom/pan; it no longer switches to 100%/1:1.
 - Managed and WPF smoke tests verify a 100×50 image in a 300×200 viewport returns to Fit zoom 3.0 rather than zoom 1.0.
 - Latest verification: Release build zero warnings/errors; managed 37/37; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-134015`.
@@ -58,9 +67,9 @@ HUD revision requested by the user:
 - Repeated smoke runs use unique isolated fixture data and assert successful recipe save/reload.
 
 External blockers:
-1. NAcquire/backends/hikrobot currently contains only .gitkeep; the CMake target is INTERFACE. The validated Hikrobot build / C# test mentioned by the user is not in this checkout.
-2. Model redistribution/license approval, broader production image coverage, throughput and target-PC acceptance remain open.
+1. External trigger/PLC semantics, long-run reconnect, production optics/exposure, throughput and clean target-PC acceptance remain open.
+2. Model and Hikrobot runtime redistribution/license approval plus broader production image coverage remain open.
 
 Offline OCR validation now uses locally converted fixed-shape Paddle models. The native CLI and managed WPF Load Image path both pass 26/26 supplied BMPs with Auto orientation and normalized ROI `[0.08, 0.28, 0.92, 0.68]`. Checksums/provenance are in `assets/ocr/README.md`; checked ground truth is in `tests/real-images.expected.json`.
 
-Do not extrapolate the 26/26 regression result to production accuracy. Camera connectivity, throughput, DPI/mouse acceptance and clean-PC installation are not validated.
+Do not extrapolate the 26/26 regression result to production accuracy. Basic continuous camera connectivity is now validated on one development workstation; throughput, long-run resilience, DPI/mouse acceptance and clean-PC installation are not.

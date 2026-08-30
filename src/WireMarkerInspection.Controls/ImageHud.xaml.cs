@@ -42,6 +42,7 @@ public partial class ImageHud : UserControl
         DrawingRail.Visibility=Editor==null?Visibility.Collapsed:Visibility.Visible;
         DrawingRail.IsEnabled=source!=null;
         ExpandPanel.Visibility=CanExpand?Visibility.Visible:Visibility.Collapsed;
+        ExpandPanel.IsEnabled=source!=null;
         PolygonStrip.Visibility=Editor?.IsDrawingPolygon==true?Visibility.Visible:Visibility.Collapsed;
         FinishButton.IsEnabled=Editor?.CanFinishPolygon==true;
         UndoButton.IsEnabled=Editor?.CanUndo==true || Editor?.IsDrawingPolygon==true;

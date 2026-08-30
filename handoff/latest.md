@@ -1,6 +1,16 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Hardened ACQUISITION with explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error states and a five-second auto-discovery timeout launched only from production MainWindow Loaded.
+- Finding has a visible warning/progress indicator. On timeout/no device only Search is enabled; Found enables selector/Connect; successful connection disables Connect and enables Disconnect, parameters and Start. During acquisition only the same red outlined rounded-square Stop action remains available among lifecycle actions.
+- Live Camera now exposes shared-HUD Expand; the expanded non-modal window remains bound to live frames. Camera status text uses warning/success/error/brand colors.
+- Added fake-camera tests for discovery, connection, timeout and retry plus WPF assertions/renders for every enable state. Managed suite is 42/42.
+- Final verification: Release build 0 warnings/errors; managed 42/42; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-145501`; actual MV-CE120-10GM three-frame probe PASS at `artifacts/camera-probe-acquisition-state.json`.
+- Added `HikrobotMvsCamera`, the active Desktop camera backend built on the official installed MVS .NET SDK. It supports GigE/USB discovery, deterministic device IDs, lifecycle, optimal GigE packet size, continuous mode, trigger-off, ExposureTime/Gain, timeout/error diagnostics and safe SDK-buffer release.
+- Frames are normalized to owned packed BGR24. Mono8/RGB8/BGR8 are handled directly; other mono/Bayer/packed formats use the MVS converter. New conversion tests pass.
+- Actual hardware acceptance passed on MV-CE120-10GM serial `00G29911748`, IP `169.254.172.4`: enumerate, open, ExposureTime 10000, Gain 0, start, three consecutive 4024×3036/stride-12072 frames, stop and close.
+- Repeatable evidence: `scripts/camera-probe.ps1 [-Grab]`, `artifacts/camera-probe-final.json`, and its captured PNG. Managed tests are now 40/40; the camera-specific Desktop build is 0 warnings/errors.
+- Final verification after all source changes: Release solution build 0 warnings/errors; managed 40/40; native 1/1; offline WPF smoke PASS at `artifacts/smoke-20260830-142014`.
 - The final HUD navigation button (icon `[1]`) now resets zoom/pan to the initial centered Fit view instead of 100%/1:1. Tooltip and accessibility name were corrected.
 - Managed and WPF smoke coverage explicitly distinguishes Fit zoom 3.0 from zoom 1.0.
 - Save Recipe is now disabled/dim when clean and highlighted when dirty, with one red `● CẦN LƯU` notification that clears after save.
@@ -48,7 +58,7 @@ The implementation preserves the user's corrected interpretation: each end has O
 - artifacts/release-package.log
 - artifacts/test-results/managed.trx
 
-The prior installer remains a development artifact and has not been rebuilt after the OCR acceptance changes. The local app build contains validated development OCR assets but no validated Hikrobot package.
+The prior installer remains a development artifact and has not been rebuilt after the OCR/camera changes. The local build resolves the installed MVS SDK; a clean target still needs MVS runtime/driver validation and redistribution review.
 
 ## Verification actually performed
 scripts/verify-release.ps1 completed with exit 0 after the final source changes.
@@ -67,7 +77,7 @@ Offline OCR acceptance after the prior release verification:
 
 ## Remaining requirements
 The supplied 26 BMP images are now a checked regression set, but they are too small and homogeneous to support a production accuracy or throughput claim. Raw images and ONNX assets remain outside Git.
-NAcquire at the supplied location is a scaffold: backends/hikrobot/.gitkeep; CMake only declares an INTERFACE Hikrobot target. Its .NET code is a wrapper skeleton, not the described tested camera app. The camera adapter has not been run against a vendor binary or camera.
+NAcquire at the supplied location remains a scaffold and is retained only as a legacy adapter. Live Desktop acquisition now uses the official MVS SDK directly and has been run successfully against the development camera. External triggering, disconnect/reconnect soak, production optics and throughput remain unvalidated.
 Actual mouse/touch/DPI acceptance remains for the workstation review. Geometry and native masks were tested programmatically; window layouts were visually inspected.
 External triggers/PLC pairing, automatic retention and Color/Template are deferred.
 Do not ship without checking vendor/model redistribution terms and target-machine native runtimes.

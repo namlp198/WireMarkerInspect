@@ -85,6 +85,44 @@
    <Trigger Property="Text" Value="ERROR"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/><Setter Property="FontSize" Value="32"/></Trigger>
   </Style.Triggers>
  </Style>
+ <Style x:Key="Acquisition.ToggleButton" TargetType="Button">
+  <Setter Property="Height" Value="32"/><Setter Property="MinWidth" Value="154"/><Setter Property="Padding" Value="10,0"/>
+  <Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="{StaticResource Brush.Brand.Primary}"/>
+  <Setter Property="Background" Value="{StaticResource Brush.Background.Selected}"/>
+  <Setter Property="BorderBrush" Value="{StaticResource Brush.Brand.Primary}"/><Setter Property="BorderThickness" Value="1"/>
+  <Setter Property="Tag" Value="{StaticResource Icon.Video}"/>
+  <Setter Property="Template">
+   <Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource Radius.SM}" Padding="{TemplateBinding Padding}">
+     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Path x:Name="Icon" Data="{TemplateBinding Tag}" Width="16" Height="16" Stretch="Uniform"
+            Stroke="{TemplateBinding Foreground}" StrokeThickness="1.5" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+      <TextBlock x:Name="Label" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                 FontWeight="SemiBold" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
+     </StackPanel>
+    </Border>
+    <ControlTemplate.Triggers>
+     <DataTrigger Binding="{Binding Acquiring}" Value="True">
+      <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Status.Error}"/>
+      <Setter TargetName="Root" Property="BorderThickness" Value="1.5"/>
+      <Setter TargetName="Icon" Property="Stroke" Value="{StaticResource Brush.Status.Error}"/>
+      <Setter TargetName="Label" Property="Visibility" Value="Collapsed"/>
+     </DataTrigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.Background.Hover}"/></Trigger>
+     <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.Background.Surface}"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.35"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value>
+  </Setter>
+  <Style.Triggers>
+   <DataTrigger Binding="{Binding Acquiring}" Value="True">
+    <Setter Property="Width" Value="32"/><Setter Property="MinWidth" Value="32"/><Setter Property="Padding" Value="0"/>
+    <Setter Property="Tag" Value="{StaticResource Icon.Stop}"/><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/>
+    <Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Error}"/>
+   </DataTrigger>
+  </Style.Triggers>
+ </Style>
  <Style x:Key="RunStatusLabel" TargetType="TextBlock">
   <Setter Property="FontSize" Value="28"/><Setter Property="FontWeight" Value="Bold"/>
   <Setter Property="Foreground" Value="{StaticResource Brush.Status.Warning}"/>

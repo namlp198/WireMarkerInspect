@@ -10,7 +10,7 @@
    </StackPanel>
   </Border>
   <Border x:Name="ExpandPanel" Style="{DynamicResource Hud.Container}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="{DynamicResource Hud.Inset}" Visibility="Collapsed">
-   <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Expand}" Click="Expand" ToolTip="Phóng lớn ImageEditor" AutomationProperties.Name="Expand image editor"/>
+   <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Expand}" Click="Expand" ToolTip="Phóng lớn ảnh" AutomationProperties.Name="Expand image"/>
   </Border>
   <Border x:Name="DrawingRail" Style="{DynamicResource Overlay.ToolRail}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="{DynamicResource Hud.Inset}" Visibility="Collapsed">
    <StackPanel Margin="{DynamicResource Hud.RailPadding}">
