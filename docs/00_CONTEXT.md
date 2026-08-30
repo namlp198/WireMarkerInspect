@@ -1,6 +1,10 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- Fixed a crash: answering No to `Bỏ thay đổi chưa lưu và mở model đã chọn?` threw an unhandled `ArgumentNullException` from `DataGridItemAutomationPeer`. `OnSelectedModelChanged` wrote the previous selection back while the DataGrid/ComboBox was still inside its own selection change, and that re-entrant write made WPF build an item automation peer for a null item.
+- `RestoreSelection` now defers the write-back to the dispatcher at Background priority and skips it when a newer selection has already superseded the rejected one. The accepted path still loads synchronously.
+- Declining now also reports `Giữ lại thay đổi chưa lưu...` instead of leaving the previous status text.
+- Regression coverage: a managed test asserts the selection is NOT restored synchronously and the draft survives the deferred restore, and the WPF smoke drives the real Model Library DataGrid through decline and accept. Managed suite is 46/46.
 - Grab Image in both SETTING end editors is now a real, state-driven action. `GrabReferenceCommand` has a `CanGrabReference` guard, so the HUD button is disabled unless a model draft/selection is active and acquisition is delivering frames no older than two seconds.
 - The acquisition loop marshals frames through a dispatcher captured when the view model is constructed instead of `Application.Current`, and it refreshes Grab availability whenever a frame arrives or acquisition stops.
 - A grabbed frame is copied per end with a fresh frame id, so the two ends never share a captured buffer, and the grab clears that end's ROI/Applied state like Load Image does.

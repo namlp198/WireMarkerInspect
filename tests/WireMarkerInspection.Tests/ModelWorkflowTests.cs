@@ -109,6 +109,64 @@ public sealed class ModelWorkflowTests:IDisposable
     });
 
     [Fact]
+    public void DecliningToDiscardADraftKeepsItAndRestoresTheSelectionAfterTheSelectionChange()=>DispatcherTestHost.Sta(()=>
+    {
+        SaveOneModel();
+        var questions=0;
+        RecipeRow? selectedWhenAsked=null;
+        var vm=new MainViewModel(root);
+        vm.Confirm=_=>{questions++;selectedWhenAsked=vm.SelectedModel;return false;};
+        try
+        {
+            var row=Assert.Single(vm.Models);
+            vm.NewModelCommand.Execute(new ModelIdentity("M-DRAFT","Unsaved draft"));
+            Assert.True(vm.Dirty);
+            Assert.Null(vm.SelectedModel);
+
+            vm.SelectedModel=row;   // the library DataGrid writes its new selection back
+
+            Assert.Equal(1,questions);
+            Assert.Same(row,selectedWhenAsked);
+            // The originating control is still inside its own selection change here. Restoring the
+            // previous selection synchronously is what crashed the application, so it must not have
+            // happened yet.
+            Assert.Same(row,vm.SelectedModel);
+            Assert.Contains("Giữ lại thay đổi chưa lưu",vm.Message);
+
+            DispatcherTestHost.Pump(()=>vm.SelectedModel==null,TimeSpan.FromSeconds(5),"The declined selection was never restored.");
+
+            Assert.Equal(1,questions);   // restoring must not ask again
+            Assert.Equal("M-DRAFT",vm.ModelCode);
+            Assert.Equal("Unsaved draft",vm.ModelName);
+            Assert.True(vm.Dirty);
+            Assert.True(vm.CanConfigureModel);
+            Assert.False(vm.CanManageSelectedModel);
+        }
+        finally{vm.ShutdownAsync().GetAwaiter().GetResult();}
+    });
+
+    [Fact]
+    public void AcceptingTheDiscardLoadsTheSelectedModelWithoutWaitingForTheDispatcher()=>DispatcherTestHost.Sta(()=>
+    {
+        SaveOneModel();
+        var vm=new MainViewModel(root){Confirm=_=>true};
+        try
+        {
+            var row=Assert.Single(vm.Models);
+            vm.NewModelCommand.Execute(new ModelIdentity("M-DRAFT","Unsaved draft"));
+            Assert.True(vm.Dirty);
+
+            vm.SelectedModel=row;
+
+            Assert.Same(row,vm.SelectedModel);
+            Assert.Equal("M-SAVED",vm.ModelCode);
+            Assert.False(vm.Dirty);
+            Assert.True(vm.CanManageSelectedModel);
+        }
+        finally{vm.ShutdownAsync().GetAwaiter().GetResult();}
+    });
+
+    [Fact]
     public void IdentityValidationRejectsEmptyAndDuplicateCodes()=>DispatcherTestHost.Sta(()=>
     {
         var vm=new MainViewModel(root){Confirm=_=>true};
@@ -123,6 +181,18 @@ public sealed class ModelWorkflowTests:IDisposable
         }
         finally{vm.ShutdownAsync().GetAwaiter().GetResult();}
     });
+
+    private void SaveOneModel()
+    {
+        var author=new MainViewModel(root){Confirm=_=>true};
+        try
+        {
+            author.NewModelCommand.Execute(new ModelIdentity("M-SAVED","Saved model"));
+            ConfigureBothEnds(author);
+            author.SaveRecipeCommand.Execute(null);
+        }
+        finally{author.ShutdownAsync().GetAwaiter().GetResult();}
+    }
 
     private static void ConfigureBothEnds(MainViewModel vm)
     {

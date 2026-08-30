@@ -37,6 +37,13 @@
 - [x] Assert the disabled/enabled/disabled button states and a real grab in the WPF smoke.
 - [ ] Acceptance on the real MV-CE120-10GM: grab a reference image from the actual camera at production optics/exposure.
 
+## Unsaved-draft selection crash — fixed 2026-08-30
+- [x] Reproduce: new unsaved model draft, click another library row, answer No to the discard question.
+- [x] Stop writing the previous selection back inside the originating selection change.
+- [x] Defer the restore to the dispatcher and ignore it when a newer selection already superseded the rejected one.
+- [x] Report the declined change to the operator instead of silently keeping the old status text.
+- [x] Managed regression test that fails against the synchronous restore, plus a real-DataGrid decline/accept check in the WPF smoke.
+
 ## Awaiting external inputs / acceptance
 - [x] Use the installed official Hikrobot MVS SDK and its C# samples/runtime.
 - [ ] Obtain PaddleOCR detector, recognizer and exact dictionary.

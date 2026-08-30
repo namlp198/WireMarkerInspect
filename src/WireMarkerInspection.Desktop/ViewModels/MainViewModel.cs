@@ -149,8 +149,8 @@ public partial class MainViewModel : ObservableObject
         if(loading)return;
         if(Dirty&&Confirm?.Invoke(newValue==null?"Bỏ thay đổi chưa lưu và bỏ chọn model?":"Bỏ thay đổi chưa lưu và mở model đã chọn?")==false)
         {
-            loading=true;try{SelectedModel=oldValue;}finally{loading=false;}
-            OnPropertyChanged(nameof(CanManageSelectedModel));
+            RestoreSelection(oldValue,newValue);
+            Message="Giữ lại thay đổi chưa lưu. Save Recipe hoặc chọn lại model khác.";
             return;
         }
         if(newValue==null)
@@ -162,9 +162,25 @@ public partial class MainViewModel : ObservableObject
         try{Load(newValue.Recipe);SetModelSetupActive(true);}
         catch(Exception ex)
         {
-            loading=true;try{SelectedModel=oldValue;}finally{loading=false;}
-            OnPropertyChanged(nameof(CanManageSelectedModel));Message=ex.Message;
+            RestoreSelection(oldValue,newValue);Message=ex.Message;
         }
+    }
+    /// <summary>
+    /// Puts the selection back after the operator declined the change or the recipe failed to load.
+    /// The originating DataGrid/ComboBox is still inside its own selection change at this point, so
+    /// writing SelectedItem back synchronously re-enters DataGrid selection, which builds a
+    /// DataGridItemAutomationPeer for a null item and crashes the application. Restore afterwards.
+    /// </summary>
+    private void RestoreSelection(RecipeRow? previous,RecipeRow? rejected)
+    {
+        if(dispatcher.HasShutdownStarted||dispatcher.HasShutdownFinished)return;
+        dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,new Action(()=>
+        {
+            // A later selection may already have superseded the rejected one.
+            if(!ReferenceEquals(SelectedModel,rejected))return;
+            loading=true;try{SelectedModel=previous;}finally{loading=false;}
+            OnPropertyChanged(nameof(CanManageSelectedModel));
+        }));
     }
     private void SetModelSetupActive(bool value)
     {

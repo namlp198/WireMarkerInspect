@@ -117,6 +117,7 @@ internal static class Smoke
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(window,Path.Combine(output,"setting-1366.png"));
             VerifyHudLayout(window);
+            await VerifyDeclinedModelSwitch(window,vm);
             var hudEditor=new ImageEditor{Source=image,Roi=vm.End1.Roi?.Copy(),Tool=EditorTool.Rectangle};
             var hud=new ImageHud{Viewer=hudEditor,ShowCaption=false};
             var hudWindow=new Window{Title="HUD CONTROL SMOKE",Width=1100,Height=760,Content=hud,Owner=window};
@@ -129,7 +130,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -171,6 +172,41 @@ internal static class Smoke
         await vm.DisconnectCommand.ExecuteAsync(null);
         vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
         vm.End1.Clear();
+    }
+    /// <summary>
+    /// Declining the unsaved-draft question used to write the previous selection back while the
+    /// DataGrid was still inside its own selection change, which threw on a null item automation peer.
+    /// This drives the real library grid and checks the draft survives and both selections agree.
+    /// </summary>
+    private static async Task VerifyDeclinedModelSwitch(MainWindow window,MainViewModel vm)
+    {
+        var saved=vm.SelectedModel??throw new Exception("A saved model must be selected before the discard check.");
+        var confirm=vm.Confirm;
+        try
+        {
+            vm.Confirm=_=>false;
+            vm.NewModelCommand.Execute(new ModelIdentity("UI-DRAFT","Unsaved draft"));
+            if(!vm.Dirty||vm.SelectedModel!=null)throw new Exception("A new draft must be dirty and clear the selection.");
+            window.ModelLibraryGrid.SelectedItem=saved;   // the operator clicks another library row
+            if(!ReferenceEquals(vm.SelectedModel,saved))
+                throw new Exception("A declined selection must not be reverted inside the selection change.");
+            var deadline=DateTime.UtcNow.AddSeconds(5);
+            while(vm.SelectedModel!=null)
+            {
+                if(DateTime.UtcNow>deadline)throw new Exception("The declined selection was never restored.");
+                await Dispatcher.Yield(DispatcherPriority.Background);
+            }
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            window.UpdateLayout();
+            if(window.ModelLibraryGrid.SelectedItem!=null)throw new Exception("The library grid still shows the declined selection.");
+            if(!vm.Dirty||vm.ModelCode!="UI-DRAFT"||!vm.CanConfigureModel)
+                throw new Exception("Declining the discard must keep the unsaved draft.");
+            vm.Confirm=_=>true;
+            window.ModelLibraryGrid.SelectedItem=saved;   // accepting must load the saved model again
+            if(!ReferenceEquals(vm.SelectedModel,saved)||vm.Dirty)
+                throw new Exception("Accepting the discard must load the selected model.");
+        }
+        finally{vm.Confirm=confirm;}
     }
     private static void Capture(FrameworkElement element,string path)
     {

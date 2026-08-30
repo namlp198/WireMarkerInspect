@@ -1,6 +1,12 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Fixed the crash reported when declining the unsaved-draft question: creating a new model, leaving it unsaved, selecting another library row and answering No threw an unhandled `System.ArgumentNullException` from `DataGridItemAutomationPeer` and killed the application.
+- Cause: `OnSelectedModelChanged` restored the previous selection synchronously, so `SelectedItem` was written back while the DataGrid/ComboBox was still processing the selection change. The nested change made WPF construct an item automation peer for a null item.
+- Fix: `RestoreSelection` posts the write-back to the dispatcher at Background priority, after the originating change has completed, and skips it when a newer selection has already superseded the rejected one. The accepted path still loads the recipe synchronously.
+- Declining now sets `Giữ lại thay đổi chưa lưu. Save Recipe hoặc chọn lại model khác.` so the operator sees why the selection snapped back.
+- Regression coverage: `DecliningToDiscardADraftKeepsItAndRestoresTheSelectionAfterTheSelectionChange` asserts no synchronous write-back and an intact draft — it fails against the old code — plus `AcceptingTheDiscardLoadsTheSelectedModelWithoutWaitingForTheDispatcher`, and a WPF smoke check that drives the real Model Library DataGrid through decline and accept.
+- Test helpers were consolidated into `DispatcherTestHost` (STA thread plus dispatcher pumping) and shared by the model, camera, grab and control test files.
 - Verification: Release build 0 warnings/errors; managed 46/46; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-160520`.
 - Grab Image in both SETTING end editors now works as a state-driven action instead of an always-enabled button that could only report an error into the main status line.
 - `GrabReferenceCommand` gained a `CanGrabReference` guard (`CanConfigureModel` + acquisition running + a live frame at most two seconds old), so the HUD button is genuinely disabled when a grab is impossible and enables as soon as frames arrive. The tooltip now says the action needs Start Acquisition.
@@ -8,7 +14,6 @@
 - A grab stores a per-end copy of the buffer with a fresh frame id, clears that end's ROI/Applied state exactly like Load Image, and reports the source and frame size.
 - New `GrabReferenceTests` drive the real acquisition loop with a fake camera on a pumped STA dispatcher: availability transitions, a blocked grab that explains itself, independent per-end buffers and captured references surviving Stop.
 - The offline WPF smoke now drives a synthetic camera through connect/start/grab/stop and asserts the Grab buttons are disabled, then enabled, then disabled again, with the grabbed frame stored in end 1.
-- Test helpers were consolidated into `DispatcherTestHost` (STA thread plus dispatcher pumping) and shared by the model, camera, grab and control test files.
 - Verification: Release build 0 warnings/errors; managed 44/44; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-154507`.
 - Not yet accepted: grabbing a reference image from the real MV-CE120-10GM. Only the synthetic/fake camera paths have been exercised for this feature.
 - Hardened ACQUISITION with explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error states and a five-second auto-discovery timeout launched only from production MainWindow Loaded.
