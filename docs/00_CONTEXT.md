@@ -1,9 +1,27 @@
 # Current project context — 2026-08-29
 
+Session update — 2026-08-30:
+- The final HUD navigation button (icon `[1]`) now restores the initial centered Fit view after zoom/pan; it no longer switches to 100%/1:1.
+- Managed and WPF smoke tests verify a 100×50 image in a 300×200 viewport returns to Fit zoom 3.0 rather than zoom 1.0.
+- Latest verification: Release build zero warnings/errors; managed 37/37; native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-134015`.
+- Save is dim/disabled when clean; dirty state highlights the icon and shows one red `● CẦN LƯU` notification beside it.
+- RUN waiting state is prominent warning yellow and Stop has a red outline.
+- Total/per-end OK/NG are 40 DIP; actual text and result detail are green on OK, red on NG/error.
+- WPF smoke asserts the exact enabled/visibility/brush/font-size states and renders dirty, clean, waiting and mixed OK/NG screenshots.
+- Verdict now requires both ordinal exact text and the configured per-end direction: Thuận=0°, Nghịch=180°; Auto explicitly accepts either.
+- Native OCR is always invoked in 0°/180° evaluation mode so reported Rotation is observed rather than forced by the recipe. Expected text is never used to choose orientation.
+- Wrong direction produces NG even when every recognized character matches; the RUN detail reports expected versus actual rotation.
+- Orientation coverage includes the same-text/different-direction product scenario and the 26-image native + managed Load Image regression.
+- Add/Edit Model now shows visible labels for the model-code and model-name inputs.
+- Model Library rows render expected text below each end thumbnail.
+- Selecting a model from the ComboBox or library row immediately loads both saved references and recipe fields into SETTING.
+- With no selection/draft, both end editors and their actions plus Save Recipe are disabled. Add Model opens a new active draft; Edit/Delete require a saved selection.
+- Release build completed with zero warnings/errors; 28 managed tests and native 1/1 passed; offline WPF smoke passed at 1920×1080 and 1366×900.
+
 The user approved implementation after confirming:
 - one camera captures two ends sequentially;
 - one search ROI per end, with automatic OCR text-region detection inside;
-- exact text including punctuation/case/order, independent expected values per end;
+- exact text including punctuation/case/order plus required 0°/180° direction, independent per end;
 - C++ core called natively by .NET/C#;
 - separate read-only zoom/pan ImageViewer and editable ImageEditor.
 
@@ -30,7 +48,7 @@ Latest compact UI revision requested by the user:
 - Camera and Model Library columns are 400 DIP; center editors are intentionally narrower.
 - Model selection is one row: ComboBox + icon-only Add/Edit/Delete. Add/Edit uses a model details dialog; Save Recipe is the Model Library header icon.
 - Recipe ImageEditor hides caption and removed helper labels. Expand remains inside the image HUD.
-- HUD button/icon sizes are 32/16 DIP, alpha reduced to 53%; navigation contains Zoom out, Zoom in and 100% only.
+- HUD button/icon sizes are 32/16 DIP, alpha reduced to 53%; navigation contains Zoom out, Zoom in and reset-to-initial-Fit only.
 - Camera, OCR asset, recipe and RUN actions use icons with tooltips/accessibility names where practical.
 HUD revision requested by the user:
 - DESIGN_SYSTEM.md explicitly mandates image-centric HUD and forbids external text-button geometry/zoom toolbars.

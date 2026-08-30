@@ -33,8 +33,13 @@ internal static class RealImageSmoke
                     new(r[0]*frame.Width,r[1]*frame.Height),
                     new(r[2]*frame.Width,r[3]*frame.Height)
                 ]);
-                var recipe=new EndRecipe(test.File,frame.Width,frame.Height,roi,test.Regions,
-                    (TextOrientation)manifest.Orientation);
+                var requiredOrientation=test.Rotation switch
+                {
+                    0=>TextOrientation.Degrees0,
+                    180=>TextOrientation.Degrees180,
+                    _=>throw new InvalidDataException($"Unsupported expected rotation {test.Rotation}° for {test.File}.")
+                };
+                var recipe=new EndRecipe(test.File,frame.Width,frame.Height,roi,test.Regions,requiredOrientation);
                 var reading=await ocr.ReadAsync(frame,recipe,CancellationToken.None);
                 var comparison=ExactTextComparer.Compare(frame,recipe,reading);
                 var ok=comparison.Verdict==Verdict.Ok&&reading.Rotation==test.Rotation;

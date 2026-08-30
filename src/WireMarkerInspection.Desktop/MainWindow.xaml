@@ -75,11 +75,11 @@
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <ComboBox ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" DisplayMemberPath="Code" Style="{StaticResource Input.Combo}" ToolTip="Chọn model" Margin="0,0,6,0"/>
       <Button Grid.Column="1" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Plus}" ToolTip="Add Model" AutomationProperties.Name="Add Model" Click="AddModel"/>
-      <Button Grid.Column="2" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Edit}" ToolTip="Edit Model" AutomationProperties.Name="Edit Model" Click="EditModel"/>
-      <Button Grid.Column="3" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Delete}" ToolTip="Delete Model" AutomationProperties.Name="Delete Model" Command="{Binding DeleteModelCommand}"/>
+      <Button x:Name="EditModelButton" Grid.Column="2" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Edit}" ToolTip="Edit Model" AutomationProperties.Name="Edit Model" Click="EditModel" IsEnabled="{Binding CanManageSelectedModel}"/>
+      <Button x:Name="DeleteModelButton" Grid.Column="3" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Delete}" ToolTip="Delete Model" AutomationProperties.Name="Delete Model" Command="{Binding DeleteModelCommand}" IsEnabled="{Binding CanManageSelectedModel}"/>
      </Grid>
     </Border>
-    <Grid Grid.Row="2" IsEnabled="{Binding CanEdit}">
+    <Grid x:Name="ModelSetupEditors" Grid.Row="2" IsEnabled="{Binding CanConfigureModel}">
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
      <views:EndEditorView DataContext="{Binding End1}" Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Window}}"/>
      <views:EndEditorView Grid.Column="2" DataContext="{Binding End2}" Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Window}}"/>
@@ -88,15 +88,15 @@
    <Border Grid.Column="4" Style="{StaticResource Panel}">
     <DockPanel>
      <StackPanel DockPanel.Dock="Top">
-      <DockPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><TextBlock Text="{Binding ModelCount}" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0,0,6,8"/><Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Save}" ToolTip="Save Recipe" AutomationProperties.Name="Save Recipe" Command="{Binding SaveRecipeCommand}" IsEnabled="{Binding CanEdit}" Margin="0,0,0,4"/></StackPanel><TextBlock Text="MODEL LIBRARY" Style="{StaticResource SectionLabel}"/></DockPanel>
+      <DockPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><TextBlock Text="{Binding ModelCount}" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0,0,8,8"/><TextBlock x:Name="UnsavedNotification" Text="● CẦN LƯU" Foreground="{StaticResource Brush.Status.Error}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,8" Visibility="{Binding Dirty,Converter={StaticResource BoolToVisibility}}"/><Button x:Name="SaveRecipeButton" Tag="{StaticResource Icon.Save}" ToolTip="Save Recipe" AutomationProperties.Name="Save Recipe" Command="{Binding SaveRecipeCommand}" IsEnabled="{Binding CanSaveRecipe}" Margin="0,0,0,4"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolRail.Button}"><Style.Triggers><DataTrigger Binding="{Binding Dirty}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Brand.Secondary}"/><Setter Property="Background" Value="{StaticResource Brush.Background.Selected}"/></DataTrigger></Style.Triggers></Style></Button.Style></Button></StackPanel><TextBlock Text="MODEL LIBRARY" Style="{StaticResource SectionLabel}"/></DockPanel>
       <TextBox Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="Tìm mã hoặc tên model" Margin="0,4,0,12"/>
      </StackPanel>
      <DataGrid ItemsSource="{Binding ModelsView}" SelectedItem="{Binding SelectedModel}" IsReadOnly="True" AutoGenerateColumns="False"
-      EnableRowVirtualization="True" RowHeight="78" IsEnabled="{Binding CanEdit}">
+      EnableRowVirtualization="True" RowHeight="116" IsEnabled="{Binding CanEdit}">
       <DataGrid.Columns>
        <DataGridTemplateColumn Header="MODEL" Width="95"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding Code}" FontWeight="SemiBold"/><TextBlock Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Revision}" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-       <DataGridTemplateColumn Header="OCR · ĐẦU 1" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Image Source="{Binding First}" Stretch="Uniform" Margin="4"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-       <DataGridTemplateColumn Header="OCR · ĐẦU 2" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Image Source="{Binding Second}" Stretch="Uniform" Margin="4"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+       <DataGridTemplateColumn Header="OCR · ĐẦU 1" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="4"><Image Source="{Binding First}" Stretch="Uniform" Height="58"/><TextBlock Text="{Binding FirstExpected}" FontFamily="{StaticResource Font.Monospace}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" MaxHeight="34" ToolTip="{Binding FirstExpected}" Margin="0,3,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+       <DataGridTemplateColumn Header="OCR · ĐẦU 2" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="4"><Image Source="{Binding Second}" Stretch="Uniform" Height="58"/><TextBlock Text="{Binding SecondExpected}" FontFamily="{StaticResource Font.Monospace}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" MaxHeight="34" ToolTip="{Binding SecondExpected}" Margin="0,3,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
       </DataGrid.Columns>
      </DataGrid>
     </DockPanel>
@@ -110,23 +110,22 @@
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="Load ảnh offline" AutomationProperties.Name="Load runtime image" Command="{Binding LoadRuntimeCommand}" IsEnabled="{Binding CanCapture}"/>
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{Binding CaptureLabel}" AutomationProperties.Name="Capture runtime image" Command="{Binding CaptureRuntimeCommand}" IsEnabled="{Binding CanCapture}"/>
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.ArrowRight}" ToolTip="Sản phẩm tiếp" AutomationProperties.Name="Sản phẩm tiếp" Command="{Binding NextProductCommand}" IsEnabled="{Binding CanNext}"/>
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Stop}" ToolTip="Stop" AutomationProperties.Name="Stop runtime" Command="{Binding StopRunCommand}" IsEnabled="{Binding Running}"/>
+      <Button x:Name="StopRuntimeButton" Style="{StaticResource ToolRail.DangerButton}" Tag="{StaticResource Icon.Stop}" ToolTip="Stop" AutomationProperties.Name="Stop runtime" Command="{Binding StopRunCommand}" IsEnabled="{Binding Running}"/>
      </StackPanel></Border>
      <StackPanel Orientation="Horizontal">
-      <TextBlock Text="{Binding RunStatus}" Style="{StaticResource VerdictLabel}" VerticalAlignment="Center" Margin="0,0,24,0"/>
+      <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Style="{StaticResource RunStatusLabel}" VerticalAlignment="Center" Margin="0,0,24,0"/>
       <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding ActiveModel}" FontWeight="Bold"/><TextBlock Text="{Binding CycleLabel}" Style="{StaticResource Caption}"/></StackPanel>
      </StackPanel>
     </DockPanel>
    </Border>
    <Grid Grid.Row="1">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <views:EndResultView DataContext="{Binding Result1}"/>
-    <views:EndResultView Grid.Column="2" DataContext="{Binding Result2}"/>
+    <views:EndResultView x:Name="FirstEndResult" DataContext="{Binding Result1}"/>
+    <views:EndResultView x:Name="SecondEndResult" Grid.Column="2" DataContext="{Binding Result2}"/>
    </Grid>
   </Grid>
   <Border Grid.Row="3" Padding="4,10,4,0">
    <DockPanel>
-    <TextBlock DockPanel.Dock="Right" Text="● UNSAVED" Foreground="{StaticResource Brush.Status.Warning}" Margin="16,0,0,0" Visibility="{Binding Dirty,Converter={StaticResource BoolToVisibility}}"/>
     <TextBlock Text="{Binding Message}" Style="{StaticResource StatusMessage.Attention}" MaxHeight="52"/>
    </DockPanel>
   </Border>

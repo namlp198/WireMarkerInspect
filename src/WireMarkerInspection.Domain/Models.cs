@@ -124,8 +124,26 @@ public static class ExactTextComparer
             while (at < Math.Min(expected.Length, actual.Length) && expected[at] == actual[at]) at++;
             differences.Add(new(i + 1, expected, actual, at));
         }
-        var ok = differences.Count == 0 && reading.Regions.Length > 0;
+        var requiredRotation = recipe.Orientation switch
+        {
+            TextOrientation.Degrees0 => 0,
+            TextOrientation.Degrees180 => 180,
+            TextOrientation.Auto => (int?)null,
+            _ => throw new ArgumentOutOfRangeException(nameof(recipe), "Unsupported text orientation.")
+        };
+        var validRotation = reading.Rotation is 0 or 180;
+        var rotationMatches = validRotation && (requiredRotation==null||reading.Rotation==requiredRotation);
+        var textMatches = differences.Count==0&&reading.Regions.Length>0;
+        var ok = textMatches&&rotationMatches;
+        var orientationReason = requiredRotation==null
+            ? $"Detected rotation must be 0° or 180°; actual {reading.Rotation}°"
+            : $"Text orientation does not match: expected {requiredRotation}°, actual {reading.Rotation}°";
+        var reason = ok ? "Exact text and orientation match" :
+            reading.Regions.Length==0 ? "No text detected" :
+            !textMatches&&!rotationMatches ? $"Text/region count and orientation do not match; {orientationReason}" :
+            !textMatches ? "Text or region count does not match" :
+            orientationReason;
         return new(frame.Id, ok ? Verdict.Ok : Verdict.Ng, reading, [.. differences],
-            ok ? "Exact match" : reading.Regions.Length == 0 ? "No text detected" : "Text or region count does not match");
+            reason);
     }
 }

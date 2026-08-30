@@ -2,11 +2,17 @@
 
 Windows x64 inspection application: WPF/.NET 8 UI, reusable image controls, C++/OpenCV/ONNX Runtime core.
 
-## Current status — 2026-08-29
+## Current status — 2026-08-30
 
 Implemented: SETTING/RUN screens, independent ImageViewer and ImageEditor controls, recipe persistence, exact comparison, two-capture session, native OCR interface/pipeline, offline Load Image validation, NAcquire C API adapter, tests and deployment scripts.
 
+Each end now evaluates two independent conditions: ordinal exact text and configured text direction. Thuận requires detected 0°, Nghịch requires detected 180°; Auto explicitly accepts either direction. OCR always evaluates both directions without using expected text to choose a result.
+
 UI style is **RoboStation / Geo Measure HUD**: a metallic chevron SETTING/RUN taskbar, shared low-alpha floating toolbars, compact vector icons, a left ROI tool rail and bottom-right navigation. The mandatory specification is docs/design/DESIGN_SYSTEM.md. Live Camera now sits in the acquisition column to leave more room for the two editors.
+
+Model setup is locked until an existing model is selected or Add Model creates a new draft. Selecting either the ComboBox item or a Model Library row immediately loads both reference images and recipe fields. Library rows show the expected text below each end thumbnail; the Add/Edit dialog labels its model-code and model-name inputs.
+
+Save Recipe is dimmed and disabled when the active recipe is clean. Any draft change highlights Save and shows a red “CẦN LƯU” notification. RUN renders waiting states prominently, keeps Stop outlined in red, doubles total/per-end OK/NG text to 40 DIP, and colors recognized text plus result detail green for OK or red for NG/error.
 
 The supplied 26 BMP dataset now passes 26/26 in both the native CLI and the managed WPF Load Image path using a representative ROI and Auto 0°/180°. This is a regression baseline for the supplied images, not a production accuracy/throughput claim. The NAcquire checkout still has only a synthetic backend and placeholder Hikrobot target. Camera hardware, a larger representative dataset, model redistribution terms, throughput and vendor deployment require separate validation.
 
@@ -21,18 +27,18 @@ The build script accepts -OpenCvRoot and -OrtRoot; defaults match this developme
 
 ## Operator workflow
 
-1. SETTING → + Model. Enter a unique model code and name, then confirm. The dialog validates required/duplicate values and Cancel leaves the current draft unchanged.
+1. SETTING → + Model, or select an existing model from the selector/library. The Add/Edit dialog labels model code and model name, validates required/duplicate values, and Cancel leaves the current draft unchanged. Selecting an existing row loads its images and recipe automatically.
 2. Load Image for each end, or connect the supplied validated camera and start acquisition, then Grab Image.
 3. Draw **one search ROI per end**. The OCR core detects multiple text regions inside it.
 4. Enter expected text with **one detected region per line**, ordered top-to-bottom, then left-to-right in a row. This is a data format, not two manually drawn OCR ROIs.
-5. Select fixed 0°, fixed 180°, or Auto reading orientation. Fixed is preferred when fixture orientation is known.
+5. Select the required direction per end: Thuận (must detect 0°), Nghịch (must detect 180°), or Auto (do not reject by direction).
 6. Apply each end; the Save icon in the Model Library header publishes both ends as one revision. The saved row is selected and reloaded immediately. Edit Model updates the same identity and increments its revision.
 7. RUN uses a frozen saved recipe. Load the first offline image or capture a fresh camera frame, then the second end of the same product.
-8. Both ends must exactly match. Stop cancels the current cycle. Sản phẩm tiếp begins a fresh cycle.
+8. Both ends must match exact text and their configured direction. Stop cancels the current cycle. Sản phẩm tiếp begins a fresh cycle.
 
-The current wire-marker OCR alphabet is alphanumeric plus `.` and `/`; layout whitespace is removed and the recognizer's `:`/`,` dot confusions are mapped to `.` before comparison. Case and field order are preserved. The domain comparison remains ordinal and exact: no similarity threshold, cross-end repair, O/0 substitution, or target-conditioned selection is used.
+The current wire-marker OCR alphabet is alphanumeric plus `.` and `/`; layout whitespace is removed and the recognizer's `:`/`,` dot confusions are mapped to `.` before comparison. Case and field order are preserved. The domain comparison remains ordinal and exact, then independently checks detected 0°/180° against the per-end recipe. No similarity threshold, cross-end repair, O/0 substitution, or target-conditioned orientation selection is used.
 
-ImageViewer supports wheel zoom, drag pan, Fit and 1:1. ImageEditor adds rectangle/circle/polygon, handle editing, move, delete, undo/redo. Polygon: Enter/Finish, Backspace/remove point, Escape/cancel. Space+drag temporarily pans. Expand opens the same recipe editor larger.
+ImageViewer supports wheel zoom, drag pan and a HUD reset that restores the initial aspect-preserving Fit view and centered offset. ImageEditor adds rectangle/circle/polygon, handle editing, move, delete, undo/redo. Polygon: Enter/Finish, Backspace/remove point, Escape/cancel. Space+drag temporarily pans. Expand opens the same recipe editor larger.
 
 ## Runtime assets
 

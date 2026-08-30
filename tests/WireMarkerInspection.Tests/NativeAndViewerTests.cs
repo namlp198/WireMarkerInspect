@@ -92,6 +92,21 @@ public class NativeAndViewerTests
         replacement.Tool=EditorTool.Polygon;
         Assert.True(((ToggleButton)hud.FindName("PolygonButton")).IsChecked);
     });
+    [Fact]public void HudResetButtonRestoresInitialFitInsteadOfOneToOne()=>Sta(()=>
+    {
+        var viewer=new ImageViewer();
+        viewer.Measure(new(300,200));viewer.Arrange(new(0,0,300,200));
+        var bitmap=BitmapSource.Create(100,50,96,96,PixelFormats.Bgr24,null,new byte[15000],300);bitmap.Freeze();
+        viewer.Source=bitmap;
+        var fittedZoom=viewer.Zoom;
+        Assert.Equal(3,fittedZoom,8);
+        Assert.NotEqual(1,fittedZoom);
+        viewer.ZoomBy(2);
+        Assert.NotEqual(fittedZoom,viewer.Zoom);
+        var hud=new ImageHud{Viewer=viewer};
+        ((Button)hud.FindName("ResetViewButton")).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Assert.Equal(fittedZoom,viewer.Zoom,8);
+    });
     [Fact]public void ChevronButtonTailModeIsExplicitAndDefaultsToNotched()=>Sta(()=>
     {
         var button=new ChevronButton();

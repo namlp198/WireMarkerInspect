@@ -40,8 +40,10 @@ public sealed class NativeOcrEngine(string modelDirectory) : IOcrEngine, IDispos
                     if(handle==IntPtr.Zero) throw new InvalidOperationException(detail ?? "OCR engine initialization failed.");
                 }
                 var xy=recipe.Roi.Points.SelectMany(p=>new[]{p.X,p.Y}).ToArray();
+                // Always evaluate both directions so Rotation describes the observed text direction.
+                // The recipe's fixed 0°/180° value is an acceptance rule applied by ExactTextComparer.
                 var payload=Take(Native.wmi_inspect(handle,frame.Bgr,frame.Width,frame.Height,frame.Stride,
-                    (int)recipe.Roi.Shape,xy,recipe.Roi.Points.Length,(int)recipe.Orientation)) ?? throw new InvalidDataException("Empty native response.");
+                    (int)recipe.Roi.Shape,xy,recipe.Roi.Points.Length,(int)TextOrientation.Auto)) ?? throw new InvalidDataException("Empty native response.");
                 cancellationToken.ThrowIfCancellationRequested();
                 using var doc=JsonDocument.Parse(payload);
                 if(doc.RootElement.TryGetProperty("error",out var failure)) throw new InvalidOperationException(failure.GetString());

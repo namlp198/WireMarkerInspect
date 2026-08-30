@@ -4,7 +4,7 @@ Read README.md, docs/00_CONTEXT.md, tasks/active.md, handoff/latest.md and docs/
 The user approved the implementation plan on 2026-08-29.
 Windows x64, WPF/.NET 8, MVVM; processing core is C++ through a C ABI.
 One camera captures two ends. Each end has one search ROI containing automatically detected ordered text regions.
-Exact text comparison includes punctuation, case and order. Never repair text from expected text or the other end.
+OK requires exact text (punctuation, case and order) plus the configured per-end 0°/180° text direction. Never repair or choose OCR output from expected text or the other end.
 Color/template classification and print-quality inspection are out of scope.
 Use shared design tokens; ImageViewer is read-only, ImageEditor adds geometry editing, recipe logic stays outside controls.
 HUD style is mandatory: wrap image surfaces in ImageHud; follow RoboStation Geo Measure tool rail/overlay/icon styles. Never restore external text-button geometry or zoom toolbars. DESIGN_SYSTEM.md governs this requirement.

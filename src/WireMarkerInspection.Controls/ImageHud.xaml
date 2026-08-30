@@ -36,7 +36,7 @@
    <StackPanel x:Name="NavigationButtons" Orientation="Horizontal">
     <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ZoomOut}" Click="ZoomOut" ToolTip="Thu nhỏ · cuộn chuột" AutomationProperties.Name="Zoom out"/>
     <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ZoomIn}" Click="ZoomIn" ToolTip="Phóng to · cuộn chuột" AutomationProperties.Name="Zoom in"/>
-    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ActualSize}" Click="ActualSize" ToolTip="100% · một pixel ảnh bằng một DIP" AutomationProperties.Name="Actual image size"/>
+    <Button x:Name="ResetViewButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ActualSize}" Click="ResetView" ToolTip="Về khung mặc định khi load ảnh · Fit" AutomationProperties.Name="Reset image to default fit"/>
    </StackPanel>
   </Border>
  </Grid>

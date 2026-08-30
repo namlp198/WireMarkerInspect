@@ -24,7 +24,7 @@ Chỉ thích ứng ngôn ngữ giao diện và control; không mang bản đồ,
 |---|---|
 | Canvas ảnh | Chiếm toàn bộ vùng control, giữ tỉ lệ, Fit có letterbox; HUD không chiếm một hàng/cột layout của ảnh |
 | Rail ImageEditor | Dọc, phía trái, căn giữa; Select, Rectangle, Circle, Polygon, Pan; separator; Undo, Redo, Delete |
-| Toolbar điều hướng | Ngang, góc phải dưới; chỉ Zoom out, Zoom in và 100% |
+| Toolbar điều hướng | Ngang, góc phải dưới; chỉ Zoom out, Zoom in và Reset về Fit mặc định lúc load ảnh |
 | Caption | Chỉ dùng khi màn hình cần metadata; ImageEditor recipe không hiện caption |
 | Expand | Icon nổi ở góc phải trên của editor; mở lại cùng recipe trong cửa sổ lớn |
 | Polygon | Thanh nổi cạnh rail khi có điểm đang vẽ: Finish, Undo point, Cancel; Finish chỉ bật từ 3 điểm |
@@ -64,6 +64,10 @@ Dùng chung geometry icon của RoboStation. Các icon bổ sung Select, Pan, Re
 - Mỗi icon phải có tooltip mô tả / phím tắt và tên accessibility.
 - Trạng thái cập nhật khi click icon, dùng phím tắt, commit, undo/redo hoặc thay ảnh. Không để nút Polygon vẫn xanh sau khi đã chuyển về Select.
 - ImageViewer runtime chỉ có điều hướng zoom, tuyệt đối không có rail chỉnh ROI.
+- Nút cuối navigation (icon `[1]`) reset viewport về Fit mặc định lúc load ảnh, gồm cả zoom và offset căn giữa. Không dùng nút này cho 100%/1:1 pixel-to-DIP.
+- Save Recipe ở trạng thái clean phải disabled/nhạt. Khi recipe dirty, icon Save sáng, hiện đúng một notify đỏ `● CẦN LƯU` cạnh nút; notify biến mất ngay sau khi lưu thành công.
+- RUN dùng warning nổi bật cho `CHỜ ĐẦU 1/2`; Stop luôn có viền error đỏ khi RUN hoạt động.
+- OK/NG của từng đầu và verdict tổng dùng 40 DIP (gấp đôi kích thước cũ 20 DIP). Text đọc được và detail màu success khi OK, màu error khi NG/ERROR.
 - Không tự tạo OK, OCR text hoặc camera frame để làm đầy giao diện. Nguồn offline/synthetic phải ghi rõ.
 
 ## 5. Phân tách control và nghiệp vụ

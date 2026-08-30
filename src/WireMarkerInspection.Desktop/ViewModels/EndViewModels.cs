@@ -23,7 +23,10 @@ public partial class EndEditorViewModel(int number) : ObservableObject
     [ObservableProperty] private string message="Load ảnh mẫu để bắt đầu.";
     [ObservableProperty] private OcrRegion[]? regions;
     public ObservableCollection<RegionViewModel> Previews {get;}=[];
-    public OrientationChoice[] Orientations {get;}=[new(TextOrientation.Degrees0,"0° · cố định"),new(TextOrientation.Degrees180,"180° · cố định"),new(TextOrientation.Auto,"Auto · 0° / 180°")];
+    public OrientationChoice[] Orientations {get;}=[
+        new(TextOrientation.Degrees0,"Thuận · bắt buộc 0°"),
+        new(TextOrientation.Degrees180,"Nghịch · bắt buộc 180°"),
+        new(TextOrientation.Auto,"Không kiểm tra chiều · Auto")];
     public string RoiSummary => Roi is null?"Chưa có ROI":$"{Roi.Shape} · {Roi.Bounds.Width:F0} × {Roi.Bounds.Height:F0} px";
     partial void OnRoiChanged(SearchRoi? value) {OnPropertyChanged(nameof(RoiSummary));Dirty();}
     partial void OnExpectedTextChanged(string value)=>Dirty();
@@ -73,7 +76,7 @@ public partial class EndEditorViewModel(int number) : ObservableObject
     {
         Regions=reading.Regions;Previews.Clear();
         for(int i=0;i<reading.Regions.Length;i++)Previews.Add(new(i+1,reading.Regions[i]));
-        Message=$"Detect {reading.Regions.Length} vùng · xoay {reading.Rotation}° · text mẫu không bị thay đổi.";
+        Message=$"Detect {reading.Regions.Length} vùng · chiều thực tế {reading.Rotation}° · text mẫu không bị thay đổi.";
     }
 }
 public sealed class RegionViewModel(int number,OcrRegion region)
@@ -104,6 +107,7 @@ public partial class EndResultViewModel(int number) : ObservableObject
         Status=result.Verdict==Verdict.Ok?"OK":"NG";Actual=string.Join("\n",result.Reading.Regions.Select(r=>r.Text));
         Regions=result.Reading.Regions;Previews.Clear();
         for(int i=0;i<result.Reading.Regions.Length;i++)Previews.Add(new(i+1,result.Reading.Regions[i]));
-        Detail=result.Differences.Length==0?result.Reason:string.Join(" · ",result.Differences.Select(d=>$"OCR {d.Region}: khác tại ký tự {d.FirstMismatch+1}"));
+        var differences=string.Join(" · ",result.Differences.Select(d=>$"OCR {d.Region}: khác tại ký tự {d.FirstMismatch+1}"));
+        Detail=result.Differences.Length==0?result.Reason:$"{result.Reason} · {differences}";
     }
 }

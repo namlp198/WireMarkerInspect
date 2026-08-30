@@ -19,6 +19,8 @@ public sealed class RecipeRow(Recipe recipe,FileRecipeStore store)
     public string Code=>Recipe.ModelCode;
     public string Name=>Recipe.Name;
     public string Revision=>$"v{Recipe.Revision}";
+    public string FirstExpected=>string.Join("\n",Recipe.Ends[0].ExpectedLines);
+    public string SecondExpected=>string.Join("\n",Recipe.Ends[1].ExpectedLines);
     private BitmapSource? first,second;
     public BitmapSource First=>first??=ImageFiles.Decode(store.LoadReference(Recipe,0),112);
     public BitmapSource Second=>second??=ImageFiles.Decode(store.LoadReference(Recipe,1),112);
@@ -40,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     private Recipe? saved;
     private Guid draftId=Guid.NewGuid();
     private bool loading;
+    private bool modelSetupActive;
     private ImageFrame? latest;
     private CancellationTokenSource? acquisition;
     private Task? acquisitionTask;
@@ -61,10 +64,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string cameraStatus="Chưa kết nối camera";
     [ObservableProperty]private string exposure="10000";
     [ObservableProperty]private string gain="0";
-    [ObservableProperty]private string message="Tạo model, nạp hai ảnh mẫu và thiết lập ROI.";
+    [ObservableProperty]private string message="Chọn một model hoặc Add Model để bắt đầu setup.";
     [ObservableProperty]private string runStatus="CHƯA CHẠY";
     [ObservableProperty]private string ocrStatus="";
     public bool CanEdit=>!Running&&!Busy;
+    public bool CanConfigureModel=>CanEdit&&modelSetupActive;
+    public bool CanSaveRecipe=>CanConfigureModel&&Dirty;
+    public bool CanManageSelectedModel=>CanEdit&&SelectedModel!=null;
     public bool CanCapture=>Running&&!Busy&&Session.State is InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2;
     public bool CanNext=>Running&&!Busy&&Session.State==InspectionState.Completed;
     public string CaptureLabel=>$"Nhận ảnh đầu {Session.NextEnd+1}";
@@ -84,16 +90,48 @@ public partial class MainViewModel : ObservableObject
     partial void OnSearchChanged(string value)=>ModelsView.Refresh();
     partial void OnModelCodeChanged(string value){if(!loading)Dirty=true;}
     partial void OnModelNameChanged(string value){if(!loading)Dirty=true;}
+    partial void OnDirtyChanged(bool value)=>OnPropertyChanged(nameof(CanSaveRecipe));
     partial void OnBusyChanged(bool value)=>RefreshState();
     partial void OnRunningChanged(bool value)=>RefreshState();
     private void RefreshState()
     {
-        OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanCapture));OnPropertyChanged(nameof(CanNext));
+        OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
+        OnPropertyChanged(nameof(CanCapture));OnPropertyChanged(nameof(CanNext));
         OnPropertyChanged(nameof(CaptureLabel));OnPropertyChanged(nameof(CycleLabel));OnPropertyChanged(nameof(ActiveModel));
     }
-    partial void OnSelectedModelChanged(RecipeRow? value)
+    partial void OnSelectedModelChanged(RecipeRow? oldValue,RecipeRow? newValue)
     {
-        // Selection is intentionally passive; Edit Model explicitly loads the chosen recipe.
+        OnPropertyChanged(nameof(CanManageSelectedModel));
+        if(loading)return;
+        if(Dirty&&Confirm?.Invoke(newValue==null?"Bỏ thay đổi chưa lưu và bỏ chọn model?":"Bỏ thay đổi chưa lưu và mở model đã chọn?")==false)
+        {
+            loading=true;try{SelectedModel=oldValue;}finally{loading=false;}
+            OnPropertyChanged(nameof(CanManageSelectedModel));
+            return;
+        }
+        if(newValue==null)
+        {
+            ClearModelSetup();
+            Message="Chọn một model hoặc Add Model để bắt đầu setup.";
+            return;
+        }
+        try{Load(newValue.Recipe);SetModelSetupActive(true);}
+        catch(Exception ex)
+        {
+            loading=true;try{SelectedModel=oldValue;}finally{loading=false;}
+            OnPropertyChanged(nameof(CanManageSelectedModel));Message=ex.Message;
+        }
+    }
+    private void SetModelSetupActive(bool value)
+    {
+        if(modelSetupActive==value)return;
+        modelSetupActive=value;OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));
+    }
+    private void ClearModelSetup()
+    {
+        loading=true;
+        try{saved=null;draftId=Guid.NewGuid();ModelCode="";ModelName="";End1.Clear();End2.Clear();Dirty=false;SetModelSetupActive(false);}
+        finally{loading=false;}
     }
     private void Load(Recipe recipe)
     {
@@ -135,7 +173,7 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedModel=null;saved=null;draftId=Guid.NewGuid();
             ModelCode=identity.Code.Trim();ModelName=identity.Name.Trim();
-            End1.Clear();End2.Clear();Dirty=true;
+            End1.Clear();End2.Clear();Dirty=true;SetModelSetupActive(true);
         }
         finally{loading=false;}
         Message=$"Model mới {ModelCode} · cần hai ảnh, ROI, text mẫu, Apply và Save Recipe.";
@@ -158,7 +196,7 @@ public partial class MainViewModel : ObservableObject
     });
     [RelayCommand]private void SaveRecipe()=>Guard(()=>
     {
-        if(!CanEdit)return;
+        if(!CanSaveRecipe)return;
         if(!End1.Applied||!End2.Applied)throw new InvalidOperationException("Apply cả hai đầu trước khi Save Recipe.");
         var draft=new Recipe(draftId,ModelCode.Trim(),ModelName.Trim(),saved?.Revision??0,[End1.Spec(),End2.Spec()],DateTimeOffset.UtcNow);
         var updated=Store.Save(draft,[ImageFiles.Png(End1.Image!),ImageFiles.Png(End2.Image!)]);
@@ -171,26 +209,26 @@ public partial class MainViewModel : ObservableObject
         var target=SelectedModel.Recipe;
         if(Confirm?.Invoke($"Xóa model {target.ModelCode}? Ảnh mẫu vẫn được giữ để phục hồi.")!=true)return;
         Store.Delete(target.Id);
-        if(saved?.Id==target.Id){loading=true;try{saved=null;draftId=Guid.NewGuid();ModelCode="";ModelName="";End1.Clear();End2.Clear();Dirty=false;}finally{loading=false;}}
+        if(saved?.Id==target.Id)ClearModelSetup();
         Reload();SelectedModel=saved==null?null:Models.FirstOrDefault(r=>r.Recipe.Id==saved.Id);
     });
     [RelayCommand]private void LoadReference(string end)=>Guard(()=>
     {
-        if(!CanEdit)return;
+        if(!CanConfigureModel)return;
         var file=ChooseImage();if(file==null)return;
         Editor(end).SetFrame(ImageFiles.Load(file));
     });
     [RelayCommand]private void GrabReference(string end)=>Guard(()=>
     {
-        if(!CanEdit)return;
+        if(!CanConfigureModel)return;
         if(latest==null||!Acquiring||DateTimeOffset.UtcNow-latest.CapturedAt>TimeSpan.FromSeconds(2))
             throw new InvalidOperationException("Cần live frame mới. Start Acquisition hoặc Load Image.");
         Editor(end).SetFrame(latest with {Bgr=[..latest.Bgr]});
     });
-    [RelayCommand]private void ApplyEnd(string end)=>Guard(()=>{if(CanEdit)Editor(end).Apply();});
+    [RelayCommand]private void ApplyEnd(string end)=>Guard(()=>{if(CanConfigureModel)Editor(end).Apply();});
     [RelayCommand]private async Task TestOcrAsync(string end)
     {
-        if(!CanEdit)return;
+        if(!CanConfigureModel)return;
         await GuardAsync(async()=>
         {
             var editor=Editor(end);var spec=editor.Spec();

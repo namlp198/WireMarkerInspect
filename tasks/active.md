@@ -36,3 +36,34 @@
 - [ ] Clean target-PC install and production acceptance.
 
 Color/template/print-quality and external PLC trigger integrations are outside the current implemented slice.
+
+## Model setup usability — completed 2026-08-30
+- [x] Add visible model-code and model-name labels to the Add/Edit dialog.
+- [x] Show each end's expected text directly below its Model Library thumbnail.
+- [x] Auto-load saved images and recipe fields when the ComboBox/library selection changes.
+- [x] Lock both end editors, their actions and Save Recipe until a model is selected or a new draft is created.
+- [x] Disable Edit/Delete without a saved selection and preserve Add Model as the entry point.
+- [x] Add managed lifecycle coverage and WPF smoke assertions for enabled/disabled states.
+
+## Text-direction verdict — completed 2026-08-30
+- [x] Treat each fixed per-end orientation as an acceptance requirement, not a forced OCR assumption.
+- [x] Evaluate OCR at both 0° and 180° without expected-text-conditioned selection.
+- [x] Require exact text plus matching configured direction for OK; wrong direction is NG.
+- [x] Show expected/actual direction mismatch in RUN details.
+- [x] Preserve Auto as an explicit “do not reject by direction” option.
+- [x] Cover 0°/180°/Auto, invalid rotation and same-text/different-direction product cases.
+- [x] Pass the 26-image native and managed Load Image orientation regression.
+
+## Operator status emphasis — completed 2026-08-30
+- [x] Dim/disable Save when clean; highlight it only while dirty.
+- [x] Show one red Save-required notification and clear it after successful save.
+- [x] Render RUN waiting status prominently and outline Stop in red.
+- [x] Double total/per-end OK/NG from 20 to 40 DIP.
+- [x] Color recognized text and result detail green for OK, red for NG/error.
+- [x] Add WPF smoke assertions and screenshots for dirty, clean, waiting and mixed OK/NG states.
+
+## HUD viewport reset — completed 2026-08-30
+- [x] Change the final `[1]` navigation button from 100%/1:1 to initial Fit.
+- [x] Restore both aspect-fit zoom and centered offset after operator zoom/pan.
+- [x] Update tooltip/accessibility text to describe the Fit reset.
+- [x] Add managed and WPF smoke coverage that distinguishes Fit zoom from 1.0.

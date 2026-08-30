@@ -27,7 +27,7 @@ ExpectedLines is ordered to match those automatic regions, not manually assigned
 ViewPoint = ImagePoint * Zoom + Offset
 ImagePoint = (ViewPoint - Offset) / Zoom
 
-Fit retains aspect ratio with letterboxing. Wheel zoom preserves the pixel under the cursor. Pan is viewport-local. Source dimensions changing force a new fit. Live frames of the same size preserve the viewport.
+Fit retains aspect ratio with letterboxing. Wheel zoom preserves the pixel under the cursor. Pan is viewport-local. Source dimensions changing force a new fit. Live frames of the same size preserve the viewport. The final navigation button resets zoom and centered offset to this same initial Fit state; it is not a 100%/1:1 action.
 Stroke/handle dimensions remain screen-space so zooming does not enlarge controls.
 
 ## Interaction
@@ -43,7 +43,7 @@ Stroke/handle dimensions remain screen-space so zooming does not enlarge control
 
 ## Native geometry
 
-Crop uses the ROI's bounding rectangle and a white exclusion mask for circles/polygons. Automatic text boxes are rectified in C++; their count comes only from DB detection. `/` remains a character in the detected region's full text and must not split a region. Coordinates are transformed back to original source pixels, including the selected 180-degree orientation.
+Crop uses the ROI's bounding rectangle and a white exclusion mask for circles/polygons. Automatic text boxes are rectified in C++; their count comes only from DB detection. `/` remains a character in the detected region's full text and must not split a region. OCR evaluates 0° and 180° without expected-text conditioning and reports the selected rotation. Fixed recipe direction is then checked independently by the domain comparer. Coordinates are transformed back to original source pixels, including a detected 180-degree rotation.
 There is no fallback search outside the ROI.
 
 ## Acceptance

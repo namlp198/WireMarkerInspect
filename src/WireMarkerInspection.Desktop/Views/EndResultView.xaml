@@ -16,7 +16,7 @@
     </controls:ImageViewer.Style>
    </controls:ImageViewer></controls:ImageHud.Viewer></controls:ImageHud>
    <Border Grid.Row="1" Style="{StaticResource Hud.Container}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Padding="12,6" IsHitTestVisible="False">
-    <TextBlock Text="{Binding Status}" Style="{StaticResource VerdictLabel}"/>
+    <TextBlock x:Name="StatusText" Text="{Binding Status}" Style="{StaticResource VerdictLabel}"/>
    </Border>   <Border Grid.Row="3" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,1,0,1" Padding="12,10">
     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
      <ItemsControl ItemsSource="{Binding Previews}" ItemTemplate="{StaticResource OcrPreview}">
@@ -27,9 +27,9 @@
    <Grid Grid.Row="4" Margin="12,12,12,8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <StackPanel><TextBlock Text="TEXT MẪU" Style="{StaticResource SectionLabel}"/><TextBlock Text="{Binding Expected}" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Text.Primary}"/></StackPanel>
-    <StackPanel Grid.Column="2"><TextBlock Text="TEXT ĐỌC ĐƯỢC" Style="{StaticResource SectionLabel}"/><TextBlock Text="{Binding Actual}" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Text.Primary}"/></StackPanel>
+    <StackPanel Grid.Column="2"><TextBlock Text="TEXT ĐỌC ĐƯỢC" Style="{StaticResource SectionLabel}"/><TextBlock x:Name="ActualText" Text="{Binding Actual}" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/><Style.Triggers><DataTrigger Binding="{Binding Status}" Value="OK"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="NG"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="ERROR"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
    </Grid>
-   <TextBlock Grid.Row="5" Text="{Binding Detail}" Style="{StaticResource Caption}" MinHeight="28" Margin="12,0"/>
+   <TextBlock x:Name="DetailText" Grid.Row="5" Text="{Binding Detail}" MinHeight="28" Margin="12,0"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Caption}"><Style.Triggers><DataTrigger Binding="{Binding Status}" Value="OK"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="NG"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="ERROR"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
   </Grid>
  </Border>
 </UserControl>

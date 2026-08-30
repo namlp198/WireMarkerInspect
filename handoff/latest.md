@@ -1,4 +1,24 @@
-# Handoff — 2026-08-29
+# Handoff — 2026-08-30
+
+## Latest session
+- The final HUD navigation button (icon `[1]`) now resets zoom/pan to the initial centered Fit view instead of 100%/1:1. Tooltip and accessibility name were corrected.
+- Managed and WPF smoke coverage explicitly distinguishes Fit zoom 3.0 from zoom 1.0.
+- Save Recipe is now disabled/dim when clean and highlighted when dirty, with one red `● CẦN LƯU` notification that clears after save.
+- RUN waiting status uses prominent warning color; active Stop has a red outline.
+- Total and per-end OK/NG increased from 20 to 40 DIP. Actual OCR text and detail are green for OK, red for NG/error.
+- WPF smoke verifies enabled/visibility/brush/font-size values and renders `setting-dirty.png`, `setting.png`, `run-waiting.png` and mixed `run.png`.
+- Verification: Release build 0 warnings/errors; managed 37/37; native 1/1; WPF smoke PASS. Latest folder: `artifacts/smoke-20260830-134015`.
+- Verdict now requires exact text and per-end direction. Thuận requires detected 0°, Nghịch requires detected 180°; Auto explicitly accepts either.
+- Native OCR always evaluates both 0°/180° and reports observed rotation; expected text is not used to choose an OCR candidate.
+- Same recognized text with the wrong direction is NG, with expected/actual rotation included in the reason shown by RUN.
+- Managed tests now cover all fixed/Auto combinations, invalid rotation and a two-end product with identical text but a wrong second-end direction.
+- Verification after the direction change: Release build 0 warnings/errors; managed 37/37 including HUD Fit reset; native 1/1; WPF smoke PASS; native CLI and managed Load Image real-image regressions 26/26 each.
+- The Add/Edit Model dialog now has explicit `Mã model` and `Tên model` labels.
+- Each Model Library row shows expected text below both reference thumbnails.
+- Selecting a model from either selector automatically loads both saved images, ROIs, orientations and expected text into SETTING.
+- SETTING's two end editors, their actions and Save Recipe stay disabled with no selected model/new draft. Add Model activates an editable draft; Edit/Delete require a saved selection.
+- Added selection/load/clear and draft-lock managed tests plus WPF smoke assertions against actual enabled states.
+- Verification: Release build 0 warnings/errors; managed 28/28; native 1/1; offline WPF smoke PASS at 1920×1080 and 1366×900. Latest render folder: `artifacts/smoke-20260830-115117`.
 
 ## Delivered
 A runnable development implementation in this repository:
@@ -8,7 +28,7 @@ The implementation preserves the user's corrected interpretation: each end has O
 
 ## HUD correction delivered
 - Shared ImageHud in Controls, using RoboStation Overlay.ToolRail, ToolRail.Button/ToggleButton, alpha brushes and stroke icons.
-- Floating left ROI tools/history, contextual polygon actions and compact bottom-right Zoom out/Zoom in/100% toolbar; selection/focus/disabled states stay synchronized with the editor.
+- Floating left ROI tools/history, contextual polygon actions and compact bottom-right Zoom out/Zoom in/reset-to-Fit toolbar; selection/focus/disabled states stay synchronized with the editor.
 - Read-only Live/RUN have no drawing rail. Hiding overlays preserves ROI/results.
 - External geometry/zoom text toolbars removed. Recipe editor caption/helper text removed; Expand remains inside HUD. HUD buttons/icons are 32/16 DIP and overlay alpha is 53%.
 - ChevronButton now owns a TailMode dependency property: Straight for the first step, Notched by default for following steps. SETTING uses Straight; RUN uses Notched. SETTING/RUN chevrons are 208x64 DIP. Identical 42x31 tip/notch vectors render 14 DIP apart, so their diagonal edges remain parallel. Camera/Model Library are 400 DIP; center is narrower.
