@@ -73,8 +73,9 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
     powershell -ExecutionPolicy Bypass -File scripts/test-real-images.ps1
     powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1
     powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1 -Grab
+    powershell -ExecutionPolicy Bypass -File scripts/camera-soak.ps1 -Minutes 30
 
-The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Only `camera-probe.ps1` contacts hardware; `-Grab` opens the first discovered camera, applies ExposureTime 10000/Gain 0, acquires three fresh frames, saves the last PNG and then closes the device.
+The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Only `camera-probe.ps1` and `camera-soak.ps1` contact hardware; the soak reports frame rate, frame-interval spread, timeouts and temperature drift over the requested period. `camera-probe.ps1` `-Grab` opens the first discovered camera, applies ExposureTime 10000/Gain 0, acquires three fresh frames, saves the last PNG and then closes the device.
 
 ## Deployment
 

@@ -1,6 +1,17 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- Phase B of the approved plan: every cycle is now measured, acquisition survives a lost camera, and a soak tool produces evidence.
+- All durations come from `MonotonicClock` (Stopwatch ticks). `DateTimeOffset.UtcNow` is used only to stamp evidence, never to compute an interval, so a time-service correction cannot produce a negative or jumped measurement.
+- `EndResult` carries frame-age, OCR, compare and end-total stages; `ProductResult` carries the cycle total. The cycle total is computed before the result is written, so `result.json` actually contains it. Persist time is reported separately through `InspectionSession.LastPersistMilliseconds`.
+- RUN shows the last cycle with average, p95 and max over a rolling window of 50, next to acquisition counters.
+- Acquisition reconnects with a bounded backoff (1s, 2s, 5s, 10s, four consecutive attempts) and reapplies the taught camera settings. `CameraUiState.Reconnecting` is a visible warning state.
+- Safety rule enforced: losing the camera mid-cycle faults the product through `InspectionSession.Fault`, clears both ends and restarts at end 1. A frame from after the outage can never be filed as end 2 of the interrupted product.
+- `FileDiagnosticsLog` appends JSON Lines to `%LOCALAPPDATA%\WireMarkerInspection\diagnostics\`; diagnostics failures never interrupt a cycle.
+- `scripts/camera-soak.ps1 -Minutes N` measures frame rate, frame-interval spread, timeouts and temperature drift against real hardware.
+- One-minute soak on MV-CE120-10GM `00G29911748`: 449 frames, 0 timeouts, 0 errors, 7.467 fps, frame interval min 36.9 / average 133.5 / p95 160.7 / max 511.2 ms. The 511 ms outlier is real jitter worth watching; this model reports no temperature node. Evidence: `artifacts/camera-soak-phase-b.json`.
+- Test classes that drive a real acquisition loop now share one serialized xUnit collection. Running them in parallel starved the thread pool and made pumped waits time out.
+- Managed suite is 56/56, repeated three times.
 - Phase A of the approved trigger/PLC plan: acquisition settings are now taught per model. `Recipe` carries an optional `CameraSettings` (exposure, gain, gamma, black level, sensor ROI, strobe); recipes written before this field still load and simply keep the current machine setup.
 - `ICamera` replaced the untyped `SetParameter(name,value)` with `ReadInfo`, `DescribeParameters`, `ReadSettings` and `ApplySettings`. The UI shows the device's real GenICam limits instead of hard-coded numbers, and only offers parameters the connected camera actually exposes.
 - Selecting a model restores its taught setup and pushes it to a connected camera; editing any camera value marks the recipe dirty because it is part of the recipe.

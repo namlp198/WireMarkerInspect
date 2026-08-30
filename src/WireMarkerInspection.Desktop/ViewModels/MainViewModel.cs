@@ -26,7 +26,7 @@ public sealed class RecipeRow(Recipe recipe,FileRecipeStore store)
     public BitmapSource Second=>second??=ImageFiles.Decode(store.LoadReference(Recipe,1),112);
 }
 public sealed record ModelIdentity(string Code,string Name);
-public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring, Error }
+public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring, Reconnecting, Error }
 public partial class MainViewModel : ObservableObject
 {
     public FileRecipeStore Store{get;}
@@ -34,6 +34,11 @@ public partial class MainViewModel : ObservableObject
     public ICamera Camera{get;}
     public bool AutoDiscoverCameraOnLoad{get;}
     public InspectionSession Session{get;}
+    public AcquisitionDiagnostics Diagnostics{get;}=new();
+    public CycleStatistics CycleTimes{get;}=new();
+    public IDiagnosticsLog Log{get;}
+    /// <summary>Consecutive reconnect attempts before acquisition gives up. Zero disables reconnecting.</summary>
+    public int ReconnectAttempts{get;init;}=4;
     public EndEditorViewModel End1{get;}=new(1);
     public EndEditorViewModel End2{get;}=new(2);
     public EndResultViewModel Result1{get;}=new(1);
@@ -48,6 +53,11 @@ public partial class MainViewModel : ObservableObject
     private ImageFrame? latest;
     private IReadOnlyList<CameraParameterInfo> cameraParameters=[];
     private bool loadingCamera;
+    private CameraDevice? connectedDevice;
+    private CameraSettings? appliedSettings;
+    private long latestTimestamp;
+    private static readonly TimeSpan[] ReconnectDelays=
+        [TimeSpan.FromSeconds(1),TimeSpan.FromSeconds(2),TimeSpan.FromSeconds(5),TimeSpan.FromSeconds(10)];
     private bool liveFrameReady;
     private readonly System.Windows.Threading.Dispatcher dispatcher;
     private static readonly TimeSpan LiveFrameMaxAge=TimeSpan.FromSeconds(2);
@@ -125,6 +135,27 @@ public partial class MainViewModel : ObservableObject
     public bool CanNext=>Running&&!Busy&&Session.State==InspectionState.Completed;
     public string CaptureLabel=>$"Nhận ảnh đầu {Session.NextEnd+1}";
     public string ModelCount=>$"{Models.Count} MODELS";
+    public string CycleTimingText
+    {
+        get
+        {
+            var (count,average,p95,max)=CycleTimes.Summary();
+            return count==0?"Chưa có số liệu thời gian xử lý."
+                :$"Chu kỳ {CycleTimes.Last:0} ms · TB {average:0} · p95 {p95:0} · max {max:0} ms (n={count})";
+        }
+    }
+    public string AcquisitionSummary
+    {
+        get
+        {
+            var snapshot=Diagnostics.Snapshot();
+            if(snapshot.Frames==0&&snapshot.Uptime==TimeSpan.Zero)return "Chưa chạy acquisition.";
+            var text=$"Frame {snapshot.Frames} · timeout {snapshot.Timeouts} · reconnect {snapshot.Reconnects}";
+            if(snapshot.FramesPerSecond is{}fps)text+=$" · {fps:0.0} fps";
+            if(snapshot.ReconnectFailures>0)text+=$" · lỗi nối lại {snapshot.ReconnectFailures}";
+            return snapshot.LastError is{}error?$"{text} · lỗi cuối: {error}":text;
+        }
+    }
     public string CycleLabel=>Session.CycleId==Guid.Empty?"—":Session.CycleId.ToString("N")[..12].ToUpperInvariant();
     public string ActiveModel=>runtimeRecipe is null?"CHƯA CHỌN":$"{runtimeRecipe.ModelCode} / v{runtimeRecipe.Revision}";
     public Func<string,bool>? Confirm{get;set;}
@@ -137,6 +168,7 @@ public partial class MainViewModel : ObservableObject
         this.cameraSearchTimeout=cameraSearchTimeout??TimeSpan.FromSeconds(5);
         if(this.cameraSearchTimeout<=TimeSpan.Zero)throw new ArgumentOutOfRangeException(nameof(cameraSearchTimeout));
         Store=new(dataRoot);Ocr=new(Path.Combine(AppContext.BaseDirectory,"assets","ocr"));
+        Log=new FileDiagnosticsLog(dataRoot);
         Session=new(Ocr,new FileResultStore(dataRoot));
         ModelsView=CollectionViewSource.GetDefaultView(Models);
         ModelsView.Filter=o=>o is RecipeRow r&&(r.Code.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase));
@@ -255,7 +287,7 @@ public partial class MainViewModel : ObservableObject
         ShowCameraSettings(settings);
         if(!CameraConnected)return;
         if(Acquiring){Message+=" Dừng acquisition rồi Apply để áp thông số camera của model.";return;}
-        try{Camera.ApplySettings(settings);RefreshCameraParameters();Message+=" Đã áp thông số camera của model.";}
+        try{Camera.ApplySettings(settings);appliedSettings=settings;RefreshCameraParameters();Message+=" Đã áp thông số camera của model.";}
         catch(Exception ex){Message+=$" Không áp được thông số camera: {ex.Message}";}
     }
     private void Reload()
@@ -394,23 +426,48 @@ public partial class MainViewModel : ObservableObject
             if(!Acquiring||latest==null||latest.CapturedAt<waitingSince||DateTimeOffset.UtcNow-latest.CapturedAt>TimeSpan.FromSeconds(2))
                 throw new InvalidOperationException("Chưa có camera frame mới cho đầu này.");
             if(latest.Source=="SIMULATION")throw new InvalidOperationException("Không dùng ảnh camera giả lập cho RUN sản xuất.");
-            await InspectAsync(latest);
+            await InspectAsync(latest,MonotonicClock.MillisecondsSince(latestTimestamp));
         });
     }
-    private async Task InspectAsync(ImageFrame frame)
+    private async Task InspectAsync(ImageFrame frame,double frameAgeMs=0)
     {
         var end=Session.NextEnd;var target=end==0?Result1:Result2;target.Show(frame,null);
         RunStatus=$"ĐANG OCR ĐẦU {end+1}";
         try
         {
-            var result=await Session.AcceptAsync(frame);
+            var result=await Session.AcceptAsync(frame,frameAgeMs);
             if(result==null)return;
             target.Show(frame,result);waitingSince=DateTimeOffset.UtcNow;
+            RecordTimings(result);
             RunStatus=Session.Result?.Verdict.ToString().ToUpperInvariant()??"CHỜ ĐẦU 2";
             Message=Session.Result!=null?"Đã lưu kết quả và ảnh nguồn. Sản phẩm tiếp theo hoặc Stop.":"Đã kiểm tra đầu 1. Chờ đầu 2 cùng sản phẩm.";
         }
         catch {target.Status="ERROR";RunStatus="ERROR";throw;}
         finally{RefreshState();}
+    }
+    private void RecordTimings(EndResult result)
+    {
+        var product=Session.Result;
+        Log.Write("end",result.Verdict.ToString(),new Dictionary<string,object?>
+        {
+            ["cycleId"]=Session.CycleId,["ocrMs"]=result.MillisecondsOf("ocr"),
+            ["compareMs"]=result.MillisecondsOf("compare"),["frameAgeMs"]=result.MillisecondsOf("frame-age"),
+            ["endMs"]=result.MillisecondsOf("end")
+        });
+        if(product==null)return;
+        var cycleMs=product.Timings?.FirstOrDefault(t=>t.Stage=="cycle")?.Milliseconds??0;
+        RecordCycleTime(cycleMs);
+        Log.Write("cycle",product.Verdict.ToString(),new Dictionary<string,object?>
+        {
+            ["cycleId"]=product.CycleId,["model"]=product.Recipe.ModelCode,
+            ["cycleMs"]=cycleMs,["persistMs"]=Session.LastPersistMilliseconds
+        });
+    }
+    /// <summary>Adds a measured cycle to the rolling window and refreshes the read-out.</summary>
+    public void RecordCycleTime(double milliseconds)
+    {
+        CycleTimes.Add(milliseconds);
+        OnPropertyChanged(nameof(CycleTimingText));
     }
     public Task InitializeCameraAsync()=>ScanCamerasAsync();
     [RelayCommand]private async Task ScanCamerasAsync()
@@ -463,6 +520,7 @@ public partial class MainViewModel : ObservableObject
         await GuardAsync(async()=>
         {
             await Task.Run(()=>Camera.Open(target));
+            connectedDevice=target;
             CameraConnected=true;CameraState=CameraUiState.Connected;
             SourceStatus=target.IsSimulation?"SIMULATION":"CAMERA CONNECTED";
             CameraStatus=$"ĐÃ KẾT NỐI · {target.Name}";
@@ -483,7 +541,7 @@ public partial class MainViewModel : ObservableObject
             var settings=BuildCameraSettings();
             ValidateAgainstCamera(settings);
             Camera.ApplySettings(settings);
-            applied=true;
+            appliedSettings=settings;applied=true;
         }));
         if(applied)
         {
@@ -604,48 +662,138 @@ public partial class MainViewModel : ObservableObject
             SourceStatus="CAMERA LIVE";CameraStatus="ĐANG ACQUISITION · CHỜ FRAME";
             Message="ACQUISITION · Đã bắt đầu nhận ảnh camera.";
             var token=acquisition.Token;
-            acquisitionTask=Task.Run(async()=>
-            {
-                try
-                {
-                    var lastReceived=DateTimeOffset.UtcNow;
-                    while(!token.IsCancellationRequested)
-                    {
-                        ImageFrame frame;
-                        try{frame=Camera.Grab(300);lastReceived=DateTimeOffset.UtcNow;}
-                        catch(TimeoutException)
-                        {
-                            if(DateTimeOffset.UtcNow-lastReceived>TimeSpan.FromSeconds(3))
-                                throw new TimeoutException("Camera không có frame mới trong 3 giây. Dừng và kết nối lại camera.");
-                            continue;
-                        }
-                        var bitmap=ImageFiles.Bitmap(frame);
-                        await dispatcher.InvokeAsync(()=>
-                        {
-                            if(!token.IsCancellationRequested)
-                            {
-                                latest=frame;LiveImage=bitmap;
-                                CameraStatus=$"ĐANG ACQUISITION · {frame.Width} × {frame.Height}";
-                                RefreshGrabState();
-                            }
-                        });
-                        await Task.Delay(15,token);
-                    }
-                }
-                catch(OperationCanceledException)when(token.IsCancellationRequested){}
-                catch(Exception ex)
-                {
-                    await dispatcher.InvokeAsync(()=>
-                    {
-                        Acquiring=false;latest=null;CameraState=CameraUiState.Error;
-                        CameraStatus="LỖI ACQUISITION";Message=$"ACQUISITION · {ex.Message}";
-                        if(Running){Session.Stop();Running=false;RunStatus="ERROR";}
-                    });
-                }
-                finally{try{Camera.Stop();}catch{/* Next connection reports native state. */}}
-            });
+            Diagnostics.BeginRun();OnPropertyChanged(nameof(AcquisitionSummary));
+            Log.Write("acquisition","started",new Dictionary<string,object?>{["device"]=connectedDevice?.Name});
+            acquisitionTask=Task.Run(()=>RunAcquisitionAsync(token));
         });
     }
+    /// <summary>
+    /// Keeps live frames flowing across a lost camera. Each failure faults any cycle in progress and then
+    /// retries with a bounded backoff; the product that was interrupted is never silently continued.
+    /// </summary>
+    private async Task RunAcquisitionAsync(CancellationToken token)
+    {
+        var attempt=0;
+        try
+        {
+            while(!token.IsCancellationRequested)
+            {
+                try{await GrabLoopAsync(token);break;}
+                catch(OperationCanceledException)when(token.IsCancellationRequested){break;}
+                catch(Exception ex)
+                {
+                    Diagnostics.Failed(ex.Message);
+                    Log.Write("acquisition","lost",new Dictionary<string,object?>{["error"]=ex.Message,["attempt"]=attempt+1});
+                    await dispatcher.InvokeAsync(()=>OnAcquisitionLost(ex.Message));
+                    if(attempt>=ReconnectAttempts)
+                    {
+                        await dispatcher.InvokeAsync(()=>OnAcquisitionFailed(ex.Message));
+                        break;
+                    }
+                    var delay=ReconnectDelays[Math.Min(attempt,ReconnectDelays.Length-1)];
+                    attempt++;
+                    try{await Task.Delay(delay,token);}catch(OperationCanceledException){break;}
+                    if(token.IsCancellationRequested)break;
+                    try
+                    {
+                        Reopen();
+                        attempt=0;Diagnostics.Reconnected();
+                        Log.Write("acquisition","reconnected",new Dictionary<string,object?>{["device"]=connectedDevice?.Name});
+                        await dispatcher.InvokeAsync(OnAcquisitionResumed);
+                    }
+                    catch(Exception retry)
+                    {
+                        Diagnostics.ReconnectFailed(retry.Message);
+                        Log.Write("acquisition","reconnect-failed",new Dictionary<string,object?>{["error"]=retry.Message});
+                        await dispatcher.InvokeAsync(()=>CameraStatus=$"ĐANG KẾT NỐI LẠI · {retry.Message}");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            try{Camera.Stop();}catch{/* Next connection reports native state. */}
+            Log.Write("acquisition","stopped",new Dictionary<string,object?>
+            {
+                ["frames"]=Diagnostics.Snapshot().Frames,["reconnects"]=Diagnostics.Snapshot().Reconnects
+            });
+        }
+    }
+
+    private async Task GrabLoopAsync(CancellationToken token)
+    {
+        var lastReceived=MonotonicClock.Now;
+        while(!token.IsCancellationRequested)
+        {
+            ImageFrame frame;
+            try{frame=Camera.Grab(300);lastReceived=MonotonicClock.Now;Diagnostics.Frame();}
+            catch(TimeoutException)
+            {
+                Diagnostics.Timeout();
+                if(MonotonicClock.MillisecondsSince(lastReceived)>3000)
+                    throw new TimeoutException("Camera không có frame mới trong 3 giây.");
+                continue;
+            }
+            var bitmap=ImageFiles.Bitmap(frame);
+            var arrived=MonotonicClock.Now;
+            await dispatcher.InvokeAsync(()=>
+            {
+                if(token.IsCancellationRequested)return;
+                latest=frame;latestTimestamp=arrived;LiveImage=bitmap;
+                CameraStatus=$"ĐANG ACQUISITION · {frame.Width} × {frame.Height}";
+                if(CameraState==CameraUiState.Reconnecting)CameraState=CameraUiState.Acquiring;
+                RefreshGrabState();
+            });
+            await Task.Delay(15,token);
+        }
+    }
+
+    private void Reopen()
+    {
+        var device=connectedDevice??throw new InvalidOperationException("Không còn thông tin camera để kết nối lại.");
+        try{Camera.Stop();}catch{/* The device is already gone; reopening is what matters. */}
+        try{Camera.Close();}catch{}
+        Camera.Open(device);
+        if(appliedSettings is{}settings)Camera.ApplySettings(settings);
+        Camera.Start();
+    }
+
+    private void OnAcquisitionLost(string error)
+    {
+        latest=null;CameraState=CameraUiState.Reconnecting;
+        CameraStatus="MẤT KẾT NỐI CAMERA · ĐANG THỬ LẠI";
+        Message=$"ACQUISITION · {error} Đang thử kết nối lại.";
+        // An interrupted product must never be completed with a frame from after the outage.
+        if(Running&&Session.Fault("Mất kết nối camera giữa chu kỳ."))
+        {
+            Result1.Reset(runtimeRecipe!.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
+            RunStatus="MẤT KẾT NỐI CAMERA";
+            Message="RUN · Sản phẩm đang kiểm bị hủy vì mất kết nối camera. Kiểm tra lại từ đầu 1.";
+        }
+        RefreshGrabState();RefreshState();OnPropertyChanged(nameof(AcquisitionSummary));
+    }
+
+    private void OnAcquisitionResumed()
+    {
+        CameraState=CameraUiState.Acquiring;CameraStatus="ĐÃ KẾT NỐI LẠI · ĐANG ACQUISITION";
+        Message="ACQUISITION · Đã kết nối lại camera.";
+        if(Running&&runtimeRecipe!=null)
+        {
+            Session.Begin(runtimeRecipe);
+            Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
+            waitingSince=DateTimeOffset.UtcNow;RunStatus="CHỜ ĐẦU 1";
+        }
+        RefreshState();OnPropertyChanged(nameof(AcquisitionSummary));
+    }
+
+    private void OnAcquisitionFailed(string error)
+    {
+        Acquiring=false;latest=null;CameraState=CameraUiState.Error;
+        CameraStatus="LỖI ACQUISITION";Message=$"ACQUISITION · {error}";
+        if(Running){Session.Stop();Running=false;RunStatus="ERROR";}
+        RefreshState();OnPropertyChanged(nameof(AcquisitionSummary));
+    }
+
     public async Task StopAcquisitionAsync()
     {
         acquisition?.Cancel();

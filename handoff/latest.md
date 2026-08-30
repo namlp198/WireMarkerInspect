@@ -1,6 +1,18 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Phase B of the approved plan is done: cycles are measured, acquisition survives a lost camera, and a soak tool produces evidence.
+- Durations come from `MonotonicClock` (Stopwatch ticks). `DateTimeOffset.UtcNow` now only stamps evidence; it is never used to compute an interval, so an NTP correction cannot produce a negative or jumped measurement. A test pins that a backwards interval clamps to zero.
+- `EndResult` carries frame-age, OCR, compare and end-total stages, and `ProductResult` carries the cycle total. The cycle total is computed before the file is written so `result.json` contains it; persist time is reported through `InspectionSession.LastPersistMilliseconds`.
+- RUN shows the last cycle plus average, p95 and max over a rolling window of 50, beside live acquisition counters. SETTING shows the same counters.
+- Acquisition reconnects with a bounded backoff (1s, 2s, 5s, 10s; four consecutive attempts before giving up) and reapplies the taught camera settings on reopen. `CameraUiState.Reconnecting` is a visible warning state.
+- Safety rule: losing the camera mid-cycle faults the product via the new `InspectionSession.Fault`, clears both ends and restarts at end 1. A post-outage frame can never be filed as end 2 of the interrupted product. Covered by a test.
+- `FileDiagnosticsLog` appends JSON Lines under `%LOCALAPPDATA%\WireMarkerInspection\diagnostics\`. A diagnostics write failure never interrupts a cycle.
+- `scripts/camera-soak.ps1 -Minutes N` reports frame rate, frame-interval spread, timeouts and temperature drift.
+- One-minute soak on MV-CE120-10GM `00G29911748`: 449 frames, 0 timeouts, 0 errors, 7.467 fps, frame interval min 36.9 / average 133.5 / p95 160.7 / max 511.2 ms. That 511 ms outlier is genuine jitter and matters when trigger latency is specified in phase C. This model exposes no temperature node. Evidence: `artifacts/camera-soak-phase-b.json`.
+- Test classes driving a real acquisition loop now share one serialized xUnit collection: in parallel they starved the thread pool and two of them timed out. This was a harness problem, not a product defect.
+- Verification: Release build 0 warnings/errors; managed 56/56 (repeated three times); native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-172932`; one-minute hardware soak PASS.
+- Still open for phase B: a full-shift soak at production optics, and splitting native detect/recognize timing if the totals show OCR is the bottleneck.
 - Phase A of the approved trigger/PLC plan is done: acquisition settings are taught per model instead of being development defaults shared by every model.
 - `Recipe` gained an optional `CameraSettings` (exposure, gain, gamma, black level, sensor ROI, strobe). It is an additive optional field, so recipes saved by the previous build still load and simply keep the current machine setup; a regression test pins that.
 - `ICamera` now exposes `ReadInfo`, `DescribeParameters`, `ReadSettings` and `ApplySettings` in place of `SetParameter(name,value)`. `NAcquireCamera` implements the same contract and fails loudly for settings that ABI cannot apply.

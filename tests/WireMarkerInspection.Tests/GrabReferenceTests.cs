@@ -6,6 +6,7 @@ using Xunit;
 
 namespace WireMarkerInspection.Tests;
 
+[Collection(DispatcherTestHost.Collection)]
 public sealed class GrabReferenceTests:IDisposable
 {
     private readonly string root=Path.Combine(Path.GetTempPath(),"wmi-grab-"+Guid.NewGuid().ToString("N"));

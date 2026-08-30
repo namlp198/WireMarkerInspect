@@ -109,8 +109,10 @@ internal static class Smoke
             vm.Result1.Show(frame1,ExactTextComparer.Compare(frame1,spec1,Reading(0,"QK1.11","FT3.F")));
             vm.Result2.Show(frame2,ExactTextComparer.Compare(frame2,spec2,Reading(180,"FT3.F","QK1.11")));
             vm.RunStatus="NG";
+            vm.RecordCycleTime(742);vm.RecordCycleTime(910);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyRunStatusVisuals(window);
+            VerifyTimingReadout(window,vm);
             VerifyHudLayout(window);
             Capture(window,Path.Combine(output,"run.png"));
             vm.Running=false;window.Width=1366;window.Height=900;vm.RunPage=false;
@@ -130,7 +132,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -238,6 +240,17 @@ internal static class Smoke
         if(window.AdvancedCameraPanel.Visibility!=Visibility.Visible||window.SensorWidthTextBox.IsEnabled)
             throw new Exception("Advanced group must expand with the sensor ROI still disabled.");
         vm.ShowAdvancedCamera=false;
+    }
+    /// <summary>RUN must show the measured cycle time next to the verdict, with its spread, not just an average.</summary>
+    private static void VerifyTimingReadout(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        foreach(var fragment in new[]{"910","TB","p95","max","n=2"})
+            if(!window.CycleTimingText.Text.Contains(fragment,StringComparison.Ordinal))
+                throw new Exception($"Cycle timing read-out is missing '{fragment}': {window.CycleTimingText.Text}");
+        if(window.RunAcquisitionSummaryText.Text.Length==0||window.AcquisitionSummaryText.Text.Length==0)
+            throw new Exception("Acquisition diagnostics must be visible in SETTING and RUN.");
+        _=vm;
     }
     private static void Capture(FrameworkElement element,string path)
     {

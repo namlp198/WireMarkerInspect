@@ -11,6 +11,8 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
     private readonly List<EndResult> ends = [];
     private readonly List<ImageFrame> frames = [];
     public InspectionState State { get; private set; }
+    /// <summary>Time the last completed cycle spent writing its result, measured after the file was written.</summary>
+    public double LastPersistMilliseconds { get; private set; }
     public Guid CycleId { get; private set; }
     public string? Error { get; private set; }
     public ProductResult? Result { get; private set; }
@@ -33,9 +35,14 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
             CycleId = Guid.NewGuid(); State = InspectionState.WaitingEnd1;
         }
     }
-    public async Task<EndResult?> AcceptAsync(ImageFrame input)
+    /// <param name="frameAgeMs">
+    /// How long the frame had been waiting in the application before it was accepted, measured by the
+    /// caller that owns the acquisition loop.
+    /// </param>
+    public async Task<EndResult?> AcceptAsync(ImageFrame input, double frameAgeMs = 0)
     {
         Recipe current; int end; int version; CancellationToken token; Guid cycle;
+        var started = MonotonicClock.Now;
         // Own the bytes: the camera or UI may reuse its buffer after this call.
         input.Validate();
         var frame = input with { Bgr = [.. input.Bgr] };
@@ -52,10 +59,22 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
             var spec = current.Ends[end];
             if (frame.Width != spec.Width || frame.Height != spec.Height)
                 throw new InvalidOperationException("Image dimensions differ from this recipe. Re-teach the ROI.");
+            var ocrStarted = MonotonicClock.Now;
             var reading = await ocr.ReadAsync(frame, spec, token).ConfigureAwait(false);
+            var ocrMs = MonotonicClock.MillisecondsSince(ocrStarted);
             token.ThrowIfCancellationRequested();
+            var compareStarted = MonotonicClock.Now;
             var result = ExactTextComparer.Compare(frame, spec, reading);
+            var compareMs = MonotonicClock.MillisecondsSince(compareStarted);
             ProductResult? product = null; ImageFrame[]? captured = null;
+            result = result with
+            {
+                Timings =
+                [
+                    new("frame-age", frameAgeMs), new("ocr", ocrMs), new("compare", compareMs),
+                    new("end", MonotonicClock.MillisecondsSince(started))
+                ]
+            };
             lock(gate)
             {
                 if (version != generation) return null;
@@ -65,12 +84,15 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
                 {
                     captured = [.. frames];
                     product = new(cycle, current, [.. ends], DateTimeOffset.UtcNow,
-                        captured.Select(f => new CaptureEvidence(f.Id, f.CapturedAt, f.Source, f.Width, f.Height)).ToArray());
+                        captured.Select(f => new CaptureEvidence(f.Id, f.CapturedAt, f.Source, f.Width, f.Height)).ToArray(),
+                        [new("cycle", ends.Sum(e => e.MillisecondsOf("end")))]);
                 }
             }
             if (product != null)
             {
+                var persistStarted = MonotonicClock.Now;
                 await results.SaveAsync(product, captured!, token).ConfigureAwait(false);
+                LastPersistMilliseconds = MonotonicClock.MillisecondsSince(persistStarted);
                 lock(gate)
                 {
                     if (version != generation) return null;
@@ -95,6 +117,23 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
         lock(gate)
         {
             generation++; cancellation?.Cancel(); State = InspectionState.Stopped;
+        }
+    }
+
+    /// <summary>
+    /// Abandons the cycle in progress. Losing the camera part-way through a product must never let the
+    /// next frame be filed as the second end of an interrupted cycle.
+    /// </summary>
+    public bool Fault(string reason)
+    {
+        lock(gate)
+        {
+            if (State is not (InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2 or
+                InspectionState.ProcessingEnd1 or InspectionState.ProcessingEnd2)) return false;
+            generation++; cancellation?.Cancel();
+            ends.Clear(); frames.Clear(); Result = null;
+            Error = reason; State = InspectionState.Faulted;
+            return true;
         }
     }
 }

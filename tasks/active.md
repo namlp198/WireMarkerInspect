@@ -53,7 +53,16 @@
 - [x] Managed tests, WPF smoke assertions and a hardware probe on the real camera.
 - [ ] Tune exposure/gain/gamma against production optics and lighting (needs the real fixture).
 
-## Phase B — timing, soak and reconnect — not started
+## Phase B — timing, soak and reconnect — completed 2026-08-30
+- [x] Measure every stage with a monotonic clock; never compute an interval from wall-clock time.
+- [x] Record frame-age, OCR, compare and end totals per end, and the cycle total inside the written result.
+- [x] Show the last cycle with average, p95 and max over a rolling window, plus acquisition counters.
+- [x] Reconnect with a bounded backoff and reapply the taught camera settings.
+- [x] Fault the product in progress when the camera is lost, and restart at end 1.
+- [x] Append operational events to a JSON Lines diagnostics log.
+- [x] Add `scripts/camera-soak.ps1` and run it against the real camera.
+- [ ] Full-shift soak at production optics and lighting (needs the real fixture).
+- [ ] Split native OCR detect and recognize timing (phase B2, only if the totals show OCR is the bottleneck).
 ## Phase C — hardware trigger over the camera I/O line — not started
 ## Phase D — PLC trigger and result write-back — not started
 

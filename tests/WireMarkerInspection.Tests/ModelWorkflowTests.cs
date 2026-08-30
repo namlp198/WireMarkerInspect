@@ -6,6 +6,7 @@ using Xunit;
 
 namespace WireMarkerInspection.Tests;
 
+[Collection(DispatcherTestHost.Collection)]
 public sealed class ModelWorkflowTests:IDisposable
 {
     private readonly string root=Path.Combine(Path.GetTempPath(),"wmi-model-flow-"+Guid.NewGuid().ToString("N"));

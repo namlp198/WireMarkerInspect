@@ -1,7 +1,16 @@
 using System.Runtime.ExceptionServices;
 using System.Windows.Threading;
+using Xunit;
 
 namespace WireMarkerInspection.Tests;
+
+/// <summary>
+/// Tests that drive a real acquisition loop each hold an STA thread plus thread-pool work. Running them
+/// against each other starves the pool and makes pumped waits time out, so they share one serialized
+/// collection.
+/// </summary>
+[CollectionDefinition(DispatcherTestHost.Collection,DisableParallelization=true)]
+public sealed class DispatcherCollection;
 
 /// <summary>
 /// Runs view-model code the way the application does: on an STA thread whose dispatcher can be pumped.
@@ -10,6 +19,8 @@ namespace WireMarkerInspection.Tests;
 /// </summary>
 internal static class DispatcherTestHost
 {
+    public const string Collection="dispatcher";
+
     public static void Sta(Action action)
     {
         Exception? failure=null;

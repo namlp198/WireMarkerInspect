@@ -63,11 +63,13 @@
          <DataTrigger Binding="{Binding CameraState}" Value="Found"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger>
          <DataTrigger Binding="{Binding CameraState}" Value="Connected"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger>
          <DataTrigger Binding="{Binding CameraState}" Value="Acquiring"><Setter Property="Foreground" Value="{StaticResource Brush.Brand.Primary}"/><Setter Property="FontSize" Value="13"/></DataTrigger>
+         <DataTrigger Binding="{Binding CameraState}" Value="Reconnecting"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Warning}"/><Setter Property="FontSize" Value="13"/></DataTrigger>
          <DataTrigger Binding="{Binding CameraState}" Value="NotFound"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger>
          <DataTrigger Binding="{Binding CameraState}" Value="Error"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger>
         </Style.Triggers>
        </Style></TextBlock.Style>
       </TextBlock>
+      <TextBlock x:Name="AcquisitionSummaryText" Text="{Binding AcquisitionSummary}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
       <DockPanel Margin="0,0,0,4">
        <Button x:Name="ReadCameraSettingsButton" DockPanel.Dock="Right" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Sync}" ToolTip="Đọc thông số hiện tại từ camera" AutomationProperties.Name="Đọc thông số từ camera" Command="{Binding ReadCameraSettingsCommand}" IsEnabled="{Binding CanEditCameraParameters}"/>
@@ -162,7 +164,11 @@
      </StackPanel></Border>
      <StackPanel Orientation="Horizontal">
       <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Style="{StaticResource RunStatusLabel}" VerticalAlignment="Center" Margin="0,0,24,0"/>
-      <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding ActiveModel}" FontWeight="Bold"/><TextBlock Text="{Binding CycleLabel}" Style="{StaticResource Caption}"/></StackPanel>
+      <StackPanel VerticalAlignment="Center" Margin="0,0,24,0"><TextBlock Text="{Binding ActiveModel}" FontWeight="Bold"/><TextBlock Text="{Binding CycleLabel}" Style="{StaticResource Caption}"/></StackPanel>
+      <StackPanel VerticalAlignment="Center">
+       <TextBlock x:Name="CycleTimingText" Text="{Binding CycleTimingText}" Style="{StaticResource Caption}"/>
+       <TextBlock x:Name="RunAcquisitionSummaryText" Text="{Binding AcquisitionSummary}" Style="{StaticResource Caption}"/>
+      </StackPanel>
      </StackPanel>
     </DockPanel>
    </Border>

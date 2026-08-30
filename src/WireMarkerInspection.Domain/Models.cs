@@ -134,10 +134,30 @@ public sealed record ImageFrame(int Width, int Height, int Stride, byte[] Bgr,
 public sealed record OcrRegion(string Text, double Confidence, PixelPoint[] Box, byte[] CropPng);
 public sealed record OcrReading(OcrRegion[] Regions, int Rotation);
 public sealed record TextDifference(int Region, string Expected, string Actual, int FirstMismatch);
-public sealed record EndResult(Guid FrameId, Verdict Verdict, OcrReading Reading, TextDifference[] Differences, string Reason);
+
+/// <summary>
+/// One measured step of a cycle. Durations come from a monotonic clock, never from wall-clock
+/// subtraction, so a time-service correction cannot produce a negative or jumped measurement.
+/// </summary>
+public sealed record StageTiming(string Stage, double Milliseconds);
+
+/// <summary>Monotonic stopwatch time. Use this for every duration; use UtcNow only to stamp evidence.</summary>
+public static class MonotonicClock
+{
+    public static long Now => System.Diagnostics.Stopwatch.GetTimestamp();
+    public static double MillisecondsSince(long start) => Milliseconds(start, Now);
+    public static double Milliseconds(long from, long to) =>
+        Math.Max(0, to - from) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+}
+
+public sealed record EndResult(Guid FrameId, Verdict Verdict, OcrReading Reading, TextDifference[] Differences, string Reason,
+    StageTiming[]? Timings = null)
+{
+    public double MillisecondsOf(string stage) => Timings?.FirstOrDefault(t => t.Stage == stage)?.Milliseconds ?? 0;
+}
 public sealed record CaptureEvidence(Guid FrameId, DateTimeOffset CapturedAt, string Source, int Width, int Height);
 public sealed record ProductResult(Guid CycleId, Recipe Recipe, EndResult[] Ends, DateTimeOffset CompletedAt,
-    CaptureEvidence[]? Captures = null)
+    CaptureEvidence[]? Captures = null, StageTiming[]? Timings = null)
 {
     public Verdict Verdict => Ends.Length != 2 ? Verdict.Error :
         Ends.Any(e => e.Verdict == Verdict.Error) ? Verdict.Error :

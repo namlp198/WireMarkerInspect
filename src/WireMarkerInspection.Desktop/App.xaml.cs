@@ -18,6 +18,11 @@ public partial class App : System.Windows.Application
             ShutdownMode=ShutdownMode.OnExplicitShutdown;
             RealImageSmoke.Run(e.Args[1],e.Args[2],e.Args[3]);return;
         }
+        if(e.Args.Length==3&&e.Args[0]=="--camera-soak")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            CameraSoak.Run(e.Args[1],double.Parse(e.Args[2],System.Globalization.CultureInfo.InvariantCulture));return;
+        }
         if(e.Args.Length is 2 or 3&&e.Args[0]=="--camera-probe")
         {
             ShutdownMode=ShutdownMode.OnExplicitShutdown;

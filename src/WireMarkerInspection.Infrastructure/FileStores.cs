@@ -110,3 +110,33 @@ public sealed class FileResultStore(string root) : IResultStore
         JsonFiles.AtomicWrite(Path.Combine(folder,"result.json"), JsonSerializer.SerializeToUtf8Bytes(result, JsonFiles.Options));
     }
 }
+
+/// <summary>
+/// Append-only JSON Lines diagnostics, one file per day. Soak evidence has to survive the process that
+/// produced it, and one line per event keeps a partially written file readable.
+/// </summary>
+public sealed class FileDiagnosticsLog(string root) : IDiagnosticsLog
+{
+    private readonly object gate = new();
+    private readonly string directory = Path.Combine(root, "diagnostics");
+
+    public void Write(string category, string message, IReadOnlyDictionary<string, object?>? data = null)
+    {
+        var entry = new Dictionary<string, object?>
+        {
+            ["at"] = DateTimeOffset.Now, ["category"] = category, ["message"] = message
+        };
+        if (data != null) foreach (var pair in data) entry[pair.Key] = pair.Value;
+        var line = JsonSerializer.Serialize(entry, JsonFiles.Options).ReplaceLineEndings(" ") + Environment.NewLine;
+        lock (gate)
+        {
+            try
+            {
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(Path.Combine(directory, $"{DateTimeOffset.Now:yyyy-MM-dd}.jsonl"), line);
+            }
+            catch (IOException) { /* Diagnostics must never take down an inspection cycle. */ }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+}

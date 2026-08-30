@@ -8,6 +8,7 @@ using Xunit;
 
 namespace WireMarkerInspection.Tests;
 
+[Collection(DispatcherTestHost.Collection)]
 public sealed class CameraSettingsTests:IDisposable
 {
     private readonly string root=Path.Combine(Path.GetTempPath(),"wmi-camera-settings-"+Guid.NewGuid().ToString("N"));
