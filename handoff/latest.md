@@ -84,4 +84,11 @@ Do not ship without checking vendor/model redistribution terms and target-machin
 
 ## Repository changes
 Only the WireMarkerInspection repository was changed. Source references were read-only.
-The initial implementation is committed as `3b47c80`; current OCR acceptance changes are uncommitted on `develop`.
+All work described above is committed on `develop`; the working tree is clean and `develop` is in sync with `origin/develop`.
+
+- `3b47c80` Initial Wire Marker Inspection implementation (also the current `main`/`origin/main` tip).
+- `ec06803` Validate real-image OCR and model workflow.
+- `644c12e` Improve model setup and inspection feedback.
+- `abc9b6b` Add Hikrobot camera acquisition workflow — current `develop`/`origin/develop` tip.
+
+`develop` is three commits ahead of `main`; the camera, OCR-acceptance, model-setup and HUD/status changes have not been merged to `main` yet.
