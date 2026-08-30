@@ -1,5 +1,6 @@
 param(
     [switch]$Grab,
+    [switch]$SoftwareTrigger,
     [string]$Configuration = "Release",
     [string]$Output
 )
@@ -16,6 +17,7 @@ if ($LASTEXITCODE -ne 0) { throw "Desktop build failed with exit code $LASTEXITC
 $exe = Join-Path $repo "src/WireMarkerInspection.Desktop/bin/$Configuration/net8.0-windows/WireMarkerInspection.Desktop.exe"
 $arguments = @("--camera-probe", ('"' + $report + '"'))
 if ($Grab) { $arguments += "--grab" }
+elseif ($SoftwareTrigger) { $arguments += "--software-trigger" }
 $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
 Get-Content -LiteralPath $report
 if ($process.ExitCode -ne 0) { throw "Camera probe failed. See $report" }

@@ -54,6 +54,10 @@ public partial class MainViewModel : ObservableObject
     private IReadOnlyList<CameraParameterInfo> cameraParameters=[];
     private bool loadingCamera;
     private CameraDevice? connectedDevice;
+    private CameraTrigger cameraTrigger=CameraTrigger.FreeRun;
+    private TriggerRouter router=new(new TriggerSettings());
+    private ITriggerSource? activeTrigger;
+    private readonly ManualTriggerSource manualTrigger=new();
     private CameraSettings? appliedSettings;
     private long latestTimestamp;
     private static readonly TimeSpan[] ReconnectDelays=
@@ -100,6 +104,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string strobeDelay="0";
     [ObservableProperty]private string cameraInfo="Chưa kết nối camera.";
     [ObservableProperty]private bool showAdvancedCamera;
+    [ObservableProperty]private TriggerKind triggerKind=TriggerKind.Manual;
+    [ObservableProperty]private TriggerMapping triggerMapping=TriggerMapping.Shared;
+    [ObservableProperty]private string triggerLine="0";
+    [ObservableProperty]private bool triggerRisingEdge=true;
+    [ObservableProperty]private string triggerDelay="0";
+    [ObservableProperty]private string triggerDebouncer="1000";
+    [ObservableProperty]private string triggerRepeatBlock="250";
+    [ObservableProperty]private string triggerStatus="Trigger thủ công";
+    [ObservableProperty]private string lastTrigger="Chưa có trigger.";
     [ObservableProperty]private string message="Chọn một model hoặc Add Model để bắt đầu setup.";
     [ObservableProperty]private string runStatus="CHƯA CHẠY";
     [ObservableProperty]private string ocrStatus="";
@@ -135,6 +148,10 @@ public partial class MainViewModel : ObservableObject
     public bool CanNext=>Running&&!Busy&&Session.State==InspectionState.Completed;
     public string CaptureLabel=>$"Nhận ảnh đầu {Session.NextEnd+1}";
     public string ModelCount=>$"{Models.Count} MODELS";
+    public TriggerKind[] TriggerKinds{get;}=[TriggerKind.Manual,TriggerKind.CameraLine];
+    public TriggerMapping[] TriggerMappings{get;}=[TriggerMapping.Shared,TriggerMapping.PerEnd];
+    public bool CanEditTrigger=>CanEdit&&!Running;
+    public bool CanRetakeEnd=>Running&&!Busy&&Session.State==InspectionState.WaitingEnd2;
     public string CycleTimingText
     {
         get
@@ -202,6 +219,8 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
         OnPropertyChanged(nameof(CanCapture));OnPropertyChanged(nameof(CanNext));
+        OnPropertyChanged(nameof(CanEditTrigger));OnPropertyChanged(nameof(CanRetakeEnd));
+        RetakeEndCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CaptureLabel));OnPropertyChanged(nameof(CycleLabel));OnPropertyChanged(nameof(ActiveModel));
         RefreshCameraState();
     }
@@ -392,31 +411,124 @@ public partial class MainViewModel : ObservableObject
     {
         if(Running){Message="Stop RUN trước khi quay lại SETTING.";return;}RunPage=false;
     }
-    [RelayCommand]private void StartRun()=>Guard(()=>
+    [RelayCommand]private async Task StartRunAsync()
     {
         if(Busy||Running)return;
         RunPage=true;RefreshOcr();
-        if(saved==null||Dirty)throw new InvalidOperationException("Cần lưu recipe trước khi RUN.");
-        if(Ocr.AvailabilityError is{}error)throw new InvalidOperationException(error);
-        runtimeRecipe=saved.Copy();Session.Begin(runtimeRecipe);Running=true;
-        Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);waitingSince=DateTimeOffset.UtcNow;
-        RunStatus="CHỜ ĐẦU 1";Message="RUN đã bắt đầu. Nạp ảnh offline hoặc nhận frame camera.";RefreshState();
-    });
-    [RelayCommand]private void StopRun()
-    {
-        Session.Stop();Running=false;RunStatus="ĐÃ DỪNG";RefreshState();
+        var started=false;
+        await GuardAsync(async()=>
+        {
+            if(saved==null||Dirty)throw new InvalidOperationException("Cần lưu recipe trước khi RUN.");
+            if(Ocr.AvailabilityError is{}error)throw new InvalidOperationException(error);
+            var settings=BuildTriggerSettings();
+            await ArmTriggerAsync(settings);
+            runtimeRecipe=saved.Copy();Session.Begin(runtimeRecipe);Running=true;started=true;
+            Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);waitingSince=DateTimeOffset.UtcNow;
+            RunStatus="CHỜ ĐẦU 1";
+        });
+        Message=started
+            ?$"RUN đã bắt đầu · {TriggerStatus}."
+            :$"RUN không bắt đầu được · {Message}";
+        RefreshState();
     }
+    [RelayCommand]private async Task StopRunAsync()
+    {
+        Session.Stop();Running=false;RunStatus="ĐÃ DỪNG";
+        await GuardAsync(DisarmTriggerAsync);
+        RefreshState();
+    }
+    public void StopRun(){Session.Stop();Running=false;RunStatus="ĐÃ DỪNG";RefreshState();}
+
+    /// <summary>
+    /// Switching between free-run and a triggered source is an acquisition lifecycle change: MVS will not
+    /// accept a trigger-source change while grabbing, so acquisition is stopped and restarted around it.
+    /// </summary>
+    public async Task ArmTriggerAsync(TriggerSettings settings)
+    {
+        await DisarmTriggerAsync();
+        router=new(settings);
+        ITriggerSource source=settings.Kind==TriggerKind.CameraLine
+            ?new CameraLineTriggerSource(Camera,settings.CameraTrigger)
+            :manualTrigger;
+        if(settings.CameraTrigger.IsTriggered)
+        {
+            if(!CameraConnected)throw new InvalidOperationException("Trigger phần cứng cần camera đang kết nối.");
+            await SwitchAcquisitionAsync(settings.CameraTrigger,()=>source.StartAsync(CancellationToken.None));
+        }
+        else await source.StartAsync(CancellationToken.None);
+        source.Fired+=OnTriggerFired;
+        activeTrigger=source;TriggerStatus=source.Status;
+        Log.Write("trigger","armed",new Dictionary<string,object?>
+        {
+            ["kind"]=settings.Kind.ToString(),["mapping"]=settings.Mapping.ToString(),
+            ["line"]=settings.CameraTrigger.Line,["repeatBlockMs"]=settings.RepeatBlockMs
+        });
+    }
+
+    public async Task DisarmTriggerAsync()
+    {
+        if(activeTrigger is not{}source)return;
+        source.Fired-=OnTriggerFired;
+        activeTrigger=null;
+        // The source owns the device configuration, so restoring free-run must happen exactly once,
+        // inside the stopped window. Configuring it again afterwards would hit a grabbing camera.
+        if(cameraTrigger.IsTriggered&&CameraConnected)await SwitchAcquisitionAsync(CameraTrigger.FreeRun,source.StopAsync);
+        else await source.StopAsync();
+        if(!ReferenceEquals(source,manualTrigger))await source.DisposeAsync();
+        TriggerStatus=manualTrigger.Status;
+        Log.Write("trigger","disarmed",null);
+    }
+
+    private async Task SwitchAcquisitionAsync(CameraTrigger trigger,Func<Task> configure)
+    {
+        var resume=Acquiring;
+        if(resume)await StopAcquisitionAsync();
+        await configure();
+        cameraTrigger=trigger;
+        if(resume)await StartAcquisitionAsync();
+    }
+
+    private void OnTriggerFired(object? sender,TriggerEvent signal)
+    {
+        if(!dispatcher.CheckAccess()){dispatcher.InvokeAsync(()=>OnTriggerFired(sender,signal));return;}
+        var decision=router.Route(signal,Session.State,Session.NextEnd);
+        LastTrigger=$"{DateTimeOffset.Now:HH:mm:ss} · {decision.Reason}";
+        if(!decision.Accepted)
+        {
+            // An ignored trigger is never silent: a mis-wired line shows up here instead of as a lost product.
+            Log.Write("trigger","ignored",new Dictionary<string,object?>{["reason"]=decision.Reason,["source"]=signal.Source});
+            return;
+        }
+        Log.Write("trigger","accepted",new Dictionary<string,object?>{["end"]=decision.End+1,["source"]=signal.Source});
+        _=CaptureRuntimeCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>Drops a bad first image so the operator can shoot it again without losing the product.</summary>
+    [RelayCommand(CanExecute=nameof(CanRetakeEnd))]private void RetakeEnd()=>Guard(()=>
+    {
+        if(!CanRetakeEnd||runtimeRecipe==null)return;
+        if(!Session.RetakeLastEnd())return;
+        Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
+        router.Reset();waitingSince=DateTimeOffset.UtcNow;RunStatus="CHỜ ĐẦU 1";
+        Message="RUN · Đã bỏ ảnh đầu 1. Chụp lại đầu 1.";RefreshState();
+    });
     [RelayCommand]private void NextProduct()=>Guard(()=>
     {
         if(!CanNext)return;
         Session.Begin(runtimeRecipe!);Result1.Reset(runtimeRecipe!.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
-        waitingSince=DateTimeOffset.UtcNow;RunStatus="CHỜ ĐẦU 1";RefreshState();
+        router.Reset();waitingSince=DateTimeOffset.UtcNow;RunStatus="CHỜ ĐẦU 1";RefreshState();
     });
     [RelayCommand]private async Task LoadRuntimeAsync()
     {
         if(!CanCapture)return;
         var file=ChooseImage();if(file==null)return;
         await GuardAsync(()=>InspectAsync(ImageFiles.Load(file)));
+    }
+    /// <summary>Manual capture is the manual trigger source, so it follows the same routing rules.</summary>
+    [RelayCommand]private void ManualTrigger()
+    {
+        if(!Running){Message="RUN chưa bắt đầu.";return;}
+        manualTrigger.Fire(TriggerMapping==TriggerMapping.PerEnd?Session.NextEnd:null,"thao tác tay");
     }
     [RelayCommand]private async Task CaptureRuntimeAsync()
     {
@@ -646,6 +758,21 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanEditSensorRoi));OnPropertyChanged(nameof(CanEditStrobe));
     }
 
+    /// <summary>Reads the trigger form. Invalid combinations are rejected here, before RUN starts.</summary>
+    public TriggerSettings BuildTriggerSettings()
+    {
+        var camera=TriggerKind switch
+        {
+            TriggerKind.CameraLine=>new CameraTrigger(CameraTriggerSource.Line,Whole(TriggerLine,"Trigger line"),
+                TriggerRisingEdge,Number(TriggerDelay,"Trigger delay"),Number(TriggerDebouncer,"Trigger debouncer")),
+            TriggerKind.Plc=>new CameraTrigger(CameraTriggerSource.Software),
+            _=>CameraTrigger.FreeRun
+        };
+        var settings=new TriggerSettings(TriggerKind,TriggerMapping,camera,Whole(TriggerRepeatBlock,"Chặn trigger lặp"));
+        if(settings.Validate() is{}error)throw new InvalidOperationException(error);
+        return settings;
+    }
+
     private static double Number(string text,string label)=>
         double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var value)&&double.IsFinite(value)
             ?value:throw new InvalidOperationException($"{label} không hợp lệ. Dùng dấu chấm thập phân.");
@@ -656,16 +783,24 @@ public partial class MainViewModel : ObservableObject
     {
         if(!CanToggleAcquisition)return;
         if(Acquiring){await StopAcquisitionAsync();return;}
-        await GuardAsync(async()=>
+        await GuardAsync(StartAcquisitionAsync);
+    }
+
+    private async Task StartAcquisitionAsync()
+    {
+        await Task.Run(()=>
         {
-            await Task.Run(Camera.Start);acquisition=new();Acquiring=true;CameraState=CameraUiState.Acquiring;
+            Camera.Start();
+        });
+        {
+            acquisition=new();Acquiring=true;CameraState=CameraUiState.Acquiring;
             SourceStatus="CAMERA LIVE";CameraStatus="ĐANG ACQUISITION · CHỜ FRAME";
             Message="ACQUISITION · Đã bắt đầu nhận ảnh camera.";
             var token=acquisition.Token;
             Diagnostics.BeginRun();OnPropertyChanged(nameof(AcquisitionSummary));
             Log.Write("acquisition","started",new Dictionary<string,object?>{["device"]=connectedDevice?.Name});
             acquisitionTask=Task.Run(()=>RunAcquisitionAsync(token));
-        });
+        }
     }
     /// <summary>
     /// Keeps live frames flowing across a lost camera. Each failure faults any cycle in progress and then
@@ -730,7 +865,8 @@ public partial class MainViewModel : ObservableObject
             catch(TimeoutException)
             {
                 Diagnostics.Timeout();
-                if(MonotonicClock.MillisecondsSince(lastReceived)>3000)
+                // A triggered camera is silent by design; only free-run silence means the link is gone.
+                if(!cameraTrigger.IsTriggered&&MonotonicClock.MillisecondsSince(lastReceived)>3000)
                     throw new TimeoutException("Camera không có frame mới trong 3 giây.");
                 continue;
             }
@@ -743,6 +879,8 @@ public partial class MainViewModel : ObservableObject
                 CameraStatus=$"ĐANG ACQUISITION · {frame.Width} × {frame.Height}";
                 if(CameraState==CameraUiState.Reconnecting)CameraState=CameraUiState.Acquiring;
                 RefreshGrabState();
+                // In triggered acquisition the arriving frame is the trigger event.
+                if(cameraTrigger.IsTriggered&&activeTrigger is CameraLineTriggerSource line)line.Fire(null,"camera-line");
             });
             await Task.Delay(15,token);
         }
@@ -755,6 +893,7 @@ public partial class MainViewModel : ObservableObject
         try{Camera.Close();}catch{}
         Camera.Open(device);
         if(appliedSettings is{}settings)Camera.ApplySettings(settings);
+        if(cameraTrigger.IsTriggered)Camera.ConfigureTrigger(cameraTrigger);
         Camera.Start();
     }
 
@@ -816,7 +955,7 @@ public partial class MainViewModel : ObservableObject
         CameraStatus=Cameras.Count>0?"ĐÃ NGẮT CAMERA · SẴN SÀNG KẾT NỐI LẠI":"ĐÃ NGẮT CAMERA";
         Message="ACQUISITION · Đã ngắt kết nối camera.";
     }
-    public async Task ShutdownAsync(){StopRun();await StopAcquisitionAsync();await Task.Run(()=>{Camera.Dispose();Ocr.Dispose();});}
+    public async Task ShutdownAsync(){StopRun();try{await DisarmTriggerAsync();}catch{/* Shutdown continues. */}await StopAcquisitionAsync();await Task.Run(()=>{Camera.Dispose();Ocr.Dispose();});}
     private static string? ChooseImage()
     {
         var dialog=new OpenFileDialog{Filter="Images|*.png;*.bmp;*.jpg;*.jpeg;*.tif;*.tiff",CheckFileExists=true};

@@ -26,7 +26,7 @@ public partial class App : System.Windows.Application
         if(e.Args.Length is 2 or 3&&e.Args[0]=="--camera-probe")
         {
             ShutdownMode=ShutdownMode.OnExplicitShutdown;
-            CameraProbe.Run(e.Args[1],e.Args.Length==3&&e.Args[2]=="--grab");return;
+            CameraProbe.Run(e.Args[1],e.Args.Length==3&&e.Args[2]=="--grab",e.Args.Length==3&&e.Args[2]=="--software-trigger");return;
         }
         instance=new Mutex(true,"Local\\WireMarkerInspection."+Environment.UserName,out var created);
         if(!created)

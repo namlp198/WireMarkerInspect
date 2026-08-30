@@ -63,7 +63,19 @@
 - [x] Add `scripts/camera-soak.ps1` and run it against the real camera.
 - [ ] Full-shift soak at production optics and lighting (needs the real fixture).
 - [ ] Split native OCR detect and recognize timing (phase B2, only if the totals show OCR is the bottleneck).
-## Phase C — hardware trigger over the camera I/O line — not started
+## Phase C — hardware trigger over the camera I/O line — completed 2026-08-30
+- [x] Add `ITriggerSource` with manual and camera-line implementations.
+- [x] Route signals to ends with both shared and per-end mappings, refusing mismatched ends.
+- [x] Block repeated signals inside a configurable window and ignore signals while processing, with a logged reason.
+- [x] Reject a per-end mapping on a single camera line instead of pretending it works.
+- [x] Stop and restart acquisition around a trigger-mode change, and stop treating a quiet triggered camera as a lost link.
+- [x] Add "Chụp lại đầu này" so a bad first image does not cost the product.
+- [x] Add trigger settings to SETTING and the last-trigger read-out to RUN.
+- [x] Verify the triggered path on real hardware with a software trigger.
+- [ ] Verify a physical pulse on the 6-pin I/O cable: TriggerSource=Line, activation edge and debouncer.
+- [ ] Confirm the trigger-to-frame latency budget against the measured frame-interval jitter.
+
+## Phase D — PLC trigger and result write-back — not started
 ## Phase D — PLC trigger and result write-back — not started
 
 ## Awaiting external inputs / acceptance

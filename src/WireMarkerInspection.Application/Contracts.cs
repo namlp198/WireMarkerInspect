@@ -44,6 +44,13 @@ public interface ICamera : IDisposable
     IReadOnlyList<CameraParameterInfo> DescribeParameters();
     CameraSettings ReadSettings();
     void ApplySettings(CameraSettings settings);
+    /// <summary>
+    /// Switches between continuous acquisition and a triggered source. Triggered acquisition only
+    /// delivers a frame per pulse, so callers must stop treating a quiet camera as a fault.
+    /// </summary>
+    void ConfigureTrigger(CameraTrigger trigger);
+    /// <summary>Fires one software trigger. Only valid while the software trigger source is configured.</summary>
+    void ExecuteSoftwareTrigger();
     void Start();
     ImageFrame Grab(int timeoutMs);
     void Stop();

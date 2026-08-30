@@ -158,6 +158,11 @@ public sealed class TimingAndRecoveryTests:IDisposable
             [new("ExposureTime","us",10,100000,0,10000,true),new("Gain","dB",0,20,0,0,true)];
         public CameraSettings ReadSettings()=>new(10000,0);
         public void ApplySettings(CameraSettings settings){}
+        public void ConfigureTrigger(CameraTrigger trigger)
+        {
+            if(trigger.IsTriggered)throw new NotSupportedException("This fake only runs free-run.");
+        }
+        public void ExecuteSoftwareTrigger()=>throw new NotSupportedException("This fake has no trigger.");
         public void Start(){lock(gate)grabbing=true;}
         public ImageFrame Grab(int timeoutMs)
         {

@@ -111,6 +111,26 @@
       </StackPanel>
       <Button x:Name="ApplyCameraParametersButton" Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Áp dụng thông số camera" AutomationProperties.Name="Áp dụng thông số camera" Command="{Binding CameraParametersCommand}" IsEnabled="{Binding CanEditCameraParameters}" Margin="0,12,0,8"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
+      <TextBlock Text="TRIGGER" Style="{StaticResource SectionLabel}"/>
+      <TextBlock Text="Nguồn kích chụp khi RUN" Style="{StaticResource Caption}" Margin="0,4"/>
+      <ComboBox x:Name="TriggerKindSelector" ItemsSource="{Binding TriggerKinds}" SelectedItem="{Binding TriggerKind}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource Input.Combo}" Height="28"/>
+      <TextBlock Text="Ánh xạ tín hiệu sang đầu dây" Style="{StaticResource Caption}" Margin="0,12,0,4"/>
+      <ComboBox x:Name="TriggerMappingSelector" ItemsSource="{Binding TriggerMappings}" SelectedItem="{Binding TriggerMapping}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource Input.Combo}" Height="28" ToolTip="Shared: một tín hiệu chung, app tự biết đang chờ đầu nào. PerEnd: tín hiệu tự cho biết đầu nào."/>
+      <Grid x:Name="CameraTriggerPanel" Margin="0,12,0,0">
+       <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding TriggerKind}" Value="CameraLine"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+       <TextBlock Text="Chân Line" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Chống nảy (µs)" Style="{StaticResource Caption}"/>
+       <TextBox Grid.Row="1" x:Name="TriggerLineTextBox" Text="{Binding TriggerLine,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding TriggerDebouncer,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <TextBlock Grid.Row="2" Text="Trễ trigger (µs)" Style="{StaticResource Caption}" Margin="0,8,0,0"/><TextBlock Grid.Row="2" Grid.Column="2" Text="Chặn lặp (ms)" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
+       <TextBox Grid.Row="3" Text="{Binding TriggerDelay,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding TriggerRepeatBlock,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <CheckBox Grid.Row="4" Grid.ColumnSpan="3" x:Name="TriggerRisingEdgeCheckBox" Content="Kích theo sườn lên" IsChecked="{Binding TriggerRisingEdge}" IsEnabled="{Binding CanEditTrigger}" Margin="0,10,0,0"/>
+      </Grid>
+      <TextBlock x:Name="TriggerStatusText" Text="{Binding TriggerStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+      <TextBlock Text="Trigger phần cứng chỉ áp dụng khi RUN; SETTING luôn dùng free-run để căn ROI." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+      <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,20,0,20"/>
       <TextBlock Text="INSPECTION MODULES" Style="{StaticResource SectionLabel}"/>
       <CheckBox Content="OCR text" IsChecked="True" IsEnabled="False" Margin="0,0,0,10"/>
       <CheckBox Content="Wire color" IsEnabled="False" Margin="0,0,0,10"/>
@@ -158,7 +178,8 @@
     <DockPanel>
      <Border DockPanel.Dock="Right" Style="{StaticResource Hud.Container}" Padding="4"><StackPanel Orientation="Horizontal">
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="Load ảnh offline" AutomationProperties.Name="Load runtime image" Command="{Binding LoadRuntimeCommand}" IsEnabled="{Binding CanCapture}"/>
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{Binding CaptureLabel}" AutomationProperties.Name="Capture runtime image" Command="{Binding CaptureRuntimeCommand}" IsEnabled="{Binding CanCapture}"/>
+      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{Binding CaptureLabel}" AutomationProperties.Name="Capture runtime image" Command="{Binding ManualTriggerCommand}" IsEnabled="{Binding CanCapture}"/>
+      <Button x:Name="RetakeEndButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Sync}" ToolTip="Chụp lại đầu này" AutomationProperties.Name="Chụp lại đầu này" Command="{Binding RetakeEndCommand}"/>
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.ArrowRight}" ToolTip="Sản phẩm tiếp" AutomationProperties.Name="Sản phẩm tiếp" Command="{Binding NextProductCommand}" IsEnabled="{Binding CanNext}"/>
       <Button x:Name="StopRuntimeButton" Style="{StaticResource ToolRail.DangerButton}" Tag="{StaticResource Icon.Stop}" ToolTip="Stop" AutomationProperties.Name="Stop runtime" Command="{Binding StopRunCommand}" IsEnabled="{Binding Running}"/>
      </StackPanel></Border>
@@ -166,6 +187,7 @@
       <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Style="{StaticResource RunStatusLabel}" VerticalAlignment="Center" Margin="0,0,24,0"/>
       <StackPanel VerticalAlignment="Center" Margin="0,0,24,0"><TextBlock Text="{Binding ActiveModel}" FontWeight="Bold"/><TextBlock Text="{Binding CycleLabel}" Style="{StaticResource Caption}"/></StackPanel>
       <StackPanel VerticalAlignment="Center">
+       <TextBlock x:Name="RunTriggerText" Text="{Binding LastTrigger}" Style="{StaticResource Caption}"/>
        <TextBlock x:Name="CycleTimingText" Text="{Binding CycleTimingText}" Style="{StaticResource Caption}"/>
        <TextBlock x:Name="RunAcquisitionSummaryText" Text="{Binding AcquisitionSummary}" Style="{StaticResource Caption}"/>
       </StackPanel>

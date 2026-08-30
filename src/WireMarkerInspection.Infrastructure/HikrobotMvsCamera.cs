@@ -19,6 +19,7 @@ public sealed class HikrobotMvsCamera : ICamera
     private bool initialized;
     private bool grabbing;
     private uint? lastFrame;
+    private CameraTriggerSource triggerSource=CameraTriggerSource.FreeRun;
 
     public IReadOnlyList<CameraDevice> Enumerate()
     {
@@ -66,7 +67,7 @@ public sealed class HikrobotMvsCamera : ICamera
                 }
                 Check(camera.MV_CC_SetEnumValue_NET("AcquisitionMode",(uint)MyCamera.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS),"set continuous acquisition");
                 Check(camera.MV_CC_SetEnumValue_NET("TriggerMode",(uint)MyCamera.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_OFF),"disable trigger mode");
-                selected=device;lastFrame=null;
+                selected=device;lastFrame=null;triggerSource=CameraTriggerSource.FreeRun;
             }
             catch
             {
@@ -183,6 +184,54 @@ public sealed class HikrobotMvsCamera : ICamera
                     Require("StrobeLineDelay",camera.MV_CC_SetIntValueEx_NET("StrobeLineDelay",(long)strobe.DelayUs));
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Free-run and triggered acquisition are different acquisition lifecycles, not one setting: MVS
+    /// rejects a trigger-source change while grabbing, so the caller must stop acquisition first.
+    /// </summary>
+    public void ConfigureTrigger(CameraTrigger trigger)
+    {
+        if(trigger.Validate() is{}invalid)throw new ArgumentException(invalid,nameof(trigger));
+        lock(gate)
+        {
+            RequireOpen();
+            if(grabbing)throw new InvalidOperationException("Dừng acquisition trước khi đổi chế độ trigger.");
+            if(trigger.Source==CameraTriggerSource.FreeRun)
+            {
+                Require("TriggerMode",camera!.MV_CC_SetEnumValue_NET("TriggerMode",(uint)MyCamera.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_OFF));
+                triggerSource=CameraTriggerSource.FreeRun;
+                return;
+            }
+            Require("TriggerMode",camera!.MV_CC_SetEnumValue_NET("TriggerMode",(uint)MyCamera.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON));
+            if(trigger.Source==CameraTriggerSource.Software)
+            {
+                Require("TriggerSource",camera.MV_CC_SetEnumValue_NET("TriggerSource",(uint)MyCamera.MV_CAM_TRIGGER_SOURCE.MV_TRIGGER_SOURCE_SOFTWARE));
+            }
+            else
+            {
+                Require("TriggerSource",camera.MV_CC_SetEnumValue_NET("TriggerSource",checked((uint)trigger.Line)));
+                Require("TriggerActivation",camera.MV_CC_SetEnumValue_NET("TriggerActivation",trigger.RisingEdge?0u:1u));
+                if(trigger.DebouncerUs>0)
+                {
+                    Require("LineSelector",camera.MV_CC_SetEnumValue_NET("LineSelector",checked((uint)trigger.Line)));
+                    Require("LineDebouncerTime",camera.MV_CC_SetIntValueEx_NET("LineDebouncerTime",(long)trigger.DebouncerUs));
+                }
+            }
+            if(trigger.DelayUs>0)Require("TriggerDelay",camera.MV_CC_SetFloatValue_NET("TriggerDelay",(float)trigger.DelayUs));
+            triggerSource=trigger.Source;
+        }
+    }
+
+    public void ExecuteSoftwareTrigger()
+    {
+        lock(gate)
+        {
+            RequireOpen();
+            if(triggerSource!=CameraTriggerSource.Software)
+                throw new InvalidOperationException("Camera chưa ở chế độ software trigger.");
+            Require("TriggerSoftware",camera!.MV_CC_SetCommandValue_NET("TriggerSoftware"));
         }
     }
 
@@ -396,6 +445,8 @@ public sealed class HikrobotMvsCamera : ICamera
     public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>throw MissingSdk();
     public CameraSettings ReadSettings()=>throw MissingSdk();
     public void ApplySettings(CameraSettings settings)=>throw MissingSdk();
+    public void ConfigureTrigger(CameraTrigger trigger)=>throw MissingSdk();
+    public void ExecuteSoftwareTrigger()=>throw MissingSdk();
     public void Start()=>throw MissingSdk();
     public ImageFrame Grab(int timeoutMs)=>throw MissingSdk();
     public void Stop(){}

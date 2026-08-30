@@ -1,6 +1,17 @@
 # Handoff — 2026-08-30
 
 ## Latest session
+- Phase C of the approved plan is done: RUN can be driven by a hardware trigger on the camera's I/O line, not only by the capture button.
+- `ITriggerSource` covers the manual and camera-line sources; the PLC source lands in phase D on the same seam. In triggered acquisition the arriving frame is the trigger event, so there is no second grab path to keep in step.
+- `TriggerRouter` owns the decision that matters: which end a signal belongs to. `Shared` follows the session state, `PerEnd` takes the end from the signal and refuses one that does not match what is expected. It blocks repeats inside a configurable window and ignores signals arriving while an image is being processed. Every ignored signal is logged with its reason — a mis-wired line shows up as a log entry instead of a wrong verdict.
+- One camera exposes a single TriggerSource node, so `CameraLine` + `PerEnd` is refused in validation rather than silently accepted. Splitting the two ends across two signals is a PLC capability.
+- Free-run and triggered acquisition are handled as different lifecycles: acquisition stops and restarts around a trigger-mode change. A defect found by the new tests — the device was configured twice on disarm, the second time while grabbing — is fixed; on real hardware that would have thrown.
+- A quiet triggered camera is no longer treated as a lost link; only free-run silence still faults.
+- `InspectionSession.RetakeLastEnd` and the "Chụp lại đầu này" action let the operator drop a bad first image and shoot it again without losing the product.
+- SETTING has a TRIGGER group (kind, mapping, line, edge, debouncer, delay, repeat block); RUN shows the last trigger and its outcome.
+- Hardware verified on MV-CE120-10GM `00G29911748` with `scripts/camera-probe.ps1 -SoftwareTrigger`: silent for 700 ms while armed, a full 4024x3036 frame delivered exactly on the software trigger, then free-run restored. Evidence: `artifacts/camera-probe-phase-c.json`. This proves the TriggerMode/TriggerSource/TriggerSoftware nodes and the stop-start lifecycle on the actual device.
+- Not verified: a physical pulse on the 6-pin I/O cable. TriggerSource=Line, TriggerActivation and LineDebouncerTime need real wiring, and the trigger-to-frame latency budget should be read against the 511 ms frame-interval outlier measured in phase B.
+- Verification: Release build 0 warnings/errors; managed 65/65 (repeated three times); native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-175112`; hardware software-trigger probe PASS.
 - Phase B of the approved plan is done: cycles are measured, acquisition survives a lost camera, and a soak tool produces evidence.
 - Durations come from `MonotonicClock` (Stopwatch ticks). `DateTimeOffset.UtcNow` now only stamps evidence; it is never used to compute an interval, so an NTP correction cannot produce a negative or jumped measurement. A test pins that a backwards interval clamps to zero.
 - `EndResult` carries frame-age, OCR, compare and end-total stages, and `ProductResult` carries the cycle total. The cycle total is computed before the file is written so `result.json` contains it; persist time is reported through `InspectionSession.LastPersistMilliseconds`.

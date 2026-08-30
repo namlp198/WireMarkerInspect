@@ -45,6 +45,19 @@ internal static class DispatcherTestHost
         }
     }
 
+    /// <summary>Keeps the dispatcher pumping for a fixed period, for asserting that nothing happens.</summary>
+    public static void PumpFor(TimeSpan duration)
+    {
+        var deadline=DateTime.UtcNow+duration;
+        while(DateTime.UtcNow<deadline)
+        {
+            var frame=new DispatcherFrame();
+            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>frame.Continue=false));
+            Dispatcher.PushFrame(frame);
+            Thread.Sleep(5);
+        }
+    }
+
     public static void Wait(Task task)
     {
         Pump(()=>task.IsCompleted,TimeSpan.FromSeconds(20),"A view-model operation did not complete.");

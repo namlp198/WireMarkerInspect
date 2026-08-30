@@ -121,6 +121,23 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
     }
 
     /// <summary>
+    /// Drops the end already captured so the operator can shoot it again. Only offered while the first
+    /// end is done and the second has not been captured, which is the case a bad first image creates.
+    /// </summary>
+    public bool RetakeLastEnd()
+    {
+        lock(gate)
+        {
+            if (State != InspectionState.WaitingEnd2 || ends.Count == 0) return false;
+            generation++; cancellation?.Cancel();
+            cancellation?.Dispose(); cancellation = new();
+            ends.RemoveAt(ends.Count - 1); frames.RemoveAt(frames.Count - 1);
+            Error = null; State = InspectionState.WaitingEnd1;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Abandons the cycle in progress. Losing the camera part-way through a product must never let the
     /// next frame be filed as the second end of an interrupted cycle.
     /// </summary>

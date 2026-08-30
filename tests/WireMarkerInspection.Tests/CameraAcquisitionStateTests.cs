@@ -120,6 +120,11 @@ public sealed class CameraAcquisitionStateTests:IDisposable
         ];
         public CameraSettings ReadSettings()=>Applied??new(10000,0);
         public void ApplySettings(CameraSettings settings)=>Applied=settings;
+        public void ConfigureTrigger(CameraTrigger trigger)
+        {
+            if(trigger.IsTriggered)throw new NotSupportedException("This fake only runs free-run.");
+        }
+        public void ExecuteSoftwareTrigger()=>throw new NotSupportedException("This fake has no trigger.");
         public void Start(){}
         public ImageFrame Grab(int timeoutMs)=>throw new TimeoutException();
         public void Stop(){}

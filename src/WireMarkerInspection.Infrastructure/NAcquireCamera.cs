@@ -74,6 +74,11 @@ public sealed class NAcquireCamera : ICamera
             Check(Native.NAcquire_SetParameter(camera,"Gain",settings.Gain.ToString(culture)));
         }
     }
+    public void ConfigureTrigger(CameraTrigger trigger)
+    {
+        if(trigger.IsTriggered)throw new NotSupportedException("NAcquire C ABI 0.1 khong ho tro trigger.");
+    }
+    public void ExecuteSoftwareTrigger()=>throw new NotSupportedException("NAcquire C ABI 0.1 khong ho tro software trigger.");
     public void Start() {lock(gate){RequireOpen();Check(Native.NAcquire_StartGrabbing(camera));grabbing=true;}}
     public ImageFrame Grab(int timeoutMs)
     {

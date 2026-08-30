@@ -39,6 +39,7 @@ The build script accepts -OpenCvRoot and -OrtRoot; defaults match this developme
 6. Apply each end; the Save icon in the Model Library header publishes both ends as one revision. The saved row is selected and reloaded immediately. Edit Model updates the same identity and increments its revision.
 7. RUN uses a frozen saved recipe. Load the first offline image or capture a fresh camera frame, then the second end of the same product.
 8. Both ends must match exact text and their configured direction. Stop cancels the current cycle. Sản phẩm tiếp begins a fresh cycle.
+9. RUN can instead be driven by a hardware trigger on the camera's 6-pin I/O line. One shared signal follows the session from end 1 to end 2; a per-end mapping needs two separate signals and is therefore a PLC feature, not something one camera line can provide. Repeated signals inside the configured window, and signals arriving while an image is being processed, are ignored and logged. Chụp lại đầu này drops a bad first image without losing the product.
 
 The current wire-marker OCR alphabet is alphanumeric plus `.` and `/`; layout whitespace is removed and the recognizer's `:`/`,` dot confusions are mapped to `.` before comparison. Case and field order are preserved. The domain comparison remains ordinal and exact, then independently checks detected 0°/180° against the per-end recipe. No similarity threshold, cross-end repair, O/0 substitution, or target-conditioned orientation selection is used.
 
@@ -73,6 +74,7 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
     powershell -ExecutionPolicy Bypass -File scripts/test-real-images.ps1
     powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1
     powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1 -Grab
+    powershell -ExecutionPolicy Bypass -File scripts/camera-probe.ps1 -SoftwareTrigger
     powershell -ExecutionPolicy Bypass -File scripts/camera-soak.ps1 -Minutes 30
 
 The real-image script checks the native batch and then launches the WPF executable in a hidden acceptance mode that uses the same BMP decoder, `ImageFrame`, ROI, `NativeOcrEngine`, and `ExactTextComparer` as Load Image. Its ground truth is `tests/real-images.expected.json`; the BMP files remain outside Git. UI smoke uses synthetic fixtures. Only `camera-probe.ps1` and `camera-soak.ps1` contact hardware; the soak reports frame rate, frame-interval spread, timeouts and temperature drift over the requested period. `camera-probe.ps1` `-Grab` opens the first discovered camera, applies ExposureTime 10000/Gain 0, acquires three fresh frames, saves the last PNG and then closes the device.

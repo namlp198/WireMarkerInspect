@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using WireMarkerInspection.Controls;
 using WireMarkerInspection.Application;
+using WireMarkerInspection.Desktop.Views;
 using WireMarkerInspection.Domain;
 using WireMarkerInspection.Desktop.Services;
 using WireMarkerInspection.Desktop.ViewModels;
@@ -57,7 +58,7 @@ internal static class Smoke
             vm.NewModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture"));
             if(!vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("A new model draft must unlock setup without enabling selected-model actions.");
             VerifyModelControls(window,true,true,false,true);
-            await VerifyLiveGrab(window,vm);
+            await VerifyLiveGrab(window,vm,camera);
             vm.End1.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End2.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End1.Roi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
@@ -132,7 +133,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -146,7 +147,64 @@ internal static class Smoke
     /// Drives the real acquisition loop with a synthetic camera so Grab Image is verified end to end:
     /// disabled without a live frame, enabled while acquiring, and it stores the frame in the end editor.
     /// </summary>
-    private static async Task VerifyLiveGrab(MainWindow window,MainViewModel vm)
+    /// <summary>
+    /// Arming a hardware trigger is an acquisition lifecycle change. This drives it against a camera that
+    /// really stays silent until pulsed, and checks the form only offers valid combinations.
+    /// </summary>
+    private static async Task VerifyTriggerArming(MainWindow window,MainViewModel vm,SmokeCamera camera)
+    {
+        window.UpdateLayout();
+        if(!window.TriggerKindSelector.IsEnabled||!window.TriggerMappingSelector.IsEnabled)
+            throw new Exception("Trigger settings must be editable while RUN is stopped.");
+        if(window.CameraTriggerPanel.Visibility==Visibility.Visible)
+            throw new Exception("Camera trigger fields must be hidden for a manual trigger.");
+
+        vm.TriggerKind=TriggerKind.CameraLine;
+        vm.TriggerLine="2";
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        window.UpdateLayout();
+        if(window.CameraTriggerPanel.Visibility!=Visibility.Visible)
+            throw new Exception("Camera trigger fields must appear for a hardware trigger.");
+
+        // One camera has a single trigger source, so this combination must be refused, not silently accepted.
+        vm.TriggerMapping=TriggerMapping.PerEnd;
+        try
+        {
+            vm.BuildTriggerSettings();
+            throw new Exception("A per-end mapping on one camera line must be rejected.");
+        }
+        catch(InvalidOperationException){}
+        vm.TriggerMapping=TriggerMapping.Shared;
+
+        await vm.ArmTriggerAsync(vm.BuildTriggerSettings());
+        if(!vm.TriggerStatus.Contains("Line 2",StringComparison.Ordinal))
+            throw new Exception($"Trigger status does not describe the armed line: {vm.TriggerStatus}");
+        var before=camera.Frames;
+        var quiet=DateTime.UtcNow.AddMilliseconds(400);
+        while(DateTime.UtcNow<quiet)await Dispatcher.Yield(DispatcherPriority.Background);
+        if(camera.Frames!=before)throw new Exception("A triggered camera must stay silent without a pulse.");
+
+        camera.Pulse();
+        var deadline=DateTime.UtcNow.AddSeconds(5);
+        while(camera.Frames==before)
+        {
+            if(DateTime.UtcNow>deadline)throw new Exception("The trigger pulse produced no frame.");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+        if(window.RunTriggerText.Text.Length==0)throw new Exception("RUN must report the last trigger.");
+
+        await vm.DisarmTriggerAsync();
+        vm.TriggerKind=TriggerKind.Manual;
+        var resumed=camera.Frames;
+        deadline=DateTime.UtcNow.AddSeconds(5);
+        while(camera.Frames==resumed)
+        {
+            if(DateTime.UtcNow>deadline)throw new Exception("Free-run did not resume after disarming.");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+    }
+
+    private static async Task VerifyLiveGrab(MainWindow window,MainViewModel vm,SmokeCamera smokeCamera)
     {
         window.UpdateLayout();
         if(window.FirstEndEditor.GrabButton.IsEnabled||window.SecondEndEditor.GrabButton.IsEnabled)
@@ -164,6 +222,7 @@ internal static class Smoke
         window.UpdateLayout();
         if(!window.FirstEndEditor.GrabButton.IsEnabled||!window.SecondEndEditor.GrabButton.IsEnabled)
             throw new Exception("Grab Image must be enabled while a fresh live frame is available.");
+        await VerifyTriggerArming(window,vm,smokeCamera);
         vm.GrabReferenceCommand.Execute("1");
         if(vm.End1.Frame==null||vm.End1.Image==null||vm.End1.Frame.Width!=SmokeCamera.FrameWidth)
             throw new Exception($"Grab Image did not store the live frame: {vm.Message}");
@@ -350,12 +409,40 @@ internal static class Smoke
         ];
         public CameraSettings ReadSettings()=>Applied??new(10000,0);
         public void ApplySettings(CameraSettings settings)=>Applied=settings;
+        private CameraTrigger trigger=CameraTrigger.FreeRun;
+        private int pulses;
+        /// <summary>Simulates one pulse on the trigger line.</summary>
+        public void Pulse(){lock(gate)pulses++;}
+        public long Frames{get{lock(gate)return frames;}}
+        private long frames;
+        public void ConfigureTrigger(CameraTrigger value)
+        {
+            lock(gate)
+            {
+                if(grabbing)throw new InvalidOperationException("Stop acquisition before changing the trigger.");
+                trigger=value;pulses=0;
+            }
+        }
+        public void ExecuteSoftwareTrigger()
+        {
+            lock(gate)
+            {
+                if(trigger.Source!=CameraTriggerSource.Software)throw new InvalidOperationException("Not in software trigger mode.");
+                pulses++;
+            }
+        }
         public void Start(){lock(gate)grabbing=true;}
         public ImageFrame Grab(int timeoutMs)
         {
             lock(gate)
             {
                 if(!grabbing)throw new InvalidOperationException("Acquisition has not started.");
+                // A triggered camera stays silent until it is pulsed.
+                if(trigger.IsTriggered)
+                {
+                    if(pulses==0)throw new TimeoutException("No trigger pulse.");
+                    pulses--;
+                }
                 var stride=FrameWidth*3;
                 var pixels=new byte[stride*FrameHeight];
                 for(var y=0;y<FrameHeight;y++)
@@ -364,7 +451,7 @@ internal static class Smoke
                         var i=y*stride+x*3;
                         pixels[i]=(byte)(x%256);pixels[i+1]=(byte)(y%256);pixels[i+2]=(byte)((grabs+x+y)%256);
                     }
-                grabs++;
+                grabs++;frames++;
                 return new(FrameWidth,FrameHeight,stride,pixels,Guid.NewGuid(),DateTimeOffset.UtcNow,"SYNTHETIC SMOKE CAMERA · NOT LIVE");
             }
         }

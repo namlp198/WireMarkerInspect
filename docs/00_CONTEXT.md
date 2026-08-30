@@ -1,6 +1,15 @@
 # Current project context — 2026-08-29
 
 Session update — 2026-08-30:
+- Phase C of the approved plan: RUN can be driven by a hardware trigger on the camera's I/O line instead of only a button.
+- `ITriggerSource` covers manual and camera-line sources today and leaves the PLC source for phase D. In triggered acquisition the arriving frame is the trigger event, so no second grab path exists.
+- `TriggerRouter` decides which end a signal belongs to: `Shared` follows the session state, `PerEnd` takes the end from the signal and refuses one that does not match what is expected. It blocks repeats inside a configurable window and ignores signals while an image is being processed. Every ignored signal is logged with its reason, never dropped silently.
+- One camera exposes a single TriggerSource node, so `CameraLine` + `PerEnd` is rejected in validation rather than pretending two lines can drive the two ends. Per-end signals are a PLC feature.
+- Free-run and triggered acquisition are treated as different lifecycles: acquisition stops and restarts around a trigger-mode change, and a quiet triggered camera is no longer mistaken for a lost link.
+- `RetakeLastEnd` lets the operator drop a bad first image and shoot it again without losing the product.
+- Hardware verified on MV-CE120-10GM `00G29911748` with `scripts/camera-probe.ps1 -SoftwareTrigger`: the camera stayed silent for 700 ms with the trigger armed, delivered a full 4024x3036 frame exactly on the software trigger, and returned to free-run. Evidence: `artifacts/camera-probe-phase-c.json`.
+- Not verified: a physical pulse on the 6-pin I/O cable. TriggerSource=Line, TriggerActivation and LineDebouncerTime still need real wiring.
+- Managed suite is 65/65, repeated three times.
 - Phase B of the approved plan: every cycle is now measured, acquisition survives a lost camera, and a soak tool produces evidence.
 - All durations come from `MonotonicClock` (Stopwatch ticks). `DateTimeOffset.UtcNow` is used only to stamp evidence, never to compute an interval, so a time-service correction cannot produce a negative or jumped measurement.
 - `EndResult` carries frame-age, OCR, compare and end-total stages; `ProductResult` carries the cycle total. The cycle total is computed before the result is written, so `result.json` actually contains it. Persist time is reported separately through `InspectionSession.LastPersistMilliseconds`.

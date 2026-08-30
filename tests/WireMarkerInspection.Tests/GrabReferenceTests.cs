@@ -122,12 +122,38 @@ public sealed class GrabReferenceTests:IDisposable
         ];
         public CameraSettings ReadSettings()=>Applied??new(10000,0);
         public void ApplySettings(CameraSettings settings)=>Applied=settings;
+        private CameraTrigger trigger=CameraTrigger.FreeRun;
+        private int pulses;
+        /// <summary>Simulates one pulse on the trigger line.</summary>
+        public void Pulse(){lock(gate)pulses++;}
+        public void ConfigureTrigger(CameraTrigger value)
+        {
+            lock(gate)
+            {
+                if(grabbing)throw new InvalidOperationException("Stop acquisition before changing the trigger.");
+                trigger=value;pulses=0;
+            }
+        }
+        public void ExecuteSoftwareTrigger()
+        {
+            lock(gate)
+            {
+                if(trigger.Source!=CameraTriggerSource.Software)throw new InvalidOperationException("Not in software trigger mode.");
+                pulses++;
+            }
+        }
         public void Start(){lock(gate)grabbing=true;}
         public ImageFrame Grab(int timeoutMs)
         {
             lock(gate)
             {
                 if(!grabbing)throw new InvalidOperationException("Acquisition has not started.");
+                // A triggered camera stays silent until it is pulsed.
+                if(trigger.IsTriggered)
+                {
+                    if(pulses==0)throw new TimeoutException("No trigger pulse.");
+                    pulses--;
+                }
                 var stride=FrameWidth*3;
                 var pixels=new byte[stride*FrameHeight];
                 Array.Fill(pixels,(byte)(grabs%251));
