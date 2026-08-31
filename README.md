@@ -30,10 +30,13 @@ RUN now owns device lifecycle. Entering RUN automatically finds/connects the sel
 
 Prerequisites: Windows, .NET SDK with .NET 8 Windows Desktop targeting pack, Visual Studio C++ tools, CMake, OpenCV SDK and ONNX Runtime SDK. Live camera builds also require Hikrobot MVS; the project discovers its AnyCpu `MvCameraControl.Net.dll` from the installed MVS SDK or `vendor/camera`.
 
-    powershell -ExecutionPolicy Bypass -File scripts/build.ps1
+    scripts\build-debug.bat
+    scripts\build-release.bat
+    bash scripts/build-debug.sh
+    bash scripts/build-release.sh
     dotnet run --project src/WireMarkerInspection.Desktop -c Release
 
-The build script accepts -OpenCvRoot and -OrtRoot; defaults match this development PC. All native runtime DLLs are copied beside the executable, so the running app does not use those source paths.
+The `.bat` and `.sh` launchers call the same `build.ps1`; additional PowerShell arguments such as `-OpenCvRoot` and `-OrtRoot` can be appended. Debug now builds and stages native Debug DLLs, while Release uses native Release DLLs. The `.sh` files are Windows Git Bash/WSL launchers and still require Windows PowerShell, Visual Studio C++ tools and the Windows SDK.
 
 ## Operator workflow
 
@@ -77,7 +80,7 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
 
 ## Verification
 
-Latest software-only verification (2026-08-31): Release build 0 warnings/errors, managed 83/83, native 1/1, and WPF smoke PASS at `artifacts/smoke-20260831-112136`. PLC tests use fakes; no real output was written.
+Latest software-only verification (2026-08-31): Release build 0 warnings/errors, managed 83/83, native 1/1, and WPF smoke PASS. The cross-shell launchers were accepted with a Git Bash Debug build and a batch Release build. `deploy-inno.bat 0.1.0` passed the complete guarded pipeline and produced `dist/WireMarkerInspection-Setup-0.1.0.exe` (83,992,815 bytes) without installing it. PLC tests use fakes; no real output was written.
 
     powershell -ExecutionPolicy Bypass -File scripts/test.ps1
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
@@ -92,9 +95,9 @@ The real-image script checks the native batch and then launches the WPF executab
 
 ## Deployment
 
-    powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Publish
-    powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 0.1.0
+    scripts\deploy-inno.bat 0.1.0
+    bash scripts/deploy-inno.sh 0.1.0
 
-Production asset gate: add -RequireOcrAssets to the build command. Development packages can omit models, but RUN remains blocked. Installation is per-user and does not overwrite recipe data. Install the vendor camera drivers and the matching x64 VC++ runtime on the target PC.
+Deploy performs a Release self-contained publish with the production OCR-asset gate, runs managed/native tests and the published WPF smoke, then invokes Inno Setup 6 to create `dist\WireMarkerInspection-Setup-<version>.exe`. It compiles the installer but does not install it. Installation is per-user and does not overwrite recipe data. Install the vendor camera drivers and the matching x64 VC++ runtime on the target PC.
 
 See docs/design/DESIGN_SYSTEM.md, docs/design/IMAGE_EDITOR_DESIGN.md, docs/architecture/SYSTEM.md, and handoff/latest.md.

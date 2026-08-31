@@ -1,5 +1,11 @@
 # Handoff — 2026-08-31
 
+## Build and deployment launchers
+- Added `build-debug`, `build-release` and `deploy-inno` in both `.bat` and `.sh` forms. Shell launchers are for Windows Git Bash/WSL and invoke the same PowerShell source of truth as batch launchers.
+- `build.ps1` now builds native Debug/Release consistently with .NET and stages the matching OpenCV runtime. Desktop/test projects consume `build/native/$(Configuration)`.
+- Deploy requires OCR assets, creates a self-contained win-x64 Release publish, runs managed/native tests plus published WPF smoke, and compiles a versioned Inno Setup installer without installing it.
+- Verified `build-debug.sh` with the Debug OpenCV DLL and `build-release.bat` with 0 warnings/errors. `deploy-inno.bat 0.1.0` passed managed 83/83, native 1/1, published WPF smoke and Inno compilation, producing `dist/WireMarkerInspection-Setup-0.1.0.exe` (83,992,815 bytes). The installer was not executed.
+
 ## Recipe PLC I/O and RUN lifecycle
 - Implemented recipe schema v2 (`CameraInspectionIo`) with trigger semantics and separate OK/NG `PlcOutputAction` rows. Existing schema-v1 recipes load unchanged; saving migrates legacy logical PLC fields into the recipe.
 - Shared is one sequential button; PerEnd is two separately addressed buttons. The UI binds the real `End1Address` field in PerEnd and has no misleading end-2 input in Shared.

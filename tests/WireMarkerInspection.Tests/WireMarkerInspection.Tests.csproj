@@ -9,5 +9,5 @@
   <ProjectReference Include="../../src/WireMarkerInspection.Desktop/WireMarkerInspection.Desktop.csproj"/>
   <PackageReference Include="Microsoft.NET.Test.Sdk"/><PackageReference Include="xunit"/><PackageReference Include="xunit.runner.visualstudio"><PrivateAssets>all</PrivateAssets></PackageReference>
  </ItemGroup>
- <ItemGroup><Content Include="../../build/native/Release/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
+ <ItemGroup><Content Include="../../build/native/$(Configuration)/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
 </Project>

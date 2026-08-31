@@ -19,10 +19,12 @@ if(-not(Test-Path -LiteralPath $cmake)){$cmake=(Get-Command cmake -ErrorAction S
 $generator=if($vs -match '\\18\\'){'Visual Studio 18 2026'}else{'Visual Studio 17 2022'}
 $native=Join-Path $repo 'build\native'
 Invoke-Checked $cmake @('-S',(Join-Path $repo 'native\WireMarkerInspection.Vision.Native'),'-B',$native,'-G',$generator,'-A','x64',"-DOpenCV_DIR=$OpenCvRoot/build","-DONNXRUNTIME_ROOT=$OrtRoot")
-Invoke-Checked $cmake @('--build',$native,'--config','Release')
-$opencvDll=Get-ChildItem -LiteralPath (Join-Path $OpenCvRoot 'build\x64\vc16\bin') -Filter 'opencv_world*.dll' | Where-Object {$_.Name -notmatch 'd\.dll$'} | Select-Object -First 1
-if(-not $opencvDll){throw 'OpenCV release runtime DLL not found.'}
-Copy-Item -LiteralPath $opencvDll.FullName -Destination (Join-Path $native 'Release')
+Invoke-Checked $cmake @('--build',$native,'--config',$Configuration)
+$opencvDll=Get-ChildItem -LiteralPath (Join-Path $OpenCvRoot 'build\x64\vc16\bin') -Filter 'opencv_world*.dll' |
+ Where-Object {if($Configuration -eq 'Debug'){$_.Name -match 'd\.dll$'}else{$_.Name -notmatch 'd\.dll$'}} |
+ Select-Object -First 1
+if(-not $opencvDll){throw "OpenCV $Configuration runtime DLL not found."}
+Copy-Item -LiteralPath $opencvDll.FullName -Destination (Join-Path $native $Configuration)
 $licenses=Join-Path $repo 'assets\licenses'
 New-Item -ItemType Directory -Force -Path $licenses | Out-Null
 foreach($entry in @(@((Join-Path $OpenCvRoot 'LICENSE.txt'),'OpenCV.txt'),@((Join-Path $OrtRoot 'LICENSE'),'ONNXRuntime.txt'))) {

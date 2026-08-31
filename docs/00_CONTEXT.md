@@ -1,5 +1,11 @@
 # Current project context — 2026-08-29
 
+Session update — build/deploy launchers 2026-08-31:
+- Added Windows batch and Git Bash/WSL shell launchers for explicit Debug, Release and Inno Setup deployment.
+- Debug and Release now build matching native configurations and stage the corresponding OpenCV runtime instead of always consuming native Release DLLs.
+- Deploy is a guarded pipeline: required OCR assets, self-contained win-x64 Release publish, managed/native tests, published WPF smoke and Inno Setup 6 compilation. It creates an installer but never installs it.
+- Acceptance: `build-debug.sh` PASS with the Debug OpenCV runtime, `build-release.bat` PASS with 0 warnings/errors, and `deploy-inno.bat 0.1.0` PASS (managed 83/83, native 1/1, published WPF smoke, Inno compile). The resulting installer is `dist/WireMarkerInspection-Setup-0.1.0.exe` (83,992,815 bytes); it was not installed.
+
 Session update — 2026-08-31:
 - Recipe schema v2 owns camera-local inspection I/O: trigger kind/mapping/addresses/polling and separate OK/NG output actions. Schema v1 remains readable and is migrated from legacy machine settings when next saved.
 - Shared means one signal is assigned sequentially to end 1 then end 2. PerEnd reads distinct end-1/end-2 bits. The UI uses operator-facing labels and hides the end-2 input for Shared.

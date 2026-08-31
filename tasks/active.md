@@ -1,5 +1,12 @@
 # Active task — Wire Marker Inspection foundation
 
+## Cross-shell build and Inno deploy launchers — completed 2026-08-31
+- [x] Add `.bat` launchers for Debug, Release and Inno Setup deploy.
+- [x] Add Windows Git Bash/WSL `.sh` launchers for the same workflows.
+- [x] Make native/.NET Debug and Release configurations match, including runtime DLL staging.
+- [x] Make deploy require OCR assets, run verification and compile a versioned installer without installing it.
+- [x] Exercise a Git Bash Debug build, a batch Release build and the complete batch Inno deployment pipeline.
+
 ## Recipe-owned PLC I/O and automatic RUN lifecycle — completed 2026-08-31
 - [x] Define Shared as one sequential signal and PerEnd as two independently addressed signals; remove the editable end-2 field from Shared.
 - [x] Add recipe schema v2 for trigger and separate OK/NG bit/register outputs, preserving schema-v1 loading/migration.
