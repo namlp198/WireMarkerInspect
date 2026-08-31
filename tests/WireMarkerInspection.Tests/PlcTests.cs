@@ -145,6 +145,59 @@ public sealed class PlcTests
     }
 
     [Fact]
+    public async Task RecipeBitOutputPulsesThenAlwaysResets()
+    {
+        var link=new FakePlcLink();
+        var profile=new VerdictOutputProfile(new PlcOutputAction(true,PlcOutputMode.Bit,"M",21,PulseMs:10));
+        var writer=new PlcVerdictOutputWriter(link,map,profile);
+
+        Assert.Null(writer.Validate());
+        await writer.ClearBitsAsync(CancellationToken.None);
+        await writer.ReportAsync(Verdict.Ok,CancellationToken.None);
+
+        Assert.False(link.Bits["M21"]);
+        Assert.Equal(["M21=False","M21=True","M21=False"],link.Operations);
+    }
+
+    [Fact]
+    public async Task RecipeRegisterOutputWritesTheConfiguredValue()
+    {
+        var link=new FakePlcLink();
+        var profile=new VerdictOutputProfile(Ng:new PlcOutputAction(true,PlcOutputMode.Register,"D",120,-7));
+        var writer=new PlcVerdictOutputWriter(link,map,profile);
+
+        Assert.Null(writer.Validate());
+        await writer.ReportAsync(Verdict.Ng,CancellationToken.None);
+
+        Assert.Equal((short)-7,link.Words["D120"]);
+        Assert.Equal(["D120=-7"],link.Operations);
+    }
+
+    [Fact]
+    public async Task FailedPulseResetIsReportedSoRunCanStopSafely()
+    {
+        var link=new FakePlcLink{FailReset=true};
+        var writer=new PlcVerdictOutputWriter(link,map,
+            new VerdictOutputProfile(new PlcOutputAction(true,PlcOutputMode.Bit,"M",9,PulseMs:10)));
+
+        await writer.ReportAsync(Verdict.Ok,CancellationToken.None);
+
+        Assert.True(link.Bits["M9"]);
+        Assert.Contains("M9",writer.LastError);
+    }
+
+    [Fact]
+    public void RecipeOutputsRejectUnsafeOrAmbiguousTargets()
+    {
+        Assert.NotNull(new VerdictOutputProfile(
+            new PlcOutputAction(true,PlcOutputMode.Bit,"M",1),
+            new PlcOutputAction(true,PlcOutputMode.Bit,"M",1)).Validate());
+        var input=new PlcVerdictOutputWriter(new FakePlcLink(),map,
+            new VerdictOutputProfile(new PlcOutputAction(true,PlcOutputMode.Bit,"X",0)));
+        Assert.NotNull(input.Validate());
+    }
+
+    [Fact]
     public void PlcConfigurationIsCheckedBeforeAnythingIsArmed()
     {
         Assert.Null(new PlcSettings().Validate(TriggerMapping.Shared));            // disabled needs nothing
@@ -237,7 +290,9 @@ public sealed class PlcTests
         public Dictionary<string,bool> Bits{get;}=[];
         public Dictionary<string,short> Words{get;}=[];
         public List<string> Written{get;}=[];
+        public List<string> Operations{get;}=[];
         public bool FailWrites{get;init;}
+        public bool FailReset{get;init;}
         public int ConnectCount{get;private set;}
         public int DisconnectCount{get;private set;}
         public bool IsConnected{get;private set;}
@@ -248,13 +303,13 @@ public sealed class PlcTests
             Task.FromResult(Bits.TryGetValue(address,out var value)&&value);
         public Task WriteBitAsync(string address,bool value,CancellationToken token)
         {
-            if(FailWrites)throw new IOException("PLC offline");
-            Bits[address]=value;Written.Add(address);return Task.CompletedTask;
+            if(FailWrites||FailReset&&!value)throw new IOException("PLC offline");
+            Bits[address]=value;Written.Add(address);Operations.Add($"{address}={value}");return Task.CompletedTask;
         }
         public Task WriteWordAsync(string address,short value,CancellationToken token)
         {
             if(FailWrites)throw new IOException("PLC offline");
-            Words[address]=value;Written.Add(address);return Task.CompletedTask;
+            Words[address]=value;Written.Add(address);Operations.Add($"{address}={value}");return Task.CompletedTask;
         }
         public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
     }

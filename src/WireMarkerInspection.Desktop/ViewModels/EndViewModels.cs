@@ -110,4 +110,12 @@ public partial class EndResultViewModel(int number) : ObservableObject
         var differences=string.Join(" · ",result.Differences.Select(d=>$"OCR {d.Region}: khác tại ký tự {d.FirstMismatch+1}"));
         Detail=result.Differences.Length==0?result.Reason:$"{result.Reason} · {differences}";
     }
+    public void CopyFrom(EndResultViewModel source)
+    {
+        Image=source.Image;Roi=source.Roi?.Copy();Regions=source.Regions is null?null:[..source.Regions];
+        Status=source.Status;Expected=source.Expected;Actual=source.Actual;Detail=source.Detail;
+        Previews.Clear();
+        if(Regions is null)return;
+        for(int i=0;i<Regions.Length;i++)Previews.Add(new(i+1,Regions[i]));
+    }
 }

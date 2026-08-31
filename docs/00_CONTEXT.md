@@ -1,5 +1,14 @@
 # Current project context — 2026-08-29
 
+Session update — 2026-08-31:
+- Recipe schema v2 owns camera-local inspection I/O: trigger kind/mapping/addresses/polling and separate OK/NG output actions. Schema v1 remains readable and is migrated from legacy machine settings when next saved.
+- Shared means one signal is assigned sequentially to end 1 then end 2. PerEnd reads distinct end-1/end-2 bits. The UI uses operator-facing labels and hides the end-2 input for Shared.
+- Physical PLC transport remains machine-level in `settings.json`; Ethernet IP and COM are unchanged. Logical trigger/output no longer publishes into machine settings.
+- OUTPUT supports M/Y bit pulses with a 10–10000 ms configured hold and unconditional reset in a cleanup timeout, or signed word writes to D registers. Invalid/non-writable areas and ambiguous duplicate actions are rejected before RUN.
+- RUN owns production resources: it auto-connects/applies/starts the camera, auto-connects PLC only if the frozen recipe uses it, and rolls back partial startup. Stop or SETTING stops acquisition and disconnects PLC; the physical camera connection remains open for teaching.
+- Completing end 2 persists the product and sends its verdict before automatically opening a new cycle at end 1. The just-completed images and 40-DIP total verdict remain in a previous-result snapshot the operator can toggle without blocking the new cycle.
+- Verification: Release build PASS with 0 warnings/errors; managed 83/83; native 1/1; WPF smoke PASS at `artifacts/smoke-20260831-112136`. No real PLC write was part of automated verification.
+
 Session update — 2026-08-30:
 - PLC connection is now split into two operator-facing physical types: Ethernet IP and COM. The independent PLC CONNECTION panel owns configuration, COM scan, Connect/Disconnect and colored connection state; settings lock while connected.
 - The prior Delta DVP code used COM11, 9600 baud, Modbus ASCII, 7E1, unit 1. These are the defaults and legacy-settings upgrade path; COM also permits RTU, while Ethernet uses host/port.

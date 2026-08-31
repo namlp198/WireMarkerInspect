@@ -1,9 +1,17 @@
-# Handoff — 2026-08-30
+# Handoff — 2026-08-31
 
-## Latest session
+## Recipe PLC I/O and RUN lifecycle
+- Implemented recipe schema v2 (`CameraInspectionIo`) with trigger semantics and separate OK/NG `PlcOutputAction` rows. Existing schema-v1 recipes load unchanged; saving migrates legacy logical PLC fields into the recipe.
+- Shared is one sequential button; PerEnd is two separately addressed buttons. The UI binds the real `End1Address` field in PerEnd and has no misleading end-2 input in Shared.
+- Added M/Y bit pulse outputs with automatic reset in `finally`, plus D-register signed-value outputs. Target area/writability and conflicting OK/NG actions are validated before RUN.
+- Entering RUN automatically connects/applies/starts camera acquisition and connects PLC only when the recipe requires it. Stop and SETTING tear down production acquisition/PLC while retaining the camera connection for setup. Startup failure rolls back acquired resources.
+- Product completion automatically begins the next cycle after persistence/output. A snapshot of both completed ends and the 40-DIP total verdict remains accessible through `KẾT QUẢ TRƯỚC`.
+- Tests cover recipe v2 round-trip, pulse/reset order/failure, D-register values, invalid outputs and the full RUN→SETTING camera/PLC lifecycle. Release build passed with 0 warnings/errors; managed 83/83; native 1/1; WPF smoke passed at `artifacts/smoke-20260831-112136`. Actual PLC output writes were not exercised.
+
+## Previous session — physical PLC connection
 - PLC physical connectivity is now explicit and operator-owned. SETTING has a dedicated PLC CONNECTION section with `Ethernet IP` and `COM`, visible fields for each transport, COM-port refresh, Connect/Disconnect, colored status, and locked physical settings while connected.
 - The reference implementation at `D:\entry\NCore\NProjects\NVisionInspect_ReadCode\gui\NVisionInspectGUI\Manager\Class\IOManager_PLC_Delta_DVP.cs` was read-only input. It proves the prior Delta connection was Modbus ASCII on COM11, 9600 baud, 7 data bits, even parity, one stop bit. Those values are now the new/default legacy-upgrade settings; RTU remains selectable.
-- Connect performs a real read of the configured trigger input before showing success. A PLC-triggered RUN now requires this verified connection and reuses it; stopping RUN no longer tears down the PLC connection. Shutdown and explicit Disconnect still close it.
+- At that revision, Connect performed a real read and RUN reused an operator-owned link. The 2026-08-31 lifecycle above supersedes teardown ownership: RUN now connects and disconnects its own PLC runtime.
 - Delta X inputs now map to `DiscreteInput`, so NModbus uses function 02 as the prior working code did. X/Y octal numbering and the ban on writes to X remain intact.
 - Release build passed; managed tests are 77/77; native contract is 1/1; WPF smoke passed at `artifacts/smoke-20260830-224311` and includes `plc-connection.png` for the COM settings. No real PLC command was sent. A read-only OS scan exposed COM3, COM4, COM5 and COM6; the old COM11 was not currently present, so the real port still needs operator selection and hardware acceptance.
 - Phase D of the approved plan is done: RUN can be triggered from a PLC bit, and the verdict can be written back to the line.
@@ -12,7 +20,7 @@
 - `PlcTriggerSource` polls the configured bits and fires only on a rising edge; a held button or a latched bit cannot capture twice. A read failure shows in the status line rather than becoming a silently dead trigger.
 - A PLC signal drives the camera through its software trigger and then waits for a genuinely new frame, so the image stays tied to the signal that asked for it rather than to whatever was last in the buffer.
 - `PlcReporter` writes stage (waiting end 1/2, busy), verdict (OK/NG/ERROR) and a toggling heartbeat. Writing is opt-in, off by default, and every address is declared explicitly in `settings.json`: a PLC write reaches outside the software and can move machinery, so nothing is inferred. A failed write is reported and logged but never aborts an inspection that already produced a verdict.
-- Machine-level trigger and PLC configuration now lives in `settings.json` through `FileSettingsStore`. A corrupt file falls back to defaults and reports the problem instead of stopping the station.
+- `settings.json` remains backward-compatible with the previous machine-level trigger fields; schema v2 uses it only for the physical PLC link. A corrupt file falls back to defaults and reports the problem instead of stopping the station.
 - `scripts/plc-probe.ps1 -ReadAddress X0 [-WriteAddress Y0]` is the acceptance gate, mirroring the camera probe. Reading is always safe; the write pulse is opt-in and warns first.
 - Verification: Release build 0 warnings/errors; managed 74/74 (repeated); native 1/1; WPF smoke PASS at `artifacts/smoke-20260830-213608`.
 - Not verified: any real PLC. The address table, the link and the write handshake are covered only by fakes. Before acceptance the mapping must be checked against the connected DVP, and the write-back address list agreed with the line owner.

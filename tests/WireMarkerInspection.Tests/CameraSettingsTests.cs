@@ -69,6 +69,34 @@ public sealed class CameraSettingsTests:IDisposable
     });
 
     [Fact]
+    public void SavedRecipeKeepsItsOwnTriggerAndVerdictOutputs()=>DispatcherTestHost.Sta(()=>
+    {
+        var vm=new MainViewModel(root,new SettingsCamera(),autoDiscoverCameraOnLoad:false){Confirm=_=>true};
+        try
+        {
+            vm.NewModelCommand.Execute(new ModelIdentity("IO-1","Recipe IO"));ConfigureBothEnds(vm);
+            vm.TriggerKind=TriggerKind.Plc;vm.TriggerMapping=TriggerMapping.PerEnd;
+            vm.PlcEnd1Address="X2";vm.PlcEnd2Address="X3";vm.PlcPollMs="35";
+            vm.OkOutputEnabled=true;vm.OkOutputMode=PlcOutputMode.Bit;vm.OkOutputDevice="Y";
+            vm.OkOutputIndex="10";vm.OkOutputPulseMs="80";
+            vm.NgOutputEnabled=true;vm.NgOutputMode=PlcOutputMode.Register;vm.NgOutputDevice="D";
+            vm.NgOutputIndex="120";vm.NgOutputValue="-7";
+            vm.SaveRecipeCommand.Execute(null);
+
+            var stored=Assert.Single(new FileRecipeStore(root).LoadAll());
+            Assert.Equal(2,stored.SchemaVersion);
+            var io=Assert.IsType<CameraInspectionIo>(stored.Io);
+            Assert.Equal(RecipeTriggerKind.Plc,io.TriggerProfile.Kind);
+            Assert.Equal(RecipeTriggerMapping.PerEnd,io.TriggerProfile.Mapping);
+            Assert.Equal("X2",io.TriggerProfile.End1Address);Assert.Equal("X3",io.TriggerProfile.End2Address);
+            Assert.Equal(35,io.TriggerProfile.PollMs);
+            Assert.Equal("Y10",io.VerdictOutputs.OkAction.Address);Assert.Equal(80,io.VerdictOutputs.OkAction.PulseMs);
+            Assert.Equal("D120",io.VerdictOutputs.NgAction.Address);Assert.Equal((short)-7,io.VerdictOutputs.NgAction.RegisterValue);
+        }
+        finally{DispatcherTestHost.Wait(vm.ShutdownAsync());}
+    });
+
+    [Fact]
     public void OpeningAModelRestoresItsSetupAndPushesItToAConnectedCamera()=>DispatcherTestHost.Sta(()=>
     {
         var camera=new SettingsCamera();

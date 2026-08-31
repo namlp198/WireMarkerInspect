@@ -91,14 +91,14 @@ public sealed class TriggerTests
     }
 
     [Fact]
-    public void RetakingTheFirstEndDropsItWithoutEndingTheRun()
+    public async Task RetakingTheFirstEndDropsItWithoutEndingTheRun()
     {
         var sink=new Sink();
         var session=new InspectionSession(new Ocr(),sink);
         session.Begin(Recipe());
 
         Assert.False(session.RetakeLastEnd());          // nothing captured yet
-        session.AcceptAsync(Frame()).GetAwaiter().GetResult();
+        await session.AcceptAsync(Frame());
         Assert.Equal(InspectionState.WaitingEnd2,session.State);
 
         Assert.True(session.RetakeLastEnd());
@@ -107,14 +107,14 @@ public sealed class TriggerTests
         Assert.Empty(session.EndResults);
         Assert.False(session.RetakeLastEnd());          // and again there is nothing to retake
 
-        session.AcceptAsync(Frame()).GetAwaiter().GetResult();
-        session.AcceptAsync(Frame()).GetAwaiter().GetResult();
+        await session.AcceptAsync(Frame());
+        await session.AcceptAsync(Frame());
         var product=Assert.Single(sink.Products);
         Assert.Equal(2,product.Ends.Length);            // the retaken cycle still publishes exactly two ends
     }
 
     [Fact]
-    public void ACameraLineSourceDescribesItsWiringAndPublishesPulses()
+    public async Task ACameraLineSourceDescribesItsWiringAndPublishesPulses()
     {
         // The device configuration itself belongs to the caller, which owns the stopped acquisition
         // window; TriggerAcquisitionTests covers that. Here the source only has to describe and publish.
@@ -123,7 +123,7 @@ public sealed class TriggerTests
         TriggerEvent? seen=null;
         source.Fired+=(_,e)=>seen=e;
 
-        source.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        await source.StartAsync(CancellationToken.None);
         Assert.Contains("Line 2",source.Status);
         Assert.Contains("sườn xuống",source.Status);
 

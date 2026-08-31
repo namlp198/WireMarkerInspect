@@ -1,5 +1,16 @@
 # Active task — Wire Marker Inspection foundation
 
+## Recipe-owned PLC I/O and automatic RUN lifecycle — completed 2026-08-31
+- [x] Define Shared as one sequential signal and PerEnd as two independently addressed signals; remove the editable end-2 field from Shared.
+- [x] Add recipe schema v2 for trigger and separate OK/NG bit/register outputs, preserving schema-v1 loading/migration.
+- [x] Keep physical Ethernet IP/COM connection settings machine-level.
+- [x] Make RUN automatically prepare camera acquisition and PLC, with rollback on partial startup.
+- [x] Make Stop/SETTING stop production acquisition and disconnect PLC while keeping the camera available for setup.
+- [x] Pulse M/Y outputs with guaranteed reset or write configured signed values to D registers.
+- [x] Automatically open the next cycle after the total verdict while preserving the completed result for operator review.
+- [x] Add schema, address safety, pulse/reset, register write and RUN lifecycle regression tests.
+- [ ] Hardware acceptance: verify actual configured trigger bits and explicitly authorized safe OK/NG output targets on the connected PLC.
+
 ## Completed implementation
 - [x] Inspect supplied UI sketches and reference repositories.
 - [x] Create independent solution/repository and design documentation.
@@ -80,13 +91,13 @@
 - [x] Implement `ModbusPlcLink` over Ethernet IP and COM with Modbus ASCII/RTU using NModbus (MIT).
 - [x] Add an independent PLC CONNECTION panel with Ethernet IP/COM settings, COM-port discovery and explicit Connect/Disconnect state.
 - [x] Preserve the proven Delta serial defaults from the reference implementation: COM11, 9600 baud, Modbus ASCII, 7E1, unit 1.
-- [x] Keep the PLC connection open across RUN stop/start; require a verified connection before arming a PLC trigger.
+- [x] Keep the PLC connection open across RUN stop/start; require a verified connection before arming a PLC trigger. (Historical Phase D behavior; superseded by RUN-owned lifecycle on 2026-08-31.)
 - [x] Read Delta X inputs as discrete inputs (Modbus function 02), matching the prior working implementation.
 - [x] Map Delta DVP addresses, honouring the octal numbering of X and Y and refusing writes to inputs.
 - [x] Poll PLC bits and fire only on a rising edge, with shared and per-end mappings.
 - [x] Drive the camera software trigger from a PLC signal and wait for a genuinely new frame.
 - [x] Write stage, verdict and heartbeat back to the PLC, opt-in and off by default.
-- [x] Move machine-level trigger and PLC configuration into `settings.json`.
+- [x] Move machine-level trigger and PLC configuration into `settings.json`. (Historical schema v1; schema v2 keeps only physical transport machine-level.)
 - [x] Add `scripts/plc-probe.ps1` as the hardware acceptance gate.
 - [ ] Select the actual attached COM port and verify against the real Delta DVP: connection/read, address table, trigger bit and write handshake. The development PC exposed COM3–COM6 during this session; COM11 from the old configuration was not present.
 - [ ] Agree the write-back address list and clearing behaviour with the line owner before enabling it.

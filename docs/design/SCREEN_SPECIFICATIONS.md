@@ -15,11 +15,11 @@ Expected text format: one detected text region per newline, preserving all other
 The original two small OCR boxes are examples of automatic detector output, not a fixed number of manually authored ROIs.
 
 ## RUN
-Press RUN to validate the saved recipe and OCR files, freeze the recipe revision, and enter WaitingEnd1.
-Load offline image or accept a fresh continuous camera frame manually. This first version does not wire external PLC/electrical triggers.
+Press RUN to validate and freeze the saved recipe, automatically prepare camera acquisition, connect PLC when that recipe uses it, and enter WaitingEnd1. SETTING stops production acquisition/PLC but retains the camera connection for teaching.
+Capture may be manual, camera-line Shared, PLC Shared or PLC PerEnd. Shared assigns one signal sequentially; PerEnd uses two distinct addressed signals.
 After processing end 1, wait for end 2; only then publish a product result.
 Both ends must pass ordinal exact text comparison and their configured 0°/180° direction for OK. OCR evaluates both directions independently of expected text. No OCR region, text mismatch or fixed-direction mismatch → NG. Dimension mismatch/native failure/disk failure → Error.
-Stop invalidates late processing results. Next product clears both displays and creates a fresh cycle ID.
+Stop invalidates late processing results. After a completed product is persisted and its output finishes, the next cycle starts automatically. The last completed images and total verdict remain available through KẾT QUẢ TRƯỚC.
 Per end: full image and overlay, detected crops, expected/actual text, reason and first mismatched character index.
 The image uses read-only ImageHud with caption and verdict floating above it. There is no ROI drawing rail in RUN.
 RUN state styling: waiting is a prominent warning color; Stop has an error-red outline while active. Total and per-end OK/NG are 40 DIP. Recognized text and detail are green for OK and red for NG/ERROR, including text mismatch and rotation mismatch.

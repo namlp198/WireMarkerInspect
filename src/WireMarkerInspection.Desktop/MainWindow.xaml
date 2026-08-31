@@ -112,7 +112,7 @@
       <Button x:Name="ApplyCameraParametersButton" Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Áp dụng thông số camera" AutomationProperties.Name="Áp dụng thông số camera" Command="{Binding CameraParametersCommand}" IsEnabled="{Binding CanEditCameraParameters}" Margin="0,12,0,8"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,0,0,20"/>
       <TextBlock Text="PLC CONNECTION" Style="{StaticResource SectionLabel}"/>
-      <CheckBox x:Name="PlcEnabledCheckBox" Content="Dùng PLC cho trigger / phản hồi kết quả" IsChecked="{Binding PlcEnabled}" IsEnabled="{Binding CanConfigurePlc}" Margin="0,8,0,4"/>
+      <TextBlock Text="Kết nối vật lý dùng chung cho máy. Trigger và OUTPUT bên dưới được lưu riêng theo model recipe." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
       <Grid Margin="0,4,0,0" IsEnabled="{Binding CanConfigurePlc}">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -160,40 +160,79 @@
       <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
        <Button x:Name="ConnectPlcButton" Content="Connect PLC" Style="{StaticResource Button.Apply}" Command="{Binding ConnectPlcCommand}" IsEnabled="{Binding CanConnectPlc}"/>
        <Button x:Name="DisconnectPlcButton" Content="Disconnect" Style="{StaticResource Button.Secondary}" Foreground="{StaticResource Brush.Status.Error}" BorderBrush="{StaticResource Brush.Status.Error}" Command="{Binding DisconnectPlcCommand}" IsEnabled="{Binding CanDisconnectPlc}" Margin="6,0,0,0"/>
+       <Button x:Name="SaveMachineSettingsButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Save}" ToolTip="Lưu kết nối vật lý PLC" AutomationProperties.Name="Lưu kết nối vật lý PLC" Command="{Binding SaveMachineSettingsCommand}" IsEnabled="{Binding CanConfigurePlc}" Margin="6,0,0,0"/>
       </StackPanel>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,20,0,20"/>
       <TextBlock Text="TRIGGER" Style="{StaticResource SectionLabel}"/>
-      <TextBlock Text="Nguồn kích chụp khi RUN" Style="{StaticResource Caption}" Margin="0,4"/>
-      <ComboBox x:Name="TriggerKindSelector" ItemsSource="{Binding TriggerKinds}" SelectedItem="{Binding TriggerKind}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource Input.Combo}" Height="28"/>
+      <TextBlock Text="Nguồn kích chụp khi RUN · lưu theo model recipe" Style="{StaticResource Caption}" Margin="0,4"/>
+      <ComboBox x:Name="TriggerKindSelector" ItemsSource="{Binding TriggerKinds}" SelectedItem="{Binding TriggerKind}" IsEnabled="{Binding CanEditRecipeIo}" Style="{StaticResource Input.Combo}" Height="28"/>
       <TextBlock Text="Ánh xạ tín hiệu sang đầu dây" Style="{StaticResource Caption}" Margin="0,12,0,4"/>
-      <ComboBox x:Name="TriggerMappingSelector" ItemsSource="{Binding TriggerMappings}" SelectedItem="{Binding TriggerMapping}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource Input.Combo}" Height="28" ToolTip="Shared: một tín hiệu chung, app tự biết đang chờ đầu nào. PerEnd: tín hiệu tự cho biết đầu nào."/>
+      <ComboBox x:Name="TriggerMappingSelector" ItemsSource="{Binding TriggerMappingOptions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding TriggerMapping}" IsEnabled="{Binding CanEditRecipeIo}" Style="{StaticResource Input.Combo}" Height="28"/>
+      <TextBlock Text="Shared: một nút chung, lần bấm thứ nhất nhận đầu 1 và lần tiếp theo nhận đầu 2. PerEnd: hai nút riêng cho từng đầu." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"/>
       <Grid x:Name="CameraTriggerPanel" Margin="0,12,0,0">
        <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding TriggerKind}" Value="CameraLine"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
        <TextBlock Text="Chân Line" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Chống nảy (µs)" Style="{StaticResource Caption}"/>
-       <TextBox Grid.Row="1" x:Name="TriggerLineTextBox" Text="{Binding TriggerLine,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
-       <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding TriggerDebouncer,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
+       <TextBox Grid.Row="1" x:Name="TriggerLineTextBox" Text="{Binding TriggerLine,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditRecipeIo}" Style="{StaticResource TextEditor}"/>
+       <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding TriggerDebouncer,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditRecipeIo}" Style="{StaticResource TextEditor}"/>
        <TextBlock Grid.Row="2" Text="Trễ trigger (µs)" Style="{StaticResource Caption}" Margin="0,8,0,0"/><TextBlock Grid.Row="2" Grid.Column="2" Text="Chặn lặp (ms)" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
-       <TextBox Grid.Row="3" Text="{Binding TriggerDelay,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
-       <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding TriggerRepeatBlock,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTrigger}" Style="{StaticResource TextEditor}"/>
-       <CheckBox Grid.Row="4" Grid.ColumnSpan="3" x:Name="TriggerRisingEdgeCheckBox" Content="Kích theo sườn lên" IsChecked="{Binding TriggerRisingEdge}" IsEnabled="{Binding CanEditTrigger}" Margin="0,10,0,0"/>
+       <TextBox Grid.Row="3" Text="{Binding TriggerDelay,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditRecipeIo}" Style="{StaticResource TextEditor}"/>
+       <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding TriggerRepeatBlock,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditRecipeIo}" Style="{StaticResource TextEditor}"/>
+       <CheckBox Grid.Row="4" Grid.ColumnSpan="3" x:Name="TriggerRisingEdgeCheckBox" Content="Kích theo sườn lên" IsChecked="{Binding TriggerRisingEdge}" IsEnabled="{Binding CanEditRecipeIo}" Margin="0,10,0,0"/>
       </Grid>
-      <Grid x:Name="PlcTriggerPanel" Margin="0,12,0,0">
-       <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding TriggerKind}" Value="Plc"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
-       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-       <TextBlock Text="Chu kỳ đọc (ms)" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Bit trigger / đầu 1" Style="{StaticResource Caption}"/>
-       <TextBox Grid.Row="1" Text="{Binding PlcPollMs,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanConfigurePlc}" Style="{StaticResource TextEditor}"/>
-       <TextBox Grid.Row="1" Grid.Column="2" x:Name="PlcTriggerAddressTextBox" Text="{Binding PlcTriggerAddress,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanConfigurePlc}" Style="{StaticResource TextEditor}" ToolTip="Địa chỉ theo cú pháp của hãng, ví dụ X0. Delta DVP đánh số X/Y theo hệ bát phân."/>
-       <TextBlock Grid.Row="2" Grid.Column="2" Text="Bit đầu 2 (khi tách hai đầu)" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
-       <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding PlcEnd2Address,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanConfigurePlc}" Style="{StaticResource TextEditor}"/>
-      </Grid>
-      <TextBlock x:Name="PlcOutputsSummaryText" Text="{Binding PlcOutputsSummary}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
-                 Visibility="{Binding PlcSelected,Converter={StaticResource BoolToVisibility}}"/>
-      <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-       <Button x:Name="SaveMachineSettingsButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Save}" ToolTip="Lưu cấu hình trigger và PLC của máy" AutomationProperties.Name="Lưu cấu hình máy" Command="{Binding SaveMachineSettingsCommand}" IsEnabled="{Binding CanEditTrigger}" Margin="6,0,0,0"/>
+      <StackPanel x:Name="PlcTriggerPanel" Margin="0,12,0,0" IsEnabled="{Binding CanEditRecipeIo}">
+       <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding TriggerKind}" Value="Plc"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+       <TextBlock Text="Chu kỳ đọc PLC (ms)" Style="{StaticResource Caption}"/>
+       <TextBox Text="{Binding PlcPollMs,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+       <StackPanel x:Name="SharedPlcTriggerPanel" Margin="0,8,0,0">
+        <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding PlcUsesPerEnd}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+        <TextBlock Text="Bit trigger dùng chung" Style="{StaticResource Caption}"/>
+        <TextBox x:Name="PlcTriggerAddressTextBox" Text="{Binding PlcTriggerAddress,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="Ví dụ X0. Delta DVP đánh số X/Y theo hệ bát phân."/>
+       </StackPanel>
+       <Grid x:Name="PerEndPlcTriggerPanel" Margin="0,8,0,0" Visibility="{Binding PlcUsesPerEnd,Converter={StaticResource BoolToVisibility}}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="Bit đầu 1" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Bit đầu 2" Style="{StaticResource Caption}"/>
+        <TextBox Grid.Row="1" x:Name="PlcEnd1AddressTextBox" Text="{Binding PlcEnd1Address,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+        <TextBox Grid.Row="1" Grid.Column="2" x:Name="PlcEnd2AddressTextBox" Text="{Binding PlcEnd2Address,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+       </Grid>
       </StackPanel>
+      <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,20,0,20"/>
+      <TextBlock Text="OUTPUT" Style="{StaticResource SectionLabel}"/>
+      <TextBlock Text="Phản hồi kết quả PLC · lưu theo model recipe" Style="{StaticResource Caption}" Margin="0,4,0,8"/>
+      <Border BorderBrush="{StaticResource Brush.Status.Success}" BorderThickness="1" CornerRadius="{StaticResource Radius.SM}" Padding="8" Margin="0,0,0,8" IsEnabled="{Binding CanEditRecipeIo}">
+       <StackPanel>
+        <CheckBox Content="OK output" IsChecked="{Binding OkOutputEnabled}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Status.Success}"/>
+        <Grid IsEnabled="{Binding OkOutputEnabled}" Margin="0,6,0,0">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+         <TextBlock Text="Loại" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Vùng" Style="{StaticResource Caption}"/><TextBlock Grid.Column="4" Text="Index" Style="{StaticResource Caption}"/>
+         <ComboBox Grid.Row="1" ItemsSource="{Binding PlcOutputModes}" SelectedItem="{Binding OkOutputMode}" Style="{StaticResource Input.Combo}"/><ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding OkOutputDevices}" SelectedItem="{Binding OkOutputDevice}" Style="{StaticResource Input.Combo}"/><TextBox Grid.Row="1" Grid.Column="4" Text="{Binding OkOutputIndex,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+         <TextBlock Grid.Row="2" Grid.ColumnSpan="5" Margin="0,6,0,0"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Caption}"><Setter Property="Text" Value="Giá trị thanh ghi"/><Style.Triggers><DataTrigger Binding="{Binding OkUsesBit}" Value="True"><Setter Property="Text" Value="Thời gian giữ bit rồi tự reset (ms)"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+         <Grid Grid.Row="3" Grid.ColumnSpan="5">
+          <TextBox Text="{Binding OkOutputPulseMs,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" Visibility="{Binding OkUsesBit,Converter={StaticResource BoolToVisibility}}"/>
+          <TextBox Text="{Binding OkOutputValue,UpdateSourceTrigger=PropertyChanged}"><TextBox.Style><Style TargetType="TextBox" BasedOn="{StaticResource TextEditor}"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding OkUsesBit}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBox.Style></TextBox>
+         </Grid>
+        </Grid>
+       </StackPanel>
+      </Border>
+      <Border BorderBrush="{StaticResource Brush.Status.Error}" BorderThickness="1" CornerRadius="{StaticResource Radius.SM}" Padding="8" IsEnabled="{Binding CanEditRecipeIo}">
+       <StackPanel>
+        <CheckBox Content="NG output" IsChecked="{Binding NgOutputEnabled}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Status.Error}"/>
+        <Grid IsEnabled="{Binding NgOutputEnabled}" Margin="0,6,0,0">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+         <TextBlock Text="Loại" Style="{StaticResource Caption}"/><TextBlock Grid.Column="2" Text="Vùng" Style="{StaticResource Caption}"/><TextBlock Grid.Column="4" Text="Index" Style="{StaticResource Caption}"/>
+         <ComboBox Grid.Row="1" ItemsSource="{Binding PlcOutputModes}" SelectedItem="{Binding NgOutputMode}" Style="{StaticResource Input.Combo}"/><ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding NgOutputDevices}" SelectedItem="{Binding NgOutputDevice}" Style="{StaticResource Input.Combo}"/><TextBox Grid.Row="1" Grid.Column="4" Text="{Binding NgOutputIndex,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}"/>
+         <TextBlock Grid.Row="2" Grid.ColumnSpan="5" Margin="0,6,0,0"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Caption}"><Setter Property="Text" Value="Giá trị thanh ghi"/><Style.Triggers><DataTrigger Binding="{Binding NgUsesBit}" Value="True"><Setter Property="Text" Value="Thời gian giữ bit rồi tự reset (ms)"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+         <Grid Grid.Row="3" Grid.ColumnSpan="5">
+          <TextBox Text="{Binding NgOutputPulseMs,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" Visibility="{Binding NgUsesBit,Converter={StaticResource BoolToVisibility}}"/>
+          <TextBox Text="{Binding NgOutputValue,UpdateSourceTrigger=PropertyChanged}"><TextBox.Style><Style TargetType="TextBox" BasedOn="{StaticResource TextEditor}"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding NgUsesBit}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBox.Style></TextBox>
+         </Grid>
+        </Grid>
+       </StackPanel>
+      </Border>
       <TextBlock x:Name="TriggerStatusText" Text="{Binding TriggerStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"/>
       <TextBlock Text="Trigger phần cứng chỉ áp dụng khi RUN; SETTING luôn dùng free-run để căn ROI." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,0"/>
       <Separator Background="{StaticResource Brush.Border.Default}" Margin="0,20,0,20"/>
@@ -246,13 +285,20 @@
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="Load ảnh offline" AutomationProperties.Name="Load runtime image" Command="{Binding LoadRuntimeCommand}" IsEnabled="{Binding CanCapture}"/>
       <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{Binding CaptureLabel}" AutomationProperties.Name="Capture runtime image" Command="{Binding ManualTriggerCommand}" IsEnabled="{Binding CanCapture}"/>
       <Button x:Name="RetakeEndButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Sync}" ToolTip="Chụp lại đầu này" AutomationProperties.Name="Chụp lại đầu này" Command="{Binding RetakeEndCommand}"/>
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.ArrowRight}" ToolTip="Sản phẩm tiếp" AutomationProperties.Name="Sản phẩm tiếp" Command="{Binding NextProductCommand}" IsEnabled="{Binding CanNext}"/>
+      <Button Style="{StaticResource Button.Secondary}" Content="KẾT QUẢ TRƯỚC" ToolTip="Chuyển giữa chu kỳ hiện tại và kết quả vừa hoàn tất" Command="{Binding TogglePreviousResultsCommand}" IsEnabled="{Binding HasPreviousResult}" Padding="8,4"/>
       <Button x:Name="StopRuntimeButton" Style="{StaticResource ToolRail.DangerButton}" Tag="{StaticResource Icon.Stop}" ToolTip="Stop" AutomationProperties.Name="Stop runtime" Command="{Binding StopRunCommand}" IsEnabled="{Binding Running}"/>
      </StackPanel></Border>
      <StackPanel Orientation="Horizontal">
       <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Style="{StaticResource RunStatusLabel}" VerticalAlignment="Center" Margin="0,0,24,0"/>
+      <TextBlock Text="{Binding LastProductVerdict}" FontSize="40" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,24,0" Visibility="{Binding HasPreviousResult,Converter={StaticResource BoolToVisibility}}">
+       <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/><Style.Triggers><DataTrigger Binding="{Binding LastProductVerdict}" Value="NG"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger><DataTrigger Binding="{Binding LastProductVerdict}" Value="ERROR"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+      </TextBlock>
       <StackPanel VerticalAlignment="Center" Margin="0,0,24,0"><TextBlock Text="{Binding ActiveModel}" FontWeight="Bold"/><TextBlock Text="{Binding CycleLabel}" Style="{StaticResource Caption}"/></StackPanel>
       <StackPanel VerticalAlignment="Center">
+       <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+        <TextBlock Text="{Binding RunCameraStatus}" Foreground="{StaticResource Brush.Brand.Primary}" FontWeight="SemiBold" Margin="0,0,14,0"/>
+        <TextBlock Text="{Binding RunPlcStatus}" Foreground="{StaticResource Brush.Status.Success}" FontWeight="SemiBold"/>
+       </StackPanel>
        <TextBlock x:Name="RunTriggerText" Text="{Binding LastTrigger}" Style="{StaticResource Caption}"/>
        <TextBlock x:Name="CycleTimingText" Text="{Binding CycleTimingText}" Style="{StaticResource Caption}"/>
        <TextBlock x:Name="RunAcquisitionSummaryText" Text="{Binding AcquisitionSummary}" Style="{StaticResource Caption}"/>
@@ -260,11 +306,15 @@
      </StackPanel>
     </DockPanel>
    </Border>
-   <Grid Grid.Row="1">
-    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <views:EndResultView x:Name="FirstEndResult" DataContext="{Binding Result1}"/>
-    <views:EndResultView x:Name="SecondEndResult" Grid.Column="2" DataContext="{Binding Result2}"/>
-   </Grid>
+    <Grid Grid.Row="1">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <TextBlock Text="{Binding PreviousResultLabel}" Foreground="{StaticResource Brush.Status.Warning}" FontWeight="SemiBold" Margin="0,0,0,6" Visibility="{Binding ShowPreviousResults,Converter={StaticResource BoolToVisibility}}"/>
+     <Grid Grid.Row="1">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <views:EndResultView x:Name="FirstEndResult" DataContext="{Binding DisplayResult1}"/>
+     <views:EndResultView x:Name="SecondEndResult" Grid.Column="2" DataContext="{Binding DisplayResult2}"/>
+     </Grid>
+    </Grid>
   </Grid>
   <Border Grid.Row="3" Padding="4,10,4,0">
    <DockPanel>

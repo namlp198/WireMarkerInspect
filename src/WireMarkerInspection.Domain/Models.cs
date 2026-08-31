@@ -106,18 +106,95 @@ public sealed record CameraSettings(double ExposureTimeUs, double Gain, double? 
     }
 }
 
+/// <summary>Recipe-owned capture semantics. Physical PLC transport remains a machine setting.</summary>
+public enum RecipeTriggerKind { Manual, CameraLine, Plc }
+public enum RecipeTriggerMapping { Shared, PerEnd }
+
+public sealed record RecipeTriggerProfile(RecipeTriggerKind Kind = RecipeTriggerKind.Manual,
+    RecipeTriggerMapping Mapping = RecipeTriggerMapping.Shared, int CameraLine = 0, bool RisingEdge = true,
+    double DelayUs = 0, double DebouncerUs = 1000, int RepeatBlockMs = 250, int PollMs = 20,
+    string SharedAddress = "X0", string End1Address = "X0", string End2Address = "X1")
+{
+    public string? Validate()
+    {
+        if (CameraLine < 0 || DelayUs < 0 || DebouncerUs < 0) return "Camera trigger parameters cannot be negative.";
+        if (RepeatBlockMs < 0) return "Trigger repeat block cannot be negative.";
+        if (PollMs is < 5 or > 5000) return "PLC polling interval must be between 5 and 5000 ms.";
+        if (Kind == RecipeTriggerKind.CameraLine && Mapping == RecipeTriggerMapping.PerEnd)
+            return "One camera line cannot identify two separate ends.";
+        if (Kind != RecipeTriggerKind.Plc) return null;
+        if (Mapping == RecipeTriggerMapping.Shared && string.IsNullOrWhiteSpace(SharedAddress))
+            return "Shared PLC trigger address is required.";
+        if (Mapping == RecipeTriggerMapping.PerEnd &&
+            (string.IsNullOrWhiteSpace(End1Address) || string.IsNullOrWhiteSpace(End2Address)))
+            return "Per-end PLC trigger addresses are required for both ends.";
+        return null;
+    }
+}
+
+public enum PlcOutputMode { Bit, Register }
+
+/// <summary>A single verdict action. Bit outputs pulse and reset; register outputs write one signed word.</summary>
+public sealed record PlcOutputAction(bool Enabled = false, PlcOutputMode Mode = PlcOutputMode.Bit,
+    string Device = "M", int Index = 1, short RegisterValue = 1, int PulseMs = 50)
+{
+    public string Address => $"{Device.Trim().ToUpperInvariant()}{Index}";
+    public string? Validate(string verdict)
+    {
+        if (!Enabled) return null;
+        if (Index < 0) return $"{verdict} output index cannot be negative.";
+        var device = Device.Trim().ToUpperInvariant();
+        if (Mode == PlcOutputMode.Bit)
+        {
+            if (device is not ("M" or "Y")) return $"{verdict} bit output must use M or Y.";
+            if (PulseMs is < 10 or > 10000) return $"{verdict} bit pulse must be between 10 and 10000 ms.";
+        }
+        else if (device != "D") return $"{verdict} register output must use D.";
+        return null;
+    }
+}
+
+public sealed record VerdictOutputProfile(PlcOutputAction? Ok = null, PlcOutputAction? Ng = null)
+{
+    public PlcOutputAction OkAction => Ok ?? new PlcOutputAction(Index: 1, RegisterValue: 1);
+    public PlcOutputAction NgAction => Ng ?? new PlcOutputAction(Index: 2, RegisterValue: 2);
+    public string? Validate()
+    {
+        if (OkAction.Validate("OK") is { } ok) return ok;
+        if (NgAction.Validate("NG") is { } ng) return ng;
+        if (OkAction.Enabled && NgAction.Enabled && OkAction.Mode == PlcOutputMode.Bit &&
+            NgAction.Mode == PlcOutputMode.Bit && string.Equals(OkAction.Address, NgAction.Address, StringComparison.OrdinalIgnoreCase))
+            return "OK and NG bit outputs must use different addresses.";
+        if (OkAction.Enabled && NgAction.Enabled && OkAction.Mode == PlcOutputMode.Register &&
+            NgAction.Mode == PlcOutputMode.Register && string.Equals(OkAction.Address, NgAction.Address, StringComparison.OrdinalIgnoreCase) &&
+            OkAction.RegisterValue == NgAction.RegisterValue)
+            return "OK and NG cannot write the same value to the same register.";
+        return null;
+    }
+}
+
+public sealed record CameraInspectionIo(RecipeTriggerProfile? Trigger = null, VerdictOutputProfile? Outputs = null)
+{
+    public RecipeTriggerProfile TriggerProfile => Trigger ?? new RecipeTriggerProfile();
+    public VerdictOutputProfile VerdictOutputs => Outputs ?? new VerdictOutputProfile();
+    public bool UsesPlc => TriggerProfile.Kind == RecipeTriggerKind.Plc ||
+        VerdictOutputs.OkAction.Enabled || VerdictOutputs.NgAction.Enabled;
+    public string? Validate() => TriggerProfile.Validate() ?? VerdictOutputs.Validate();
+}
+
 public sealed record Recipe(Guid Id, string ModelCode, string Name, int Revision, EndRecipe[] Ends,
-    DateTimeOffset SavedAt, int SchemaVersion = 1, CameraSettings? Camera = null)
+    DateTimeOffset SavedAt, int SchemaVersion = 1, CameraSettings? Camera = null, CameraInspectionIo? Io = null)
 {
     public Recipe Copy() => this with { Ends = Ends.Select(e => e.Copy()).ToArray() };
     public string? Validate()
     {
-        if (SchemaVersion != 1) return "Unsupported recipe schema.";
+        if (SchemaVersion is not (1 or 2)) return "Unsupported recipe schema.";
         if (Id == Guid.Empty || string.IsNullOrWhiteSpace(ModelCode) || string.IsNullOrWhiteSpace(Name))
             return "Model code and name are required.";
         if (Ends.Length != 2) return "Both ends must be configured.";
         // Recipes saved before camera settings existed stay valid; they simply keep the current machine setup.
         if (Camera?.Validate() is { } cameraError) return cameraError;
+        if (Io?.Validate() is { } ioError) return ioError;
         return Ends.Select((e, i) => e.Validate() is { } error ? $"End {i + 1}: {error}" : null).FirstOrDefault(e => e != null);
     }
 }

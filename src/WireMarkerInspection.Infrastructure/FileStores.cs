@@ -142,8 +142,8 @@ public sealed class FileDiagnosticsLog(string root) : IDiagnosticsLog
 }
 
 /// <summary>
-/// Machine-level configuration: which PLC this station talks to and how RUN is triggered. It belongs to
-/// the machine, not to a model, so it lives beside the recipes rather than inside them.
+/// Machine-level physical PLC configuration plus legacy logical fields retained for schema-v1 migration.
+/// New RUN trigger/output semantics are recipe-owned.
 /// </summary>
 public sealed record MachineSettings(TriggerSettings Trigger, PlcSettings Plc)
 {

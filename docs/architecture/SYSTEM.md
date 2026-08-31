@@ -18,13 +18,13 @@ The DB/CTC preprocessing contract and model hashes are documented in assets/ocr/
 
 ## Session
 One cycle snapshots a full recipe revision and owns copied frame bytes.
-WaitingEnd1 -> ProcessingEnd1 -> WaitingEnd2 -> ProcessingEnd2 -> Completed.
+WaitingEnd1 -> ProcessingEnd1 -> WaitingEnd2 -> ProcessingEnd2 -> Completed. After persistence and verdict output, Desktop snapshots the completed presentation and begins a new WaitingEnd1 cycle automatically; the previous snapshot is review-only and never feeds the active session.
 Stop increments generation and cancels pending work; a late result cannot populate another cycle.
 Duplicate frame identity, wrong image dimensions, bad recipe, missing model and persistence failures cannot produce OK.
 Manual capture uses a new live frame after entering the next waiting state. Camera-line and PLC sources enter through `TriggerRouter`; PLC may use a shared rising edge or distinct per-end inputs.
 
 ## Persistence
-Versioned JSON recipes with immutable generation-named reference images. JSON rename is the publication point.
+Versioned JSON recipes with immutable generation-named reference images. JSON rename is the publication point. Schema v2 adds recipe-owned `CameraInspectionIo`; schema v1 remains readable and migrates on the next save.
 Results include exact recipe, ordered OCR evidence, verdicts and full source PPM images.
 Deleted recipes are moved out of the catalog but remain recoverable.
 Concurrent multi-process recipe editing is not supported; one application instance per data directory is intended.
@@ -32,7 +32,7 @@ Concurrent multi-process recipe editing is not supported; one application instan
 ## Camera acquisition
 The Desktop composes `HikrobotMvsCamera` through `ICamera`. It uses the official Hikrobot MVS .NET wrapper and native runtime for GigE/USB enumeration, device lifecycle, continuous acquisition, parameter writes and owned-buffer release. The app copies every frame to packed BGR24 before releasing the SDK buffer. Mono8 and RGB8/BGR8 have direct conversions; Bayer and packed formats use the MVS pixel converter. Frame dimensions, lengths and repeated SDK frame numbers are rejected.
 
-The SDK is initialized lazily on Scan; startup and offline UI smoke never connect to hardware. GigE open applies the SDK-recommended packet size. SETTING uses free-run; RUN stops acquisition around a change to camera-line/software trigger and restores free-run when disarmed.
+The SDK is initialized lazily on Scan; startup and offline UI smoke never connect to hardware. GigE open applies the SDK-recommended packet size. SETTING may use free-run for teaching. Entering RUN ensures the camera is connected, applies the frozen recipe and starts acquisition; leaving RUN stops production acquisition but retains the physical camera connection. Trigger-mode changes occur only while grabbing is stopped.
 
 The production MainWindow invokes camera discovery once from its Loaded event with a five-second UI timeout. The ViewModel exposes explicit Idle/Finding/NotFound/Found/Connected/Acquiring/Error states and derived enable rules; it does not reuse the broad model-editing flag for camera controls. A timed-out native enumeration remains tracked so retry can consume its eventual result without starting concurrent SDK calls. Offline smoke disables auto-discovery explicitly.
 
@@ -43,4 +43,6 @@ Hardware validation on 2026-08-30 passed enumerate/open/ExposureTime/Gain/start/
 ## PLC connection
 `IPlcLink` isolates the application from NModbus. `ModbusPlcLink` supports Ethernet IP and serial COM; COM selects Modbus ASCII or RTU plus baud/data/parity/stop/timeout. The Delta DVP default is the proven prior configuration COM11/9600/ASCII/7E1/unit 1. `DeltaDvpAddressMap` maps X as a read-only discrete input (function 02), Y/M as coils, D as holding registers, and interprets X/Y suffixes as octal.
 
-The Desktop owns one explicit PLC connection. Connect probes the configured input, then locks physical settings. A PLC-trigger source borrows this link during RUN and does not close it when RUN stops; explicit Disconnect or application shutdown owns disposal. Write-back remains opt-in because outputs can move machinery.
+Physical PLC transport is machine-owned in `settings.json`; logical trigger/output belongs to each recipe so future cameras can use independent recipes and addresses. Shared polling emits an unlabelled rising edge that the session assigns end 1 then end 2. PerEnd polls two addresses and labels the requested end explicitly.
+
+RUN owns the production PLC connection. It probes/connects only when the frozen recipe uses PLC trigger or output, then disconnects on Stop/SETTING. Manual Connect remains a setup diagnostic. `PlcVerdictOutputWriter` either writes a signed D word or pulses a writable M/Y coil; a pulse reset runs in `finally` under an independent cleanup timeout. Target type/writability and conflicting OK/NG destinations are validated before RUN. Automated tests use fakes; real writes require an explicitly approved safe hardware address.
