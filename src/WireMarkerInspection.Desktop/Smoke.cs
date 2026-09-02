@@ -9,6 +9,7 @@ using WireMarkerInspection.Desktop.Views;
 using WireMarkerInspection.Domain;
 using WireMarkerInspection.Desktop.Services;
 using WireMarkerInspection.Desktop.ViewModels;
+using WireMarkerInspection.Controls.Localization;
 
 namespace WireMarkerInspection.Desktop;
 internal static class Smoke
@@ -21,11 +22,22 @@ internal static class Smoke
         {
             // Each run owns fresh data; re-running release smoke must not collide with its prior recipe.
             var camera=new SmokeCamera();
+            AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,persist:false);
             var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),camera,autoDiscoverCameraOnLoad:false);
             window=new MainWindow(vm){Width=1920,Height=1080,Title="OFFLINE SMOKE · SYNTHETIC UI FIXTURES"};
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyOperatorAccess(window,vm);
+            Capture(window,Path.Combine(output,"setting-operator.png"));
+            var loginWindow=new LoginWindow((_,_)=>false){Owner=window};loginWindow.Show();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(loginWindow.PasswordInput.Background==null)throw new Exception("Login PasswordBox theme resource was not resolved.");
+            Capture(loginWindow,Path.Combine(output,"login.png"));loginWindow.Close();
+            if(!vm.TryLogin("admin","admin"))throw new Exception("Admin login failed in UI smoke.");
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyAdminAccess(window,vm);
+            await VerifyLanguageSwitch(window,vm);
             VerifyPlcConnectionUi(window,vm);
             window.SettingsScroll.ScrollToEnd();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(window,Path.Combine(output,"plc-connection.png"));
@@ -46,6 +58,8 @@ internal static class Smoke
             VerifyCameraControls(window,search:true,connect:true,disconnect:false,acquisition:false,parameters:false);
             vm.CameraConnected=true;vm.CameraState=CameraUiState.Connected;vm.CameraStatus="ĐÃ KẾT NỐI · Hikrobot smoke device";
             await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(window.HeaderConnectionStatus.Text!="ONLINE"||ColorOf(window.HeaderConnectionStatus.Foreground)!=ColorOf((Brush)window.FindResource("Brush.Status.Success")))
+                throw new Exception("Header must show green ONLINE when the camera is connected.");
             VerifyCameraControls(window,search:false,connect:false,disconnect:true,acquisition:true,parameters:true);
             vm.Acquiring=true;vm.CameraState=CameraUiState.Acquiring;vm.CameraStatus="ĐANG ACQUISITION · 4024 × 3036";
             await Dispatcher.Yield(DispatcherPriority.DataBind);
@@ -54,6 +68,9 @@ internal static class Smoke
             if(window.AcquisitionButton.Width!=32||ColorOf(window.AcquisitionButton.BorderBrush)!=cameraError||window.AcquisitionButton.BorderThickness.Left<1)
                 throw new Exception("Stop Acquisition state must be a rounded square with a red border.");
             Capture(window,Path.Combine(output,"camera-acquiring.png"));
+            vm.CameraState=CameraUiState.Reconnecting;await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(window.HeaderConnectionStatus.Text!="OFFLINE"||ColorOf(window.HeaderConnectionStatus.Foreground)!=cameraError)
+                throw new Exception("Header must return to red OFFLINE while the camera is reconnecting.");
             vm.Acquiring=false;vm.CameraConnected=false;vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
             await Dispatcher.Yield(DispatcherPriority.DataBind);
             if(vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("Model setup must be locked before selection or Add Model.");
@@ -77,6 +94,8 @@ internal static class Smoke
                 throw new Exception($"Smoke recipe save/reload failed: {vm.Message}");
             if(!vm.CanConfigureModel||!vm.CanManageSelectedModel)throw new Exception("A saved selected model must keep setup and model actions enabled.");
             VerifyModelControls(window,true,false,true,false);
+            if(window.SelectedModelCodeText.Text!="UI-FIXTURE"||ColorOf(window.ModelSelectionPanel.BorderBrush)!=ColorOf((Brush)window.FindResource("Brush.Brand.Secondary")))
+                throw new Exception("Selected operating model callout is not prominent or synchronized.");
             vm.EditModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture v2"));
             VerifyModelControls(window,true,true,true,true);
             vm.SaveRecipeCommand.Execute(null);
@@ -137,7 +156,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; default Operator access with Acquisition/model selection only; Admin login unlocks configuration; Vietnamese/English/Korean switch updates bindings; red OFFLINE and green ONLINE header; prominent selected/running model callouts; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -146,6 +165,55 @@ internal static class Smoke
             File.WriteAllText(Path.Combine(output,"result.txt"),ex.ToString());
             System.Windows.Application.Current.Shutdown(1);
         }
+    }
+    private static void VerifyOperatorAccess(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(vm.IsAdmin||vm.CurrentAccessLevel!=Security.AccessLevel.Operator)throw new Exception("Application must start in Operator mode.");
+        if(!window.LoginButton.IsVisible||window.LogoutButton.IsVisible)throw new Exception("Operator must see Login, not Logout.");
+        if(!window.AccessPanel.IsVisible||!window.ScanCameraButton.IsEnabled||!window.ModelSelector.IsEnabled)throw new Exception("Operator must retain the separate access area plus Acquisition and center model selection.");
+        if(!window.OcrStatusPanel.IsVisible||window.OcrStatusPanel.IsEnabled||!window.ModelWorkspaceGrid.IsVisible||!window.ModelLibraryPanel.IsVisible||window.ModelLibraryPanel.IsEnabled)
+            throw new Exception("Operator SETTING must keep the center and right panels visible while disabling configuration.");
+        if(window.AdminSettingsPanel.IsVisible)throw new Exception("Operator SETTING must hide Admin-only sections in the left panel.");
+        if(window.ModelSetupEditors.IsEnabled||window.AddModelButton.IsEnabled||window.EditModelButton.IsEnabled||window.DeleteModelButton.IsEnabled||window.SaveRecipeButton.IsEnabled||window.ConnectPlcButton.IsEnabled||window.ApplyCameraParametersButton.IsEnabled)
+            throw new Exception("Operator must not have model, PLC or parameter configuration access.");
+        if(window.HeaderConnectionStatus.Text!="OFFLINE"||ColorOf(window.HeaderConnectionStatus.Foreground)!=ColorOf((Brush)window.FindResource("Brush.Status.Error")))
+            throw new Exception("Header must show red OFFLINE before the camera connects.");
+    }
+    private static void VerifyAdminAccess(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(!vm.IsAdmin||window.LoginButton.IsVisible||!window.LogoutButton.IsVisible)throw new Exception("Admin login state is not visible.");
+        if(!window.OcrStatusPanel.IsVisible||!window.OcrStatusPanel.IsEnabled||!window.AdminSettingsPanel.IsVisible||!window.ModelWorkspaceGrid.IsVisible||!window.ModelLibraryPanel.IsVisible||!window.ModelLibraryPanel.IsEnabled)
+            throw new Exception("Admin login must enable all configuration panels.");
+        if(!window.AddModelButton.IsEnabled||!window.ConnectPlcButton.IsEnabled)throw new Exception("Admin must have full configuration access.");
+    }
+    private static async Task VerifyLanguageSwitch(MainWindow window,MainViewModel vm)
+    {
+        vm.TriggerKind=TriggerKind.Plc;vm.TriggerMapping=TriggerMapping.PerEnd;
+        vm.OkOutputMode=PlcOutputMode.Register;vm.NgOutputMode=PlcOutputMode.Register;
+        vm.Dirty=false;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        var before=vm.BuildRecipeIo();
+        AppLocalizer.ChangeLanguage(AppLanguage.English,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!Equals(window.LoginButton.Content,"Login")||vm.CurrentLanguage!=AppLanguage.English||vm.CameraStatus!="Camera not connected"||vm.AcquisitionSummary!="Acquisition has not started."||vm.OcrStatus!="OCR assets ready · accuracy not yet validated."||vm.End1.Message!="Load a reference image to begin.")throw new Exception("English switch did not refresh the UI and current status.");
+        VerifyRecipeValuesWereNotChanged(window,vm,before);
+        AppLocalizer.ChangeLanguage(AppLanguage.Korean,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!Equals(window.LoginButton.Content,"로그인")||vm.CurrentLanguage!=AppLanguage.Korean||vm.CameraStatus!="카메라가 연결되지 않았습니다"||vm.OcrStatus!="OCR 자산 준비 완료 · 정확도 미검증."||vm.End1.Message!="시작하려면 기준 이미지를 불러오십시오.")throw new Exception("Korean switch did not refresh the UI and current status.");
+        VerifyRecipeValuesWereNotChanged(window,vm,before);
+        AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!Equals(window.LoginButton.Content,"Đăng nhập")||vm.CurrentLanguage!=AppLanguage.Vietnamese)throw new Exception("Vietnamese switch did not refresh the UI.");
+        VerifyRecipeValuesWereNotChanged(window,vm,before);
+        vm.TriggerKind=TriggerKind.Manual;vm.TriggerMapping=TriggerMapping.Shared;
+        vm.OkOutputMode=PlcOutputMode.Bit;vm.NgOutputMode=PlcOutputMode.Bit;
+        vm.Dirty=false;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+    }
+    private static void VerifyRecipeValuesWereNotChanged(MainWindow window,MainViewModel vm,CameraInspectionIo before)
+    {
+        if(vm.Dirty||vm.BuildRecipeIo()!=before||vm.TriggerMapping!=TriggerMapping.PerEnd||vm.OkOutputMode!=PlcOutputMode.Register||vm.NgOutputMode!=PlcOutputMode.Register||
+           !Equals(window.TriggerMappingSelector.SelectedValue,TriggerMapping.PerEnd)||!Equals(window.OkOutputModeSelector.SelectedValue,PlcOutputMode.Register)||!Equals(window.NgOutputModeSelector.SelectedValue,PlcOutputMode.Register))
+            throw new Exception("Changing language must update labels only and must not mutate recipe trigger/output/orientation values.");
     }
     private static void VerifyPlcConnectionUi(MainWindow window,MainViewModel vm)
     {

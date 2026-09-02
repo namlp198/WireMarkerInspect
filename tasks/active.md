@@ -1,5 +1,20 @@
 # Active task — Wire Marker Inspection foundation
 
+## Localization, access roles and operator model visibility — completed 2026-09-02
+- [x] Remove the implementation-stack header caption and bind red OFFLINE / green ONLINE to camera connection state.
+- [x] Add live Vietnamese, English and Korean localization with persisted preference and catalog fallback.
+- [x] Default to Operator and expose Admin login/logout in ACQUISITION using the approved `admin/admin` credential.
+- [x] Keep camera discovery/connect/live acquisition and saved-model selection/RUN available to Operator while enforcing all configuration as Admin-only.
+- [x] Add prominent selected-model and frozen RUN-model callouts.
+- [x] Add permission/localization regression tests and expand WPF smoke across both roles, three languages and header/model visual states.
+- [x] Fix the Login StaticResource crash and make smoke open the actual Login dialog.
+- [x] Keep center/right setup panels visible but disabled for Operator; hide only Admin configuration sections in the left panel.
+- [x] Move login/logout into a separate USER ACCESS region outside ACQUISITION.
+- [x] Remove the duplicate operating-model box from ACQUISITION; keep only the center model selector enabled for Operator.
+- [x] Make localized recipe ComboBox option collections stable so language changes cannot reset Signal mapping, OUTPUT type or orientation; cover full recipe equality and real WPF selections.
+- [x] Replace the language overlay with circular Vietnam/English/Korea vector flags placed after the centered title and refresh dynamic status/editor/result messages live.
+- [x] Verify Release build, managed 89/89, native 1/1 and WPF smoke at `artifacts/smoke-20260902-201023`.
+
 ## Cross-shell build and Inno deploy launchers — completed 2026-08-31
 - [x] Add `.bat` launchers for Debug, Release and Inno Setup deploy.
 - [x] Add Windows Git Bash/WSL `.sh` launchers for the same workflows.

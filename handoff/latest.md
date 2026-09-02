@@ -1,4 +1,15 @@
-# Handoff — 2026-08-31
+# Handoff — 2026-09-02
+
+## Localization, Operator/Admin and model visibility
+- Fixed the localization/recipe coupling bug: `TriggerKindOptions`, `TriggerMappingOptions`, `PlcOutputModeOptions` and end orientations no longer replace their `ItemsSource` on a language event. Stable option objects notify only `Label`, preventing the temporary empty WPF selection from writing Manual/Shared/Bit/0° defaults back into recipe state.
+- Fixed the Login crash caused by a nonexistent `Brush.Background.Input` resource. The WPF smoke now opens the real Login dialog and validates the resolved PasswordBox background.
+- Login/logout and the role badge are separated from ACQUISITION in their own USER ACCESS card. The duplicate operating-model box in ACQUISITION was removed. Operator may use only the center model selector there; Add/Edit/Delete, both editors, Save and the right Model Library stay locked. Admin-only camera parameters and PLC/trigger/output sections remain hidden in the left panel.
+- Replaced the language selector overlay with one circular vector flag for Vietnam, English/UK or Korea, positioned after the title in a centered row. Camera/OCR/editor/result status strings refresh when the language changes rather than keeping stale Vietnamese text.
+- Added a shared CSV localization catalog and live binding layer for Vietnamese, English and Korean. The language choice persists to `%LOCALAPPDATA%\WireMarkerInspection\language.txt`; missing translations fall back to English and then to the key.
+- The application starts as Operator. Camera discovery, connection/disconnection, live acquisition, saved-model selection and RUN remain available. Model mutation/save, camera parameters, physical PLC connection settings and recipe trigger/output settings require Admin at both the UI and command layers.
+- ACQUISITION now shows the current role and login/logout controls. The approved exact local credential is `admin/admin`; logout restores Operator and protects unsaved work with confirmation.
+- Removed `C++ CORE / .NET UI`. Header `OFFLINE` is red and `ONLINE` is green, sourced from the camera connection/acquisition state and returning to OFFLINE during reconnect. The operating model selector and frozen RUN recipe are rendered as high-contrast callouts with code, name and revision/readiness context.
+- Added regression tests for full recipe-I/O equality and clean Dirty state through Việt/Anh/Hàn, stable option identity, plus actual WPF Signal mapping and both OUTPUT Type selectors. Release build: 0 warnings/errors; managed: 89/89; native: 1/1; WPF smoke: PASS at `artifacts/smoke-20260902-201023`. No real hardware command was issued in this session.
 
 ## Build and deployment launchers
 - Added `build-debug`, `build-release` and `deploy-inno` in both `.bat` and `.sh` forms. Shell launchers are for Windows Git Bash/WSL and invoke the same PowerShell source of truth as batch launchers.

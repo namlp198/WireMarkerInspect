@@ -46,7 +46,7 @@ public sealed class CameraSettingsTests:IDisposable
     public void SavedRecipeKeepsTheTaughtAcquisitionSetup()=>DispatcherTestHost.Sta(()=>
     {
         var camera=new SettingsCamera();
-        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true};
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true}.AsAdmin();
         try
         {
             vm.NewModelCommand.Execute(new ModelIdentity("CAM-1","Camera settings"));
@@ -71,7 +71,7 @@ public sealed class CameraSettingsTests:IDisposable
     [Fact]
     public void SavedRecipeKeepsItsOwnTriggerAndVerdictOutputs()=>DispatcherTestHost.Sta(()=>
     {
-        var vm=new MainViewModel(root,new SettingsCamera(),autoDiscoverCameraOnLoad:false){Confirm=_=>true};
+        var vm=new MainViewModel(root,new SettingsCamera(),autoDiscoverCameraOnLoad:false){Confirm=_=>true}.AsAdmin();
         try
         {
             vm.NewModelCommand.Execute(new ModelIdentity("IO-1","Recipe IO"));ConfigureBothEnds(vm);
@@ -100,7 +100,7 @@ public sealed class CameraSettingsTests:IDisposable
     public void OpeningAModelRestoresItsSetupAndPushesItToAConnectedCamera()=>DispatcherTestHost.Sta(()=>
     {
         var camera=new SettingsCamera();
-        var author=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true};
+        var author=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true}.AsAdmin();
         try
         {
             author.NewModelCommand.Execute(new ModelIdentity("CAM-2","Restore setup"));
@@ -110,7 +110,7 @@ public sealed class CameraSettingsTests:IDisposable
         }
         finally{DispatcherTestHost.Wait(author.ShutdownAsync());}
 
-        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true};
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true}.AsAdmin();
         try
         {
             DispatcherTestHost.Wait(vm.InitializeCameraAsync());
@@ -135,7 +135,7 @@ public sealed class CameraSettingsTests:IDisposable
     public void ValuesOutsideTheDeviceRangeAreRejectedBeforeReachingTheCamera()=>DispatcherTestHost.Sta(()=>
     {
         var camera=new SettingsCamera();
-        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true};
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false){Confirm=_=>true}.AsAdmin();
         try
         {
             DispatcherTestHost.Wait(vm.InitializeCameraAsync());

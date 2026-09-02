@@ -1,5 +1,6 @@
 <UserControl x:Class="WireMarkerInspection.Controls.ImageHud" x:Name="Hud"
- xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:loc="clr-namespace:WireMarkerInspection.Controls.Localization">
  <Grid ClipToBounds="True" Background="{DynamicResource Brush.Background.App}">
   <!-- Image owns the entire viewport; HUD siblings never change its transform. -->
   <ContentPresenter Content="{Binding Viewer,ElementName=Hud}"/>
@@ -10,33 +11,33 @@
    </StackPanel>
   </Border>
   <Border x:Name="ExpandPanel" Style="{DynamicResource Hud.Container}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="{DynamicResource Hud.Inset}" Visibility="Collapsed">
-   <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Expand}" Click="Expand" ToolTip="Phóng lớn ảnh" AutomationProperties.Name="Expand image"/>
+   <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Expand}" Click="Expand" ToolTip="{loc:Text ExpandImage}" AutomationProperties.Name="{loc:Text ExpandImage}"/>
   </Border>
   <Border x:Name="DrawingRail" Style="{DynamicResource Overlay.ToolRail}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="{DynamicResource Hud.Inset}" Visibility="Collapsed">
    <StackPanel Margin="{DynamicResource Hud.RailPadding}">
-    <ToggleButton x:Name="SelectButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.Select}" Uid="Select" Click="SelectTool" ToolTip="Chọn / di chuyển / sửa ROI" AutomationProperties.Name="Select ROI"/>
-    <ToggleButton x:Name="RectangleButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.MeasureRectangle}" Uid="Rectangle" Click="SelectTool" ToolTip="Vẽ ROI chữ nhật" AutomationProperties.Name="Rectangle ROI"/>
-    <ToggleButton x:Name="CircleButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.MeasureCircle}" Uid="Circle" Click="SelectTool" ToolTip="Vẽ ROI tròn" AutomationProperties.Name="Circle ROI"/>
-    <ToggleButton x:Name="PolygonButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.MeasurePolygon}" Uid="Polygon" Click="SelectTool" ToolTip="Vẽ ROI polygon · Enter để hoàn tất" AutomationProperties.Name="Polygon ROI"/>
-    <ToggleButton x:Name="PanButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.Pan}" Uid="Pan" Click="SelectTool" ToolTip="Pan · hoặc giữ Space / chuột giữa rồi kéo" AutomationProperties.Name="Pan image"/>
+    <ToggleButton x:Name="SelectButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.Select}" Uid="Select" Click="SelectTool" ToolTip="{loc:Text SelectRoi}" AutomationProperties.Name="{loc:Text SelectRoi}"/>
+    <ToggleButton x:Name="RectangleButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.MeasureRectangle}" Uid="Rectangle" Click="SelectTool" ToolTip="{loc:Text RectangleRoi}" AutomationProperties.Name="{loc:Text RectangleRoi}"/>
+    <ToggleButton x:Name="CircleButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.MeasureCircle}" Uid="Circle" Click="SelectTool" ToolTip="{loc:Text CircleRoi}" AutomationProperties.Name="{loc:Text CircleRoi}"/>
+    <ToggleButton x:Name="PolygonButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.MeasurePolygon}" Uid="Polygon" Click="SelectTool" ToolTip="{loc:Text PolygonRoi}" AutomationProperties.Name="{loc:Text PolygonRoi}"/>
+    <ToggleButton x:Name="PanButton" Style="{DynamicResource ToolRail.ToggleButton}" Tag="{DynamicResource Icon.Pan}" Uid="Pan" Click="SelectTool" ToolTip="{loc:Text PanImage}" AutomationProperties.Name="{loc:Text PanImage}"/>
     <Border Style="{DynamicResource Hud.Separator}"/>
-    <Button x:Name="UndoButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Undo}" Click="Undo" ToolTip="Undo · Ctrl+Z" AutomationProperties.Name="Undo ROI"/>
-    <Button x:Name="RedoButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Redo}" Click="Redo" ToolTip="Redo · Ctrl+Y" AutomationProperties.Name="Redo ROI"/>
-    <Button x:Name="DeleteButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Delete}" Click="Delete" ToolTip="Xóa ROI · Delete" AutomationProperties.Name="Delete ROI"/>
+    <Button x:Name="UndoButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Undo}" Click="Undo" ToolTip="{loc:Text UndoRoi}" AutomationProperties.Name="{loc:Text UndoRoi}"/>
+    <Button x:Name="RedoButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Redo}" Click="Redo" ToolTip="{loc:Text RedoRoi}" AutomationProperties.Name="{loc:Text RedoRoi}"/>
+    <Button x:Name="DeleteButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Delete}" Click="Delete" ToolTip="{loc:Text DeleteRoi}" AutomationProperties.Name="{loc:Text DeleteRoi}"/>
    </StackPanel>
   </Border>
   <Border x:Name="PolygonStrip" Style="{DynamicResource Hud.Container}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="80,66,12,0" Padding="4" Visibility="Collapsed">
    <StackPanel Orientation="Horizontal">
-    <Button x:Name="FinishButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Check}" Click="Finish" ToolTip="Hoàn tất polygon · Enter" AutomationProperties.Name="Finish polygon"/>
-    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Undo}" Click="UndoPoint" ToolTip="Xóa điểm cuối · Backspace" AutomationProperties.Name="Undo polygon point"/>
-    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Close}" Click="Cancel" ToolTip="Hủy nét vẽ · Escape" AutomationProperties.Name="Cancel drawing"/>
+    <Button x:Name="FinishButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Check}" Click="Finish" ToolTip="{loc:Text FinishPolygon}" AutomationProperties.Name="{loc:Text FinishPolygon}"/>
+    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Undo}" Click="UndoPoint" ToolTip="{loc:Text UndoPolygonPoint}" AutomationProperties.Name="{loc:Text UndoPolygonPoint}"/>
+    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.Close}" Click="Cancel" ToolTip="{loc:Text CancelDrawing}" AutomationProperties.Name="{loc:Text CancelDrawing}"/>
    </StackPanel>
   </Border>
   <Border x:Name="NavigationHud" Style="{DynamicResource Hud.Container}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="{DynamicResource Hud.Inset}" Padding="{DynamicResource Hud.RailPadding}">
    <StackPanel x:Name="NavigationButtons" Orientation="Horizontal">
-    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ZoomOut}" Click="ZoomOut" ToolTip="Thu nhỏ · cuộn chuột" AutomationProperties.Name="Zoom out"/>
-    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ZoomIn}" Click="ZoomIn" ToolTip="Phóng to · cuộn chuột" AutomationProperties.Name="Zoom in"/>
-    <Button x:Name="ResetViewButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ActualSize}" Click="ResetView" ToolTip="Về khung mặc định khi load ảnh · Fit" AutomationProperties.Name="Reset image to default fit"/>
+    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ZoomOut}" Click="ZoomOut" ToolTip="{loc:Text ZoomOut}" AutomationProperties.Name="{loc:Text ZoomOut}"/>
+    <Button Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ZoomIn}" Click="ZoomIn" ToolTip="{loc:Text ZoomIn}" AutomationProperties.Name="{loc:Text ZoomIn}"/>
+    <Button x:Name="ResetViewButton" Style="{DynamicResource ToolRail.Button}" Tag="{DynamicResource Icon.ActualSize}" Click="ResetView" ToolTip="{loc:Text ResetFit}" AutomationProperties.Name="{loc:Text ResetFit}"/>
    </StackPanel>
   </Border>
  </Grid>

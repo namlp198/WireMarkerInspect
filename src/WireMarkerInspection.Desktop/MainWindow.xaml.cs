@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Data;
 using WireMarkerInspection.Controls;
 using WireMarkerInspection.Desktop.ViewModels;
+using WireMarkerInspection.Controls.Localization;
 namespace WireMarkerInspection.Desktop;
 public partial class MainWindow : Window
 {
@@ -25,26 +26,31 @@ public partial class MainWindow : Window
         if(liveCameraWindow is {IsVisible:true}){liveCameraWindow.Activate();return;}
         var viewer=new ImageViewer();
         viewer.SetBinding(ImageViewer.SourceProperty,new Binding(nameof(MainViewModel.LiveImage)){Source=Model});
-        var hud=new ImageHud{Caption="LIVE CAMERA · EXPANDED",Viewer=viewer,CanExpand=false,Margin=new Thickness(16)};
+        var hud=new ImageHud{Caption=AppLocalizer.Text("LiveCameraExpanded"),Viewer=viewer,CanExpand=false,Margin=new Thickness(16)};
         liveCameraWindow=new Window
         {
-            Title="Live Camera",Width=1280,Height=920,MinWidth=800,MinHeight=600,Owner=this,Content=hud,
+            Title=AppLocalizer.Text("LiveCameraExpandedTitle"),Width=1280,Height=920,MinWidth=800,MinHeight=600,Owner=this,Content=hud,
             Background=(System.Windows.Media.Brush)FindResource("Brush.Background.App"),WindowStartupLocation=WindowStartupLocation.CenterOwner
         };
         liveCameraWindow.Closed+=(_,_)=>liveCameraWindow=null;
         liveCameraWindow.Show();
     }
+    private void Login(object sender,RoutedEventArgs e)
+    {
+        if(Model.IsAdmin||!Model.CanEdit)return;
+        new LoginWindow(Model.TryLogin){Owner=this}.ShowDialog();
+    }
     private void AddModel(object sender,RoutedEventArgs e)
     {
-        if(!Model.CanEdit)return;
-        var dialog=new ModelDetailsWindow("ADD MODEL","","",identity=>Model.ValidateModelIdentity(identity)){Owner=this};
+        if(!Model.CanCreateModel)return;
+        var dialog=new ModelDetailsWindow(AppLocalizer.Text("AddModel"),"","",identity=>Model.ValidateModelIdentity(identity)){Owner=this};
         if(dialog.ShowDialog()==true)Model.NewModelCommand.Execute(dialog.Identity);
     }
     private void EditModel(object sender,RoutedEventArgs e)
     {
         var selected=Model.SelectedModel;
-        if(!Model.CanEdit||selected==null)return;
-        var dialog=new ModelDetailsWindow("EDIT MODEL",selected.Code,selected.Name,
+        if(!Model.CanManageSelectedModel||selected==null)return;
+        var dialog=new ModelDetailsWindow(AppLocalizer.Text("EditModel"),selected.Code,selected.Name,
             identity=>Model.ValidateModelIdentity(identity,selected.Recipe.Id)){Owner=this};
         if(dialog.ShowDialog()==true)Model.EditModelCommand.Execute(dialog.Identity);
     }
@@ -52,7 +58,7 @@ public partial class MainWindow : Window
     {
         if(closing)return;
         e.Cancel=true;
-        if(Model.Dirty&&Model.Confirm?.Invoke("Thoát và bỏ thay đổi chưa lưu?")==false)return;
+        if(Model.Dirty&&Model.Confirm?.Invoke(AppLocalizer.Text("CloseDiscardChanges"))==false)return;
         closing=true;
         try{await Model.ShutdownAsync();}catch(Exception ex){MessageBox.Show(this,ex.Message,"Shutdown");}
         Close();

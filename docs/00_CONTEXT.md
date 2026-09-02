@@ -1,5 +1,16 @@
 # Current project context — 2026-08-29
 
+Session update — localization and role access 2026-09-02:
+- Fixed a recipe-integrity bug in localized ComboBoxes: rebuilding `ItemsSource` briefly cleared `SelectedValue`, allowing WPF to write enum defaults such as Shared/Bit back into the draft. Trigger kind/mapping, OUTPUT type and end orientation now use stable observable option objects whose labels refresh in place. Regression coverage compares full recipe I/O before/after every language and checks the actual visible WPF selectors.
+- Corrected the Login XAML resource failure by using an existing shared input background; the smoke now constructs and displays the real dialog so this cannot regress unnoticed.
+- Login/logout and the role badge live in a separate USER ACCESS area above ACQUISITION. The duplicate operating-model box was removed from ACQUISITION. Operator selects the model through the center selector only; Add/Edit/Delete, both editors, Save and the right Model Library remain locked. Admin camera parameters and PLC/trigger/output sections in the left panel are hidden.
+- The language selector is a single circular vector flag for Vietnam, English/UK and Korea, placed after the title in one centered header row. Dynamic camera/OCR/editor/result messages are re-rendered on language changes instead of retaining the language in which their state was first created.
+- The application now defaults to Operator. Operator may discover/connect/disconnect the camera, start/stop live acquisition, select an existing saved model and enter RUN; model creation/edit/delete/save, camera parameters and every PLC/trigger/output setting are enforced as Admin-only in both UI state and command guards.
+- ACQUISITION contains Admin login/logout. The approved local credential is exact and case-sensitive: `admin/admin`. Logging out discards only after confirmation and disconnects an open setup PLC link.
+- A CSV-backed catalog provides live Vietnamese, English and Korean switching, English/key fallback, persisted preference and file-change reload. Shared controls, model dialogs, end editors/results and the main settings/RUN UI use catalog bindings.
+- The header implementation-stack caption was removed. Red `OFFLINE` and green `ONLINE` are driven by camera connection state. Prominent selected-model and RUN-model callouts keep recipe identity visible to the operator.
+- Regression coverage is 89/89 managed plus native 1/1. Release build is clean and WPF smoke PASS is recorded at `artifacts/smoke-20260902-201023`.
+
 Session update — build/deploy launchers 2026-08-31:
 - Added Windows batch and Git Bash/WSL shell launchers for explicit Debug, Release and Inno Setup deployment.
 - Debug and Release now build matching native configurations and stage the corresponding OpenCV runtime instead of always consuming native Release DLLs.

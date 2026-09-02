@@ -2,9 +2,13 @@
 
 Windows x64 inspection application: WPF/.NET 8 UI, reusable image controls, C++/OpenCV/ONNX Runtime core.
 
-## Current status — 2026-08-31
+## Current status — 2026-09-02
 
 Implemented: SETTING/RUN screens, independent ImageViewer and ImageEditor controls, recipe persistence, exact comparison, two-capture session, native OCR interface/pipeline, offline Load Image validation, NAcquire C API adapter, tests and deployment scripts.
+
+The application starts in **Operator** mode. A separate USER ACCESS area provides Admin login (`admin/admin`). Operator can use ACQUISITION and select a saved model from the prominent selector in the center workspace; Add/Edit/Delete, both recipe editors, Save and the right Model Library remain locked. Camera parameters and PLC/trigger/output configuration in the left panel stay hidden until Admin login. Logout safely returns to Operator restrictions.
+
+The UI can switch live between Vietnamese, English and Korean and remembers the selected language under `%LOCALAPPDATA%\WireMarkerInspection\language.txt`. The header uses a single circular vector flag aligned with the product title. The header no longer shows implementation-stack text: its red `OFFLINE` / green `ONLINE` indicator now reflects the physical camera connection. The selected model and frozen RUN model are shown in prominent bordered callouts so the operator can confirm the active recipe at a glance.
 
 Each end now evaluates two independent conditions: ordinal exact text and configured text direction. Thuận requires detected 0°, Nghịch requires detected 180°; Auto explicitly accepts either direction. OCR always evaluates both directions without using expected text to choose a result.
 
@@ -40,7 +44,7 @@ The `.bat` and `.sh` launchers call the same `build.ps1`; additional PowerShell 
 
 ## Operator workflow
 
-1. SETTING → + Model, or select an existing model from the selector/library. The Add/Edit dialog labels model code and model name, validates required/duplicate values, and Cancel leaves the current draft unchanged. Selecting an existing row loads its images and recipe automatically.
+1. The app opens as Operator: select an existing saved model and RUN. Log in as Admin only when setup is required, then use SETTING → + Model or edit an existing model. The Add/Edit dialog labels model code and model name, validates required/duplicate values, and Cancel leaves the current draft unchanged. Selecting an existing row loads its images and recipe automatically.
 2. The app automatically searches for Hikrobot cameras after loading. SETTING may connect/start acquisition for teaching and preview, but this is not a RUN prerequisite; RUN starts its own acquisition lifecycle automatically. Load Image remains available for offline setup.
 3. In **PLC CONNECTION**, choose Ethernet IP or COM and save the physical machine parameters. Connect PLC remains available as a setup/diagnostic action, but RUN connects automatically when the selected recipe needs PLC.
 4. Under **TRIGGER**, choose Shared (one button used in end order) or PerEnd (separate end-1/end-2 bits). Under **OUTPUT**, configure separate OK and NG rows as an M/Y pulse with automatic reset or a D-register value. These logical settings are saved with the model recipe.
@@ -80,7 +84,7 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
 
 ## Verification
 
-Latest software-only verification (2026-08-31): Release build 0 warnings/errors, managed 83/83, native 1/1, and WPF smoke PASS. The cross-shell launchers were accepted with a Git Bash Debug build and a batch Release build. `deploy-inno.bat 0.1.0` passed the complete guarded pipeline and produced `dist/WireMarkerInspection-Setup-0.1.0.exe` (83,992,815 bytes) without installing it. PLC tests use fakes; no real output was written.
+Latest software-only verification (2026-09-02): Release build 0 warnings/errors, managed 89/89, native 1/1, and WPF smoke PASS at `artifacts/smoke-20260902-201023`. Localized ComboBox option objects are now stable: changing Vietnamese/English/Korean refreshes labels in place and cannot write enum defaults back into trigger mapping, OUTPUT type or end orientation. Tests compare the complete recipe I/O snapshot and actual WPF ComboBox selections through all three languages. The smoke also covers Login, Operator/Admin permissions, camera-backed header and selected/running model callouts. No real hardware command was issued.
 
     powershell -ExecutionPolicy Bypass -File scripts/test.ps1
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1

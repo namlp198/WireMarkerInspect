@@ -1,6 +1,7 @@
 <UserControl x:Class="WireMarkerInspection.Desktop.Views.EndEditorView" x:Name="Root"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:controls="clr-namespace:WireMarkerInspection.Controls;assembly=WireMarkerInspection.Controls">
+ xmlns:controls="clr-namespace:WireMarkerInspection.Controls;assembly=WireMarkerInspection.Controls"
+ xmlns:loc="clr-namespace:WireMarkerInspection.Controls.Localization;assembly=WireMarkerInspection.Controls">
  <Border Style="{StaticResource Panel}" Padding="0">
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="EditorScroller">
    <Grid MinHeight="590" Height="{Binding ViewportHeight,ElementName=EditorScroller}">
@@ -9,15 +10,15 @@
      <controls:ImageHud.Viewer><controls:ImageEditor Source="{Binding Image}" Roi="{Binding Roi,Mode=TwoWay}" Regions="{Binding Regions}"/></controls:ImageHud.Viewer>
     </controls:ImageHud>
     <StackPanel Grid.Row="1" Margin="8,8,8,0">
-     <TextBox Text="{Binding ExpectedText,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="54" Height="64" Style="{StaticResource TextEditor}" FontFamily="{StaticResource Font.Monospace}" VerticalContentAlignment="Top" ToolTip="Text mẫu · mỗi vùng OCR detect là một dòng, giữ đúng thứ tự"/>
-     <DockPanel Margin="0,6,0,6"><TextBlock Text="Chiều yêu cầu" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox ItemsSource="{Binding Orientations}" SelectedValue="{Binding Orientation}" SelectedValuePath="Value" DisplayMemberPath="Label" Style="{StaticResource Input.Combo}" Height="28" ToolTip="Thuận = 0°, nghịch = 180°. Auto không kiểm tra chiều."/></DockPanel>
+     <TextBox Text="{Binding ExpectedText,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="54" Height="64" Style="{StaticResource TextEditor}" FontFamily="{StaticResource Font.Monospace}" VerticalContentAlignment="Top" ToolTip="{loc:Text ExpectedTextHint}"/>
+     <DockPanel Margin="0,6,0,6"><TextBlock Text="{loc:Text RequiredDirection}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox ItemsSource="{Binding Orientations}" SelectedValue="{Binding Orientation}" SelectedValuePath="Value" DisplayMemberPath="Label" Style="{StaticResource Input.Combo}" Height="28" ToolTip="{loc:Text DirectionHint}"/></DockPanel>
     </StackPanel>
     <Border Grid.Row="2" Style="{StaticResource Hud.Container}" HorizontalAlignment="Left" Margin="8,0,8,4" Padding="4">
      <StackPanel Orientation="Horizontal">
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="Load Image" AutomationProperties.Name="Load Image" Command="{Binding Tag.LoadReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
-      <Button x:Name="GrabButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="Grab Image · lấy frame live hiện tại; cần Start Acquisition" AutomationProperties.Name="Grab Image" Command="{Binding Tag.GrabReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Ocr}" ToolTip="Test OCR" AutomationProperties.Name="Test OCR" Command="{Binding Tag.TestOcrCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
-      <Button Content="Apply" Style="{StaticResource Button.Apply}" ToolTip="Apply đầu dây" AutomationProperties.Name="Apply đầu dây" Command="{Binding Tag.ApplyEndCommand,ElementName=Root}" CommandParameter="{Binding Key}" Margin="4,0,0,0"/>
+      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="{loc:Text LoadImage}" AutomationProperties.Name="{loc:Text LoadImage}" Command="{Binding Tag.LoadReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
+      <Button x:Name="GrabButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{loc:Text GrabImage}" AutomationProperties.Name="{loc:Text GrabImage}" Command="{Binding Tag.GrabReferenceCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
+      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Ocr}" ToolTip="{loc:Text TestOcr}" AutomationProperties.Name="{loc:Text TestOcr}" Command="{Binding Tag.TestOcrCommand,ElementName=Root}" CommandParameter="{Binding Key}"/>
+      <Button Content="{loc:Text Apply}" Style="{StaticResource Button.Apply}" ToolTip="{loc:Text ApplyEnd}" AutomationProperties.Name="{loc:Text ApplyEnd}" Command="{Binding Tag.ApplyEndCommand,ElementName=Root}" CommandParameter="{Binding Key}" Margin="4,0,0,0"/>
      </StackPanel>
     </Border>
     <TextBlock Grid.Row="3" Margin="8,0" Text="{Binding Message}" MaxHeight="34">

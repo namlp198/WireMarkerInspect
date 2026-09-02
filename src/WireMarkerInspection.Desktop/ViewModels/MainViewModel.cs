@@ -11,6 +11,8 @@ using WireMarkerInspection.Domain;
 using WireMarkerInspection.Infrastructure;
 using WireMarkerInspection.Vision;
 using WireMarkerInspection.Desktop.Services;
+using WireMarkerInspection.Desktop.Security;
+using WireMarkerInspection.Controls.Localization;
 
 namespace WireMarkerInspection.Desktop.ViewModels;
 public sealed class RecipeRow(Recipe recipe,FileRecipeStore store)
@@ -29,7 +31,6 @@ public sealed record ModelIdentity(string Code,string Name);
 public sealed record PlcTransportOption(PlcTransport Value,string Label);
 public sealed record PlcSerialProtocolOption(PlcSerialProtocol Value,string Label);
 public sealed record PlcStopBitsOption(PlcSerialStopBits Value,string Label);
-public sealed record TriggerMappingOption(TriggerMapping Value,string Label);
 public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring, Reconnecting, Error }
 public enum PlcConnectionState { Disconnected, Connecting, Connected, Error }
 public partial class MainViewModel : ObservableObject
@@ -85,6 +86,7 @@ public partial class MainViewModel : ObservableObject
     private CameraInspectionIo? runtimeIo;
     private readonly TimeSpan cameraSearchTimeout;
     private Task<IReadOnlyList<CameraDevice>>? cameraDiscoveryTask;
+    public IAuthenticationService Authentication{get;}
     [ObservableProperty]private RecipeRow? selectedModel;
     [ObservableProperty]private CameraDevice? selectedCamera;
     [ObservableProperty]private string modelCode="";
@@ -100,7 +102,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private CameraUiState cameraState=CameraUiState.Idle;
     [ObservableProperty]private BitmapSource? liveImage;
     [ObservableProperty]private string sourceStatus="OFFLINE";
-    [ObservableProperty]private string cameraStatus="Chưa kết nối camera";
+    [ObservableProperty]private string cameraStatus=AppLocalizer.Text("CameraNotConnected");
     [ObservableProperty]private string exposure="10000";
     [ObservableProperty]private string gain="0";
     [ObservableProperty]private bool gammaEnabled;
@@ -116,7 +118,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string strobeLine="0";
     [ObservableProperty]private string strobeDuration="0";
     [ObservableProperty]private string strobeDelay="0";
-    [ObservableProperty]private string cameraInfo="Chưa kết nối camera.";
+    [ObservableProperty]private string cameraInfo=AppLocalizer.Text("CameraNotConnectedPeriod");
     [ObservableProperty]private bool showAdvancedCamera;
     [ObservableProperty]private TriggerKind triggerKind=TriggerKind.Manual;
     [ObservableProperty]private TriggerMapping triggerMapping=TriggerMapping.Shared;
@@ -125,8 +127,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string triggerDelay="0";
     [ObservableProperty]private string triggerDebouncer="1000";
     [ObservableProperty]private string triggerRepeatBlock="250";
-    [ObservableProperty]private string triggerStatus="Trigger thủ công";
-    [ObservableProperty]private string lastTrigger="Chưa có trigger.";
+    [ObservableProperty]private string triggerStatus=AppLocalizer.Text("ManualTriggerStatus");
+    [ObservableProperty]private string lastTrigger=AppLocalizer.Text("NoTriggerYet");
     [ObservableProperty]private string plcVendor="delta-dvp";
     [ObservableProperty]private PlcTransport plcTransport=PlcTransport.Com;
     [ObservableProperty]private string plcHost="192.168.1.5";
@@ -155,25 +157,30 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]private string ngOutputIndex="2";
     [ObservableProperty]private string ngOutputValue="2";
     [ObservableProperty]private string ngOutputPulseMs="50";
-    [ObservableProperty]private string plcStatus="PLC chưa cấu hình.";
+    [ObservableProperty]private string plcStatus=AppLocalizer.Text("PlcNotConfigured");
     [ObservableProperty]private PlcConnectionState plcConnectionState=PlcConnectionState.Disconnected;
-    [ObservableProperty]private string message="Chọn một model hoặc Add Model để bắt đầu setup.";
-    [ObservableProperty]private string runStatus="CHƯA CHẠY";
+    [ObservableProperty]private string message=AppLocalizer.Text("SelectModelOrAdd");
+    [ObservableProperty]private string runStatus=AppLocalizer.Text("NotRunning");
     [ObservableProperty]private bool hasPreviousResult;
     [ObservableProperty]private bool showPreviousResults;
-    [ObservableProperty]private string previousResultLabel="CHƯA CÓ KẾT QUẢ TRƯỚC";
+    [ObservableProperty]private string previousResultLabel=AppLocalizer.Text("NoPreviousResult");
     [ObservableProperty]private string lastProductVerdict="—";
     [ObservableProperty]private string ocrStatus="";
+    [ObservableProperty]private AccessLevel currentAccessLevel=AccessLevel.Operator;
     public bool CanEdit=>!Running&&!Busy;
-    public bool CanConfigureModel=>CanEdit&&modelSetupActive;
+    public bool IsAdmin=>CurrentAccessLevel==AccessLevel.Admin;
+    public bool CanOperateAcquisition=>CanEdit;
+    public bool CanSelectModel=>CanEdit;
+    public bool CanCreateModel=>IsAdmin&&CanEdit;
+    public bool CanConfigureModel=>IsAdmin&&CanEdit&&modelSetupActive;
     public bool CanSaveRecipe=>CanConfigureModel&&Dirty;
-    public bool CanManageSelectedModel=>CanEdit&&SelectedModel!=null;
-    public bool CanSearchCamera=>CanEdit&&!FindingCamera&&!CameraConnected&&!Acquiring;
-    public bool CanSelectCamera=>CanEdit&&!FindingCamera&&!CameraConnected&&Cameras.Count>0;
+    public bool CanManageSelectedModel=>IsAdmin&&CanEdit&&SelectedModel!=null;
+    public bool CanSearchCamera=>CanOperateAcquisition&&!FindingCamera&&!CameraConnected&&!Acquiring;
+    public bool CanSelectCamera=>CanOperateAcquisition&&!FindingCamera&&!CameraConnected&&Cameras.Count>0;
     public bool CanConnectCamera=>CanSelectCamera&&SelectedCamera!=null;
-    public bool CanDisconnectCamera=>CanEdit&&CameraConnected&&!Acquiring;
-    public bool CanToggleAcquisition=>CanEdit&&CameraConnected;
-    public bool CanEditCameraParameters=>CanEdit&&CameraConnected&&!Acquiring;
+    public bool CanDisconnectCamera=>CanOperateAcquisition&&CameraConnected&&!Acquiring;
+    public bool CanToggleAcquisition=>CanOperateAcquisition&&CameraConnected;
+    public bool CanEditCameraParameters=>IsAdmin&&CanEdit&&CameraConnected&&!Acquiring;
     public bool HasLiveFrame=>Acquiring&&latest!=null&&DateTimeOffset.UtcNow-latest.CapturedAt<=LiveFrameMaxAge;
     public string ExposureRange=>Range("ExposureTime");
     public string GainRange=>Range("Gain");
@@ -183,7 +190,7 @@ public partial class MainViewModel : ObservableObject
     private string Range(string parameter)=>
         cameraParameters.FirstOrDefault(p=>p.Name==parameter) is{}info
             ?$"{info.Minimum:0.###} – {info.Maximum:0.###} {info.Unit}".TrimEnd()
-            :cameraParameters.Count==0?"":"camera không hỗ trợ";
+            :cameraParameters.Count==0?"":AppLocalizer.Text("CameraUnsupported");
     private bool Supports(string parameter)=>cameraParameters.Any(p=>p.Name==parameter);
     public bool CanEditGamma=>CanEditCameraParameters&&Supports("Gamma");
     public bool CanEditBlackLevel=>CanEditCameraParameters&&Supports("BlackLevel");
@@ -191,11 +198,16 @@ public partial class MainViewModel : ObservableObject
     // Strobe nodes only become readable after a line is selected, so availability cannot be probed up front.
     public bool CanEditStrobe=>CanEditCameraParameters;
     public bool CanGrabReference=>CanConfigureModel&&HasLiveFrame;
-    public string AcquisitionActionLabel=>Acquiring?"Stop Acquisition":"Start Acquisition";
+    public string AcquisitionActionLabel=>AppLocalizer.Text(Acquiring?"StopAcquisition":"StartAcquisition");
     public bool CanCapture=>Running&&!Busy&&Session.State is InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2;
-    public string CaptureLabel=>$"Nhận ảnh đầu {Session.NextEnd+1}";
-    public string ModelCount=>$"{Models.Count} MODELS";
-    public TriggerKind[] TriggerKinds{get;}=[TriggerKind.Manual,TriggerKind.CameraLine,TriggerKind.Plc];
+    public string CaptureLabel=>AppLocalizer.Format("CaptureEndFormat",Session.NextEnd+1);
+    public string ModelCount=>AppLocalizer.Format("ModelCountFormat",Models.Count);
+    public LocalizedOption<TriggerKind>[] TriggerKindOptions{get;}=
+    [
+        new(TriggerKind.Manual,"TriggerManual"),
+        new(TriggerKind.CameraLine,"TriggerCameraLine"),
+        new(TriggerKind.Plc,"TriggerPlc")
+    ];
     public IReadOnlyList<string> PlcVendors{get;}=PlcAddressMaps.Vendors;
     public PlcTransportOption[] PlcTransports{get;}=
     [
@@ -219,7 +231,11 @@ public partial class MainViewModel : ObservableObject
     public bool CanConnectPlc=>CanEditTrigger&&PlcConnectionState is PlcConnectionState.Disconnected or PlcConnectionState.Error;
     public bool CanDisconnectPlc=>CanEditTrigger&&PlcConnected;
     public bool CanEditRecipeIo=>CanConfigureModel&&!PlcConnected;
-    public PlcOutputMode[] PlcOutputModes{get;}=[PlcOutputMode.Bit,PlcOutputMode.Register];
+    public LocalizedOption<PlcOutputMode>[] PlcOutputModeOptions{get;}=
+    [
+        new(PlcOutputMode.Bit,"OutputBit"),
+        new(PlcOutputMode.Register,"OutputRegister")
+    ];
     public string[] BitOutputDevices{get;}=["M","Y"];
     public string[] RegisterOutputDevices{get;}=["D"];
     public IReadOnlyList<string> OkOutputDevices=>OkOutputMode==PlcOutputMode.Bit?BitOutputDevices:RegisterOutputDevices;
@@ -227,28 +243,28 @@ public partial class MainViewModel : ObservableObject
     public bool OkUsesBit=>OkOutputMode==PlcOutputMode.Bit;
     public bool NgUsesBit=>NgOutputMode==PlcOutputMode.Bit;
     private PlcOutputs plcOutputs=new();
-    public TriggerMappingOption[] TriggerMappingOptions{get;}=
+    public LocalizedOption<TriggerMapping>[] TriggerMappingOptions{get;}=
     [
-        new(TriggerMapping.Shared,"Một nút chung (Shared)"),
-        new(TriggerMapping.PerEnd,"Hai nút riêng (PerEnd)")
+        new(TriggerMapping.Shared,"MappingShared"),
+        new(TriggerMapping.PerEnd,"MappingPerEnd")
     ];
     public EndResultViewModel DisplayResult1=>ShowPreviousResults?PreviousResult1:Result1;
     public EndResultViewModel DisplayResult2=>ShowPreviousResults?PreviousResult2:Result2;
-    public string RunCameraStatus=>CameraConnected
-        ?Acquiring?"CAMERA · ACQUISITION":"CAMERA · ĐÃ KẾT NỐI"
-        :"CAMERA · OFFLINE";
+    public string RunCameraStatus=>AppLocalizer.Text(CameraConnected
+        ?Acquiring?"CameraAcquiring":"CameraConnected"
+        :"CameraOffline");
     public string RunPlcStatus=>runtimeIo?.UsesPlc==true
-        ?PlcConnected?"PLC · ĐÃ KẾT NỐI":"PLC · OFFLINE"
-        :"PLC · KHÔNG DÙNG";
-    public bool CanEditTrigger=>CanEdit&&!Running;
+        ?AppLocalizer.Text(PlcConnected?"PlcConnected":"PlcOffline")
+        :AppLocalizer.Text("PlcUnused");
+    public bool CanEditTrigger=>IsAdmin&&CanEdit&&!Running;
     public bool CanRetakeEnd=>Running&&!Busy&&Session.State==InspectionState.WaitingEnd2;
     public string CycleTimingText
     {
         get
         {
             var (count,average,p95,max)=CycleTimes.Summary();
-            return count==0?"Chưa có số liệu thời gian xử lý."
-                :$"Chu kỳ {CycleTimes.Last:0} ms · TB {average:0} · p95 {p95:0} · max {max:0} ms (n={count})";
+            return count==0?AppLocalizer.Text("NoTimingData")
+                :AppLocalizer.Format("CycleTimingFormat",CycleTimes.Last.ToString("0"),average.ToString("0"),p95.ToString("0"),max.ToString("0"),count);
         }
     }
     public string AcquisitionSummary
@@ -256,20 +272,59 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var snapshot=Diagnostics.Snapshot();
-            if(snapshot.Frames==0&&snapshot.Uptime==TimeSpan.Zero)return "Chưa chạy acquisition.";
-            var text=$"Frame {snapshot.Frames} · timeout {snapshot.Timeouts} · reconnect {snapshot.Reconnects}";
+            if(snapshot.Frames==0&&snapshot.Uptime==TimeSpan.Zero)return AppLocalizer.Text("AcquisitionNotStarted");
+            var text=AppLocalizer.Format("AcquisitionMetricsFormat",snapshot.Frames,snapshot.Timeouts,snapshot.Reconnects);
             if(snapshot.FramesPerSecond is{}fps)text+=$" · {fps:0.0} fps";
-            if(snapshot.ReconnectFailures>0)text+=$" · lỗi nối lại {snapshot.ReconnectFailures}";
-            return snapshot.LastError is{}error?$"{text} · lỗi cuối: {error}":text;
+            if(snapshot.ReconnectFailures>0)text+=$" · {AppLocalizer.Format("ReconnectFailuresFormat",snapshot.ReconnectFailures)}";
+            return snapshot.LastError is{}error?$"{text} · {AppLocalizer.Format("LastErrorFormat",error)}":text;
         }
     }
     public string CycleLabel=>Session.CycleId==Guid.Empty?"—":Session.CycleId.ToString("N")[..12].ToUpperInvariant();
-    public string ActiveModel=>runtimeRecipe is null?"CHƯA CHỌN":$"{runtimeRecipe.ModelCode} / v{runtimeRecipe.Revision}";
-    public Func<string,bool>? Confirm{get;set;}
-    public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null,
-        Func<PlcSettings,IPlcLink>? plcFactory=null)
+    public bool IsCameraOnline=>CameraConnected&&CameraState is CameraUiState.Connected or CameraUiState.Acquiring;
+    public bool HasSelectedModel=>SelectedModel!=null;
+    public string SelectedModelCode=>SelectedModel?.Code??AppLocalizer.Text("NoModelSelected");
+    public string SelectedModelName=>SelectedModel?.Name??AppLocalizer.Text("SelectModelInstruction");
+    public string SelectedModelRevision=>SelectedModel is null?string.Empty:AppLocalizer.Format("RevisionFormat",SelectedModel.Recipe.Revision);
+    public string ActiveModel=>runtimeRecipe is null?AppLocalizer.Text("NotSelected"):$"{runtimeRecipe.ModelCode} / v{runtimeRecipe.Revision}";
+    public string ActiveModelName=>runtimeRecipe?.Name??AppLocalizer.Text("SelectModelInstruction");
+    public string AccessRoleLabel=>AppLocalizer.Text(IsAdmin?"RoleAdmin":"RoleOperator");
+    public string AccessSummary=>AppLocalizer.Text(IsAdmin?"AdminLoggedIn":"OperatorMode");
+    public AppLanguage CurrentLanguage
     {
-        Camera=camera??new HikrobotMvsCamera();
+        get=>AppLocalizer.CurrentLanguage;
+        set{if(AppLocalizer.CurrentLanguage!=value)AppLocalizer.CurrentLanguage=value;OnPropertyChanged();}
+    }
+    public AppLanguage[] LanguageOptions{get;}=[AppLanguage.Vietnamese,AppLanguage.English,AppLanguage.Korean];
+    public Func<string,bool>? Confirm{get;set;}
+
+    public bool TryLogin(string username,string password)
+    {
+        if(!Authentication.Authenticate(username,password))return false;
+        CurrentAccessLevel=AccessLevel.Admin;Message=AppLocalizer.Text("AdminLoggedIn");return true;
+    }
+
+    [RelayCommand]private async Task LogoutAsync()
+    {
+        if(!IsAdmin||Busy||Running)return;
+        if(Dirty&&Confirm?.Invoke(AppLocalizer.Text("DiscardChangesForLogout"))!=true)return;
+        Busy=true;
+        try
+        {
+            if(PlcConnected)await DisconnectPlcCoreAsync();
+            CurrentAccessLevel=AccessLevel.Operator;
+            if(Dirty)
+            {
+                if(saved!=null)Load(saved);else ClearModelSetup();
+            }
+            Message=AppLocalizer.Text("OperatorMode");
+        }
+        catch(Exception exception){Message=exception.Message;}
+        finally{Busy=false;RefreshState();}
+    }
+    public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null,
+        Func<PlcSettings,IPlcLink>? plcFactory=null,IAuthenticationService? authentication=null)
+    {
+        Camera=camera??new HikrobotMvsCamera();Authentication=authentication??new LocalAuthenticationService();
         this.plcFactory=plcFactory??(settings=>new ModbusPlcLink(settings,PlcAddressMaps.For(settings.Vendor)));
         // The view model is created on the UI thread; the acquisition loop marshals frames back through this dispatcher.
         dispatcher=System.Windows.Application.Current?.Dispatcher??System.Windows.Threading.Dispatcher.CurrentDispatcher;
@@ -283,7 +338,8 @@ public partial class MainViewModel : ObservableObject
         ModelsView=CollectionViewSource.GetDefaultView(Models);
         ModelsView.Filter=o=>o is RecipeRow r&&(r.Code.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase));
         End1.Changed+=(_,_)=>{if(!loading)Dirty=true;};End2.Changed+=(_,_)=>{if(!loading)Dirty=true;};
-        Reload();RefreshOcr();LoadMachineSettings();RefreshPlcPorts();
+        AppLocalizer.LanguageChanged+=OnLanguageChanged;
+        Reload();RefreshOcr();LoadMachineSettings();ReloadPlcPorts();
     }
 
     private void LoadMachineSettings()
@@ -310,13 +366,13 @@ public partial class MainViewModel : ObservableObject
             plcOutputs=plc.Writes;
         }
         finally{loadingCamera=false;}
-        if(Settings.LoadError is{}error)Message=$"Không đọc được settings.json: {error}";
+        if(Settings.LoadError is{}error)Message=AppLocalizer.Format("SettingsLoadFailedFormat",error);
     }
 
     /// <summary>Builds the machine's physical PLC connection; legacy logical fields are preserved only for migration.</summary>
     public PlcSettings BuildPlcSettings()=>new(
-        false,PlcVendor,PlcTransport,PlcHost.Trim(),Whole(PlcPort,"Cổng PLC"),PlcSerialPort.Trim(),
-        Whole(PlcBaudRate,"Baud rate"),checked((byte)Whole(PlcUnitId,"Unit ID")),Whole(PlcPollMs,"Chu kỳ đọc PLC"),
+        false,PlcVendor,PlcTransport,PlcHost.Trim(),Whole(PlcPort,"PLC port"),PlcSerialPort.Trim(),
+        Whole(PlcBaudRate,"Baud rate"),checked((byte)Whole(PlcUnitId,"Unit ID")),Whole(PlcPollMs,AppLocalizer.Text("PlcPollMs")),
         PlcTriggerAddress.Trim(),PlcEnd1Address.Trim(),PlcEnd2Address.Trim(),plcOutputs,PlcSerialProtocol,
         Whole(PlcDataBits,"Data bits"),PlcParity,PlcStopBits,Whole(PlcTimeoutMs,"Timeout PLC"));
 
@@ -324,8 +380,8 @@ public partial class MainViewModel : ObservableObject
     {
         var trigger=new RecipeTriggerProfile((RecipeTriggerKind)(int)TriggerKind,(RecipeTriggerMapping)(int)TriggerMapping,
             Whole(TriggerLine,"Trigger line"),TriggerRisingEdge,Number(TriggerDelay,"Trigger delay"),
-            Number(TriggerDebouncer,"Trigger debouncer"),Whole(TriggerRepeatBlock,"Chặn trigger lặp"),
-            Whole(PlcPollMs,"Chu kỳ đọc PLC"),PlcTriggerAddress.Trim(),PlcEnd1Address.Trim(),PlcEnd2Address.Trim());
+            Number(TriggerDebouncer,AppLocalizer.Text("DebouncerUs")),Whole(TriggerRepeatBlock,AppLocalizer.Text("RepeatBlockMs")),
+            Whole(PlcPollMs,AppLocalizer.Text("PlcPollMs")),PlcTriggerAddress.Trim(),PlcEnd1Address.Trim(),PlcEnd2Address.Trim());
         var outputs=new VerdictOutputProfile(
             new PlcOutputAction(OkOutputEnabled,OkOutputMode,OkOutputDevice,Whole(OkOutputIndex,"OK output index"),
                 checked((short)Whole(OkOutputValue,"OK register value")),Whole(OkOutputPulseMs,"OK pulse")),
@@ -386,6 +442,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Persists only the machine-level physical PLC configuration.</summary>
     [RelayCommand]private void SaveMachineSettings()=>Guard(()=>
     {
+        if(!CanConfigurePlc)return;
         var plc=BuildPlcSettings();
         if(plc.ValidateConnection() is{}error)throw new InvalidOperationException(error);
         // Only the physical link belongs to the machine. Legacy logical fields remain readable until
@@ -397,7 +454,7 @@ public partial class MainViewModel : ObservableObject
             End2Address=legacy.End2Address,Outputs=legacy.Outputs
         };
         machineSettings=machineSettings with {Plc=plc};Settings.Save(machineSettings);
-        Message="Đã lưu cấu hình kết nối vật lý PLC của máy.";
+        Message=AppLocalizer.Text("PlcConnectionSaved");
     });
 
     /// <summary>Opens the selected physical link and verifies communication by reading one configured input.</summary>
@@ -405,7 +462,7 @@ public partial class MainViewModel : ObservableObject
     {
         if(!CanConnectPlc)return;
         Busy=true;PlcConnectionState=PlcConnectionState.Connecting;
-        PlcStatus=$"ĐANG KẾT NỐI PLC · {(PlcUsesSerial?"COM":"ETHERNET IP")}...";
+        PlcStatus=AppLocalizer.Format("PlcConnectingFormat",PlcUsesSerial?"COM":"ETHERNET IP");
         try
         {
             var settings=BuildPlcSettings() with {Enabled=true};
@@ -413,11 +470,11 @@ public partial class MainViewModel : ObservableObject
             var address=io.TriggerProfile.Mapping==RecipeTriggerMapping.Shared
                 ?io.TriggerProfile.SharedAddress:io.TriggerProfile.End1Address;
             await ConnectPlcCoreAsync(settings,address);
-            Message="PLC đã kết nối và phản hồi lệnh đọc.";
+            Message=AppLocalizer.Text("PlcConnectedRead");
         }
         catch(Exception ex)
         {
-            PlcStatus=$"LỖI KẾT NỐI PLC · {ex.Message}";Message=PlcStatus;
+            PlcStatus=AppLocalizer.Format("PlcConnectionErrorFormat",ex.Message);Message=PlcStatus;
         }
         finally{Busy=false;RefreshState();}
     }
@@ -429,14 +486,14 @@ public partial class MainViewModel : ObservableObject
         await DisconnectPlcCoreAsync();
         IPlcLink? candidate=null;
         PlcConnectionState=PlcConnectionState.Connecting;
-        PlcStatus=$"ĐANG KẾT NỐI PLC · {settings.Describe()}...";
+        PlcStatus=AppLocalizer.Format("PlcConnectingFormat",settings.Describe());
         try
         {
             candidate=plcFactory(settings);await candidate.ConnectAsync(CancellationToken.None);
             var address=string.IsNullOrWhiteSpace(probeAddress)?"X0":probeAddress;
             var value=await candidate.ReadBitAsync(address,CancellationToken.None);
             plcLink=candidate;candidate=null;connectedPlcSettings=settings;PlcConnectionState=PlcConnectionState.Connected;
-            PlcStatus=$"ĐÃ KẾT NỐI PLC · {settings.Describe()} · {address} = {(value?"ON":"OFF")}";
+            PlcStatus=AppLocalizer.Format("PlcConnectedDetailFormat",settings.Describe(),address,value?"ON":"OFF");
         }
         catch
         {
@@ -462,12 +519,12 @@ public partial class MainViewModel : ObservableObject
         try
         {
             await DisconnectPlcCoreAsync();
-            PlcStatus="PLC ĐÃ NGẮT KẾT NỐI.";Message="Đã ngắt kết nối PLC.";
+            PlcStatus=AppLocalizer.Text("PlcDisconnectedStatus");Message=AppLocalizer.Text("PlcDisconnectedMessage");
         }
         catch(Exception ex)
         {
             plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Error;
-            PlcStatus=$"LỖI NGẮT PLC · {ex.Message}";Message=PlcStatus;
+            PlcStatus=AppLocalizer.Format("PlcDisconnectErrorFormat",ex.Message);Message=PlcStatus;
         }
         finally{Busy=false;RefreshState();}
     }
@@ -475,6 +532,10 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]private void RefreshPlcPorts()
     {
         if(!CanConfigurePlc)return;
+        ReloadPlcPorts();
+    }
+    private void ReloadPlcPorts()
+    {
         var selected=PlcSerialPort;
         PlcSerialPorts.Clear();
         foreach(var port in ModbusPlcLink.AvailableSerialPorts())PlcSerialPorts.Add(port);
@@ -510,8 +571,10 @@ public partial class MainViewModel : ObservableObject
     partial void OnDirtyChanged(bool value)=>OnPropertyChanged(nameof(CanSaveRecipe));
     partial void OnBusyChanged(bool value)=>RefreshState();
     partial void OnRunningChanged(bool value)=>RefreshState();
+    partial void OnCurrentAccessLevelChanged(AccessLevel value)=>RefreshState();
     partial void OnSelectedCameraChanged(CameraDevice? value)=>RefreshCameraState();
     partial void OnCameraConnectedChanged(bool value)=>RefreshCameraState();
+    partial void OnCameraStateChanged(CameraUiState value)=>OnPropertyChanged(nameof(IsCameraOnline));
     partial void OnAcquiringChanged(bool value)=>RefreshCameraState();
     partial void OnFindingCameraChanged(bool value)=>RefreshCameraState();
     private static readonly HashSet<string> CameraDraftProperties=
@@ -533,13 +596,15 @@ public partial class MainViewModel : ObservableObject
     {
         base.OnPropertyChanged(e);
         // Camera settings are stored with the recipe, so changing them is an unsaved recipe change.
-        if(!loading&&modelSetupActive&&e.PropertyName is{}name&&
+        if(IsAdmin&&!loading&&modelSetupActive&&e.PropertyName is{}name&&
            ((!loadingCamera&&CameraDraftProperties.Contains(name))||RecipeIoDraftProperties.Contains(name)))
             Dirty=true;
     }
     private void RefreshState()
     {
-        OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
+        OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(IsAdmin));OnPropertyChanged(nameof(CanOperateAcquisition));OnPropertyChanged(nameof(CanSelectModel));
+        OnPropertyChanged(nameof(CanCreateModel));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
+        OnPropertyChanged(nameof(AccessRoleLabel));OnPropertyChanged(nameof(AccessSummary));
         OnPropertyChanged(nameof(CanCapture));
         OnPropertyChanged(nameof(CanEditTrigger));OnPropertyChanged(nameof(CanEditRecipeIo));OnPropertyChanged(nameof(CanRetakeEnd));
         RefreshPlcState();
@@ -547,6 +612,59 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CaptureLabel));OnPropertyChanged(nameof(CycleLabel));OnPropertyChanged(nameof(ActiveModel));
         OnPropertyChanged(nameof(RunCameraStatus));OnPropertyChanged(nameof(RunPlcStatus));
         RefreshCameraState();
+    }
+
+    private void OnLanguageChanged(object? sender,EventArgs args)
+    {
+        RefreshLocalizedState();
+        RefreshOcr();
+        OnPropertyChanged(nameof(CurrentLanguage));OnPropertyChanged(nameof(AcquisitionActionLabel));
+        foreach(var option in TriggerKindOptions)option.RefreshLabel();
+        foreach(var option in TriggerMappingOptions)option.RefreshLabel();
+        foreach(var option in PlcOutputModeOptions)option.RefreshLabel();
+        OnPropertyChanged(nameof(ModelCount));OnPropertyChanged(nameof(RunCameraStatus));OnPropertyChanged(nameof(RunPlcStatus));
+        OnPropertyChanged(nameof(SelectedModelCode));OnPropertyChanged(nameof(SelectedModelName));OnPropertyChanged(nameof(SelectedModelRevision));
+        OnPropertyChanged(nameof(ActiveModel));OnPropertyChanged(nameof(ActiveModelName));OnPropertyChanged(nameof(AccessRoleLabel));OnPropertyChanged(nameof(AccessSummary));
+        End1.RefreshLanguage();End2.RefreshLanguage();Result1.RefreshLanguage();Result2.RefreshLanguage();PreviousResult1.RefreshLanguage();PreviousResult2.RefreshLanguage();
+    }
+    private void RefreshLocalizedState()
+    {
+        CameraStatus=CameraState switch
+        {
+            CameraUiState.Finding=>AppLocalizer.Text("FindingCamera"),
+            CameraUiState.NotFound=>AppLocalizer.Text("CameraNotFound"),
+            CameraUiState.Found=>AppLocalizer.Format("CameraFoundFormat",Cameras.Count),
+            CameraUiState.Connected=>AppLocalizer.Format("CameraConnectedDetailFormat",SelectedCamera?.Name??"—"),
+            CameraUiState.Acquiring=>AppLocalizer.Text("CameraAcquiringStatus"),
+            CameraUiState.Reconnecting=>AppLocalizer.Text("CameraReconnecting"),
+            CameraUiState.Idle=>AppLocalizer.Text("CameraNotConnected"),
+            _=>CameraStatus
+        };
+        if(!CameraConnected)CameraInfo=AppLocalizer.Text("CameraNotConnectedPeriod");
+        if(PlcConnectionState==PlcConnectionState.Disconnected)PlcStatus=AppLocalizer.Text("PlcNotConfigured");
+        if(TriggerKind==TriggerKind.Manual)TriggerStatus=AppLocalizer.Text("ManualTriggerStatus");
+        if(Session.CycleId==Guid.Empty)LastTrigger=AppLocalizer.Text("NoTriggerYet");
+        if(!HasPreviousResult)PreviousResultLabel=AppLocalizer.Text("NoPreviousResult");
+        Message=CameraState switch
+        {
+            CameraUiState.Finding=>AppLocalizer.Text("AcquisitionFindingMessage"),
+            CameraUiState.NotFound=>AppLocalizer.Text("AcquisitionNotFoundMessage"),
+            CameraUiState.Found=>AppLocalizer.Text("AcquisitionFoundMessage"),
+            CameraUiState.Connected=>AppLocalizer.Text("CameraConnectSuccess"),
+            CameraUiState.Acquiring=>AppLocalizer.Text("AcquisitionStarted"),
+            CameraUiState.Reconnecting=>AppLocalizer.Text("CameraReconnecting"),
+            CameraUiState.Idle when SelectedModel==null=>AppLocalizer.Text("SelectModelOrAdd"),
+            _=>Message
+        };
+        RunStatus=Session.State switch
+        {
+            InspectionState.WaitingEnd1=>AppLocalizer.Text("WaitingEnd1"),
+            InspectionState.WaitingEnd2=>AppLocalizer.Text("WaitingEnd2"),
+            InspectionState.ProcessingEnd1 or InspectionState.ProcessingEnd2=>AppLocalizer.Text("ProcessingOcr"),
+            InspectionState.Stopped=>AppLocalizer.Text("NotRunning"),
+            _=>RunStatus
+        };
+        OnPropertyChanged(nameof(CycleTimingText));OnPropertyChanged(nameof(AcquisitionSummary));OnPropertyChanged(nameof(CaptureLabel));
     }
     private void RefreshPlcState()
     {
@@ -556,6 +674,7 @@ public partial class MainViewModel : ObservableObject
     }
     private void RefreshCameraState()
     {
+        OnPropertyChanged(nameof(IsCameraOnline));
         OnPropertyChanged(nameof(CanSearchCamera));OnPropertyChanged(nameof(CanSelectCamera));OnPropertyChanged(nameof(CanConnectCamera));
         OnPropertyChanged(nameof(CanDisconnectCamera));OnPropertyChanged(nameof(CanToggleAcquisition));OnPropertyChanged(nameof(CanEditCameraParameters));
         OnPropertyChanged(nameof(AcquisitionActionLabel));
@@ -572,18 +691,19 @@ public partial class MainViewModel : ObservableObject
     }
     partial void OnSelectedModelChanged(RecipeRow? oldValue,RecipeRow? newValue)
     {
-        OnPropertyChanged(nameof(CanManageSelectedModel));
+        OnPropertyChanged(nameof(CanManageSelectedModel));OnPropertyChanged(nameof(HasSelectedModel));
+        OnPropertyChanged(nameof(SelectedModelCode));OnPropertyChanged(nameof(SelectedModelName));OnPropertyChanged(nameof(SelectedModelRevision));
         if(loading)return;
-        if(Dirty&&Confirm?.Invoke(newValue==null?"Bỏ thay đổi chưa lưu và bỏ chọn model?":"Bỏ thay đổi chưa lưu và mở model đã chọn?")==false)
+        if(Dirty&&Confirm?.Invoke(AppLocalizer.Text(newValue==null?"DiscardAndDeselect":"DiscardAndOpen"))==false)
         {
             RestoreSelection(oldValue,newValue);
-            Message="Giữ lại thay đổi chưa lưu. Save Recipe hoặc chọn lại model khác.";
+            Message=AppLocalizer.Text("KeepUnsaved");
             return;
         }
         if(newValue==null)
         {
             ClearModelSetup();
-            Message="Chọn một model hoặc Add Model để bắt đầu setup.";
+            Message=AppLocalizer.Text("SelectModelOrAdd");
             return;
         }
         try{Load(newValue.Recipe);SetModelSetupActive(true);}
@@ -641,35 +761,37 @@ public partial class MainViewModel : ObservableObject
             ShowRecipeIo(recipe.Io??LegacyRecipeIo());Dirty=false;
         }
         finally {loading=false;}
-        Message=$"Đã nạp {recipe.ModelCode} · v{recipe.Revision}.";
+        Message=AppLocalizer.Format("RecipeLoadedFormat",recipe.ModelCode,recipe.Revision);
         if(recipe.Camera is not{}settings)return;
         ShowCameraSettings(settings);
+        // Operator model selection is read-only. RUN applies the frozen recipe automatically.
+        if(!IsAdmin)return;
         if(!CameraConnected)return;
-        if(Acquiring){Message+=" Dừng acquisition rồi Apply để áp thông số camera của model.";return;}
-        try{Camera.ApplySettings(settings);appliedSettings=settings;RefreshCameraParameters();Message+=" Đã áp thông số camera của model.";}
-        catch(Exception ex){Message+=$" Không áp được thông số camera: {ex.Message}";}
+        if(Acquiring){Message+=AppLocalizer.Text("StopAcquisitionToApply");return;}
+        try{Camera.ApplySettings(settings);appliedSettings=settings;RefreshCameraParameters();Message+=AppLocalizer.Text("CameraSettingsAppliedSuffix");}
+        catch(Exception ex){Message+=AppLocalizer.Format("CameraSettingsApplyFailedFormat",ex.Message);}
     }
     private void Reload()
     {
         Models.Clear();foreach(var recipe in Store.LoadAll())Models.Add(new(recipe,Store));
         OnPropertyChanged(nameof(ModelCount));
-        if(Store.LoadErrors.Count>0)Message="Không nạp được một số recipe: "+string.Join(" | ",Store.LoadErrors);
+        if(Store.LoadErrors.Count>0)Message=AppLocalizer.Format("RecipeLoadErrorsFormat",string.Join(" | ",Store.LoadErrors));
     }
-    [RelayCommand]private void RefreshOcr()=>OcrStatus=Ocr.AvailabilityError??"OCR assets sẵn sàng · chưa xác nhận độ chính xác.";
+    [RelayCommand]private void RefreshOcr()=>OcrStatus=Ocr.AvailabilityError??AppLocalizer.Text("OcrAssetsReady");
     public string? ValidateModelIdentity(ModelIdentity identity,Guid? existingId=null)
     {
         var code=identity.Code.Trim();var name=identity.Name.Trim();
-        if(code.Length==0)return "Nhập mã model.";
-        if(name.Length==0)return "Nhập tên model.";
-        if(code.Length>64)return "Mã model tối đa 64 ký tự.";
-        if(name.Length>128)return "Tên model tối đa 128 ký tự.";
+        if(code.Length==0)return AppLocalizer.Text("ModelCodeRequired");
+        if(name.Length==0)return AppLocalizer.Text("ModelNameRequired");
+        if(code.Length>64)return AppLocalizer.Text("ModelCodeTooLong");
+        if(name.Length>128)return AppLocalizer.Text("ModelNameTooLong");
         if(Models.Any(row=>row.Recipe.Id!=existingId&&string.Equals(row.Code,code,StringComparison.OrdinalIgnoreCase)))
-            return $"Mã model {code} đã tồn tại.";
+            return AppLocalizer.Format("DuplicateModelCodeFormat",code);
         return null;
     }
     [RelayCommand]private void NewModel(ModelIdentity identity)=>Guard(()=>
     {
-        if(!CanEdit || (Dirty&&Confirm?.Invoke("Bỏ thay đổi chưa lưu và tạo model mới?")==false))return;
+        if(!CanCreateModel || (Dirty&&Confirm?.Invoke(AppLocalizer.Text("DiscardForNewModel"))==false))return;
         if(ValidateModelIdentity(identity) is { } error)throw new InvalidOperationException(error);
         loading=true;
         try
@@ -679,13 +801,13 @@ public partial class MainViewModel : ObservableObject
             End1.Clear();End2.Clear();ShowRecipeIo(new CameraInspectionIo());Dirty=true;SetModelSetupActive(true);
         }
         finally{loading=false;}
-        Message=$"Model mới {ModelCode} · cần hai ảnh, ROI, text mẫu, Apply và Save Recipe.";
+        Message=AppLocalizer.Format("NewModelFormat",ModelCode);
     });
     [RelayCommand]private void EditModel(ModelIdentity identity)=>Guard(()=>
     {
-        if(!CanEdit||SelectedModel==null)return;
+        if(!CanManageSelectedModel||SelectedModel==null)return;
         var target=SelectedModel.Recipe;
-        if(Dirty && Confirm?.Invoke("Bỏ thay đổi chưa lưu và mở model đã chọn?")==false)return;
+        if(Dirty && Confirm?.Invoke(AppLocalizer.Text("DiscardAndOpen"))==false)return;
         if(ValidateModelIdentity(identity,target.Id) is { } error)throw new InvalidOperationException(error);
         Load(target);
         loading=true;
@@ -695,23 +817,23 @@ public partial class MainViewModel : ObservableObject
             Dirty=ModelCode!=target.ModelCode||ModelName!=target.Name;
         }
         finally{loading=false;}
-        Message=Dirty?$"Đang sửa {target.ModelCode} · Apply nếu đổi Recipe, sau đó Save Recipe.":$"Đã nạp {target.ModelCode} · v{target.Revision}.";
+        Message=Dirty?AppLocalizer.Format("EditingModelFormat",target.ModelCode):AppLocalizer.Format("RecipeLoadedFormat",target.ModelCode,target.Revision);
     });
     [RelayCommand]private void SaveRecipe()=>Guard(()=>
     {
         if(!CanSaveRecipe)return;
-        if(!End1.Applied||!End2.Applied)throw new InvalidOperationException("Apply cả hai đầu trước khi Save Recipe.");
+        if(!End1.Applied||!End2.Applied)throw new InvalidOperationException(AppLocalizer.Text("ApplyBothEndsBeforeSave"));
         var draft=new Recipe(draftId,ModelCode.Trim(),ModelName.Trim(),saved?.Revision??0,[End1.Spec(),End2.Spec()],
             DateTimeOffset.UtcNow,2,BuildCameraSettings(),BuildRecipeIo());
         var updated=Store.Save(draft,[ImageFiles.Png(End1.Image!),ImageFiles.Png(End2.Image!)]);
         loading=true;try{Reload();SelectedModel=Models.First(r=>r.Recipe.Id==updated.Id);}finally{loading=false;}
-        Load(updated);Message=$"Đã lưu {updated.ModelCode} · v{updated.Revision}.";
+        Load(updated);Message=AppLocalizer.Format("RecipeSavedFormat",updated.ModelCode,updated.Revision);
     });
     [RelayCommand]private void DeleteModel()=>Guard(()=>
     {
-        if(!CanEdit||SelectedModel==null)return;
+        if(!CanManageSelectedModel||SelectedModel==null)return;
         var target=SelectedModel.Recipe;
-        if(Confirm?.Invoke($"Xóa model {target.ModelCode}? Ảnh mẫu vẫn được giữ để phục hồi.")!=true)return;
+        if(Confirm?.Invoke(AppLocalizer.Format("DeleteModelConfirmFormat",target.ModelCode))!=true)return;
         Store.Delete(target.Id);
         if(saved?.Id==target.Id)ClearModelSetup();
         Reload();SelectedModel=saved==null?null:Models.FirstOrDefault(r=>r.Recipe.Id==saved.Id);
@@ -728,12 +850,12 @@ public partial class MainViewModel : ObservableObject
         var live=latest;
         if(!HasLiveFrame||live==null)
             throw new InvalidOperationException(Acquiring
-                ?"Frame live đã quá cũ. Chờ frame mới rồi Grab Image, hoặc dùng Load Image."
-                :"Chưa có ảnh live. Kết nối camera và Start Acquisition trước khi Grab Image.");
+                ?AppLocalizer.Text("LiveFrameStale")
+                :AppLocalizer.Text("LiveFrameMissing"));
         // Each end owns its own copy; ends must never share a captured buffer.
         var editor=Editor(end);
         editor.SetFrame(live with {Bgr=[..live.Bgr],Id=Guid.NewGuid()});
-        Message=$"Đầu {editor.Number} · đã lấy ảnh live {live.Width} × {live.Height} từ {live.Source}.";
+        Message=AppLocalizer.Format("GrabbedFrameFormat",editor.Number,live.Width,live.Height,live.Source);
     });
     [RelayCommand]private void ApplyEnd(string end)=>Guard(()=>{if(CanConfigureModel)Editor(end).Apply();});
     [RelayCommand]private async Task TestOcrAsync(string end)
@@ -754,9 +876,9 @@ public partial class MainViewModel : ObservableObject
         try
         {
             if(Running)await StopRuntimeCoreAsync();
-            RunPage=false;Message="SETTING · Acquisition RUN đã dừng và PLC đã ngắt. Camera vẫn kết nối để setup.";
+            RunPage=false;Message=AppLocalizer.Text("SettingEntered");
         }
-        catch(Exception ex){RunPage=false;Message=$"SETTING · Đã rời RUN nhưng có lỗi khi dừng thiết bị: {ex.Message}";}
+        catch(Exception ex){RunPage=false;Message=AppLocalizer.Format("SettingExitErrorFormat",ex.Message);}
         finally{Busy=false;RefreshState();}
     }
     [RelayCommand]private async Task StartRunAsync()
@@ -766,7 +888,7 @@ public partial class MainViewModel : ObservableObject
         Busy=true;var started=false;
         try
         {
-            if(saved==null||Dirty)throw new InvalidOperationException("Cần lưu recipe trước khi RUN.");
+            if(saved==null||Dirty)throw new InvalidOperationException(AppLocalizer.Text("SaveBeforeRun"));
             if(Ocr.AvailabilityError is{}error)throw new InvalidOperationException(error);
             runtimeRecipe=saved.Copy();
             var io=runtimeRecipe.Io??LegacyRecipeIo();runtimeIo=io;
@@ -792,19 +914,19 @@ public partial class MainViewModel : ObservableObject
             var settings=BuildTriggerSettings();
             await ArmTriggerAsync(settings);
             Session.Begin(runtimeRecipe);Running=true;started=true;
-            HasPreviousResult=false;ShowPreviousResults=false;PreviousResultLabel="CHƯA CÓ KẾT QUẢ TRƯỚC";LastProductVerdict="—";
+            HasPreviousResult=false;ShowPreviousResults=false;PreviousResultLabel=AppLocalizer.Text("NoPreviousResult");LastProductVerdict="—";
             Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);waitingSince=DateTimeOffset.UtcNow;
-            RunStatus="CHỜ ĐẦU 1";
+            RunStatus=AppLocalizer.Text("WaitingEnd1");
         }
         catch(Exception ex)
         {
-            Message=$"RUN không bắt đầu được · {ex.Message}";
+            Message=AppLocalizer.Format("RunStartFailedFormat",ex.Message);
             await RollbackRunStartAsync();
         }
         finally
         {
             Busy=false;
-            if(started)Message=$"RUN đã bắt đầu · {TriggerStatus}.";
+            if(started)Message=AppLocalizer.Format("RunStartedFormat",TriggerStatus);
             RefreshState();
         }
     }
@@ -812,11 +934,11 @@ public partial class MainViewModel : ObservableObject
     {
         if(Busy)return;
         Busy=true;
-        try{await StopRuntimeCoreAsync();Message="RUN đã dừng. Camera vẫn kết nối; PLC đã ngắt kết nối.";}
-        catch(Exception ex){Message=$"Lỗi khi dừng RUN: {ex.Message}";}
+        try{await StopRuntimeCoreAsync();Message=AppLocalizer.Text("RunStoppedMessage");}
+        catch(Exception ex){Message=AppLocalizer.Format("RunStopErrorFormat",ex.Message);}
         finally{Busy=false;RefreshState();}
     }
-    public void StopRun(){Session.Stop();Running=false;RunStatus="ĐÃ DỪNG";RefreshState();}
+    public void StopRun(){Session.Stop();Running=false;RunStatus=AppLocalizer.Text("Stopped");RefreshState();}
 
     private async Task EnsureRunCameraAsync(Recipe recipe)
     {
@@ -828,10 +950,10 @@ public partial class MainViewModel : ObservableObject
                 Cameras.Clear();foreach(var device in devices)Cameras.Add(device);
                 SelectedCamera=Cameras.FirstOrDefault();
             }
-            var target=SelectedCamera??throw new InvalidOperationException("Không tìm thấy camera để RUN.");
+            var target=SelectedCamera??throw new InvalidOperationException(AppLocalizer.Text("RunCameraNotFound"));
             await Task.Run(()=>Camera.Open(target));connectedDevice=target;CameraConnected=true;
             CameraState=CameraUiState.Connected;SourceStatus=target.IsSimulation?"SIMULATION":"CAMERA CONNECTED";
-            CameraStatus=$"ĐÃ KẾT NỐI · {target.Name}";RefreshCameraParameters();
+            CameraStatus=AppLocalizer.Format("CameraConnectedDetailFormat",target.Name);RefreshCameraParameters();
         }
         if(Acquiring)await StopAcquisitionAsync();
         if(recipe.Camera is{}settings)
@@ -852,13 +974,13 @@ public partial class MainViewModel : ObservableObject
 
     private async Task StopRuntimeCoreAsync()
     {
-        Session.Stop();Running=false;RunStatus="ĐÃ DỪNG";
+        Session.Stop();Running=false;RunStatus=AppLocalizer.Text("Stopped");
         Exception? failure=null;
         try{await DisarmTriggerAsync();}catch(Exception ex){failure=ex;}
         try{if(Acquiring)await StopAcquisitionAsync();}catch(Exception ex){failure??=ex;}
         try{await DisconnectPlcCoreAsync();}catch(Exception ex){failure??=ex;}
         plcVerdictWriter=null;
-        PlcStatus="PLC ĐÃ NGẮT KẾT NỐI.";
+        PlcStatus=AppLocalizer.Text("PlcDisconnectedStatus");
         if(failure!=null)throw failure;
     }
 
@@ -883,16 +1005,16 @@ public partial class MainViewModel : ObservableObject
             };
             if(plc.Validate(settings.Mapping) is{}invalid)throw new InvalidOperationException(invalid);
             if(!PlcConnected||plcLink==null||connectedPlcSettings==null)
-                throw new InvalidOperationException("Kết nối PLC trong phần PLC CONNECTION trước khi RUN.");
+                throw new InvalidOperationException(AppLocalizer.Text("ConnectPlcBeforeRun"));
             if(!SamePhysicalConnection(plc,connectedPlcSettings))
-                throw new InvalidOperationException("Cấu hình PLC đã thay đổi. Ngắt kết nối rồi kết nối lại trước khi RUN.");
+                throw new InvalidOperationException(AppLocalizer.Text("PlcConfigChanged"));
             source=new PlcTriggerSource(plcLink,plc,settings.Mapping,Log,manageLinkLifecycle:false);
         }
         else source=manualTrigger;
         source.Fired+=OnTriggerFired;activeTrigger=source;
         if(settings.CameraTrigger.IsTriggered)
         {
-            if(!CameraConnected)throw new InvalidOperationException("Trigger phần cứng cần camera đang kết nối.");
+            if(!CameraConnected)throw new InvalidOperationException(AppLocalizer.Text("HardwareTriggerNeedsCamera"));
             var resume=Acquiring;if(resume)await StopAcquisitionAsync();
             await Task.Run(()=>Camera.ConfigureTrigger(settings.CameraTrigger));cameraTrigger=settings.CameraTrigger;
             if(resume)await StartAcquisitionAsync();
@@ -925,9 +1047,9 @@ public partial class MainViewModel : ObservableObject
         {
             try{await plcLink.DisposeAsync();}catch{/* The link is already unusable. */}
             plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Error;
-            PlcStatus="MẤT KẾT NỐI PLC · Disconnect và kiểm tra cáp/cấu hình trước khi kết nối lại.";
+            PlcStatus=AppLocalizer.Text("PlcConnectionLost");
         }
-        else if(PlcConnected&&connectedPlcSettings!=null)PlcStatus=$"ĐÃ KẾT NỐI PLC · {connectedPlcSettings.Describe()}";
+        else if(PlcConnected&&connectedPlcSettings!=null)PlcStatus=AppLocalizer.Format("PlcConnectedSettingsFormat",connectedPlcSettings.Describe());
         if(!ReferenceEquals(source,manualTrigger))await source.DisposeAsync();
         TriggerStatus=manualTrigger.Status;
         Log.Write("trigger","disarmed",null);
@@ -981,7 +1103,7 @@ public partial class MainViewModel : ObservableObject
     private async Task<ImageFrame> RequestFrameAsync()
     {
         if(cameraTrigger.Source!=CameraTriggerSource.Software)
-            return latest??throw new InvalidOperationException("Chưa có camera frame mới cho đầu này.");
+            return latest??throw new InvalidOperationException(AppLocalizer.Text("NoNewCameraFrame"));
         var previous=latest?.Id;
         await Task.Run(Camera.ExecuteSoftwareTrigger);
         var started=MonotonicClock.Now;
@@ -990,7 +1112,7 @@ public partial class MainViewModel : ObservableObject
             if(latest is{}frame&&frame.Id!=previous)return frame;
             await Task.Delay(5);
         }
-        throw new TimeoutException("Camera không trả frame sau khi PLC kích trigger.");
+        throw new TimeoutException(AppLocalizer.Text("PlcTriggeredFrameTimeout"));
     }
 
     /// <summary>Drops a bad first image so the operator can shoot it again without losing the product.</summary>
@@ -999,8 +1121,8 @@ public partial class MainViewModel : ObservableObject
         if(!CanRetakeEnd||runtimeRecipe==null)return;
         if(!Session.RetakeLastEnd())return;
         Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
-        router.Reset();waitingSince=DateTimeOffset.UtcNow;RunStatus="CHỜ ĐẦU 1";
-        Message="RUN · Đã bỏ ảnh đầu 1. Chụp lại đầu 1.";RefreshState();
+        router.Reset();waitingSince=DateTimeOffset.UtcNow;RunStatus=AppLocalizer.Text("WaitingEnd1");
+        Message=AppLocalizer.Text("RetakeEnd1");RefreshState();
     });
     [RelayCommand]private void TogglePreviousResults()
     {
@@ -1016,8 +1138,8 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Manual capture is the manual trigger source, so it follows the same routing rules.</summary>
     [RelayCommand]private void ManualTrigger()
     {
-        if(!Running){Message="RUN chưa bắt đầu.";return;}
-        manualTrigger.Fire(TriggerMapping==TriggerMapping.PerEnd?Session.NextEnd:null,"thao tác tay");
+        if(!Running){Message=AppLocalizer.Text("RunNotStarted");return;}
+        manualTrigger.Fire(TriggerMapping==TriggerMapping.PerEnd?Session.NextEnd:null,AppLocalizer.Text("ManualAction"));
     }
     [RelayCommand]private async Task CaptureRuntimeAsync()
     {
@@ -1025,8 +1147,8 @@ public partial class MainViewModel : ObservableObject
         await GuardAsync(async()=>
         {
             if(!Acquiring||latest==null||latest.CapturedAt<waitingSince||DateTimeOffset.UtcNow-latest.CapturedAt>TimeSpan.FromSeconds(2))
-                throw new InvalidOperationException("Chưa có camera frame mới cho đầu này.");
-            if(latest.Source=="SIMULATION")throw new InvalidOperationException("Không dùng ảnh camera giả lập cho RUN sản xuất.");
+                throw new InvalidOperationException(AppLocalizer.Text("NoNewCameraFrame"));
+            if(latest.Source=="SIMULATION")throw new InvalidOperationException(AppLocalizer.Text("SimulationNotAllowed"));
             await InspectAsync(latest,MonotonicClock.MillisecondsSince(latestTimestamp));
         });
     }
@@ -1037,7 +1159,7 @@ public partial class MainViewModel : ObservableObject
             Result1.Reset(runtimeRecipe!.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);ShowPreviousResults=false;
         }
         var end=Session.NextEnd;var target=end==0?Result1:Result2;target.Show(frame,null);
-        RunStatus=$"ĐANG OCR ĐẦU {end+1}";
+        RunStatus=AppLocalizer.Format("ProcessingEndFormat",end+1);
         try
         {
             var result=await Session.AcceptAsync(frame,frameAgeMs);
@@ -1050,23 +1172,23 @@ public partial class MainViewModel : ObservableObject
                 PreviousResult1.CopyFrom(Result1);PreviousResult2.CopyFrom(Result2);
                 HasPreviousResult=true;ShowPreviousResults=true;
                 LastProductVerdict=product.Verdict.ToString().ToUpperInvariant();
-                PreviousResultLabel=$"KẾT QUẢ TRƯỚC · {product.Verdict.ToString().ToUpperInvariant()} · {product.CycleId.ToString("N")[..12].ToUpperInvariant()}";
+                PreviousResultLabel=AppLocalizer.Format("PreviousResultFormat",product.Verdict.ToString().ToUpperInvariant(),product.CycleId.ToString("N")[..12].ToUpperInvariant());
                 if(!outputOk)
                 {
                     var outputError=PlcStatus;
                     try{await StopRuntimeCoreAsync();}
                     catch(Exception ex){Log.Write("run","output-failure-cleanup",new Dictionary<string,object?>{["error"]=ex.Message});}
-                    RunStatus="LỖI OUTPUT PLC";PlcStatus=outputError;
-                    Message=$"Kết quả đã lưu nhưng RUN đã dừng để tránh chạy tiếp khi OUTPUT PLC lỗi. {outputError}";
+                    RunStatus=AppLocalizer.Text("PlcOutputError");PlcStatus=outputError;
+                    Message=AppLocalizer.Format("PlcOutputStoppedFormat",outputError);
                     return;
                 }
                 Session.Begin(runtimeRecipe!);router.Reset();waitingSince=DateTimeOffset.UtcNow;
-                RunStatus="CHỜ ĐẦU 1";
-                Message=$"Đã lưu và phản hồi {product.Verdict.ToString().ToUpperInvariant()}. Chu kỳ mới đã sẵn sàng; kết quả vừa kiểm vẫn được giữ để xem lại.";
+                RunStatus=AppLocalizer.Text("WaitingEnd1");
+                Message=AppLocalizer.Format("CycleReadyFormat",product.Verdict.ToString().ToUpperInvariant());
             }
             else
             {
-                RunStatus="CHỜ ĐẦU 2";Message="Đã kiểm tra đầu 1. Chờ đầu 2 cùng sản phẩm.";
+                RunStatus=AppLocalizer.Text("WaitingEnd2");Message=AppLocalizer.Text("End1Complete");
             }
         }
         catch {target.Status="ERROR";RunStatus="ERROR";throw;}
@@ -1087,7 +1209,7 @@ public partial class MainViewModel : ObservableObject
         catch(Exception ex)
         {
             // A PLC write must never take down an inspection that already produced a verdict.
-            PlcStatus=$"Ghi PLC lỗi: {ex.Message}";
+            PlcStatus=AppLocalizer.Format("PlcWriteErrorFormat",ex.Message);
             Log.Write("plc","report-failed",new Dictionary<string,object?>{["error"]=ex.Message});
             return false;
         }
@@ -1122,8 +1244,8 @@ public partial class MainViewModel : ObservableObject
     {
         if(!CanSearchCamera)return;
         FindingCamera=true;CameraState=CameraUiState.Finding;
-        CameraStatus="ĐANG TÌM CAMERA HIKROBOT...";
-        Message="ACQUISITION · Đang tìm camera qua MVS.";
+        CameraStatus=AppLocalizer.Text("FindingCamera");
+        Message=AppLocalizer.Text("AcquisitionFindingMessage");
         Cameras.Clear();SelectedCamera=null;RefreshCameraState();
         try
         {
@@ -1137,26 +1259,26 @@ public partial class MainViewModel : ObservableObject
             if(Cameras.Count==0)
             {
                 CameraState=CameraUiState.NotFound;
-                CameraStatus="KHÔNG TÌM THẤY CAMERA";
-                Message="ACQUISITION · Không tìm thấy camera Hikrobot. Kiểm tra nguồn/cáp mạng rồi bấm Tìm camera.";
+                CameraStatus=AppLocalizer.Text("CameraNotFound");
+                Message=AppLocalizer.Text("AcquisitionNotFoundMessage");
             }
             else
             {
                 CameraState=CameraUiState.Found;
-                CameraStatus=$"ĐÃ TÌM THẤY {Cameras.Count} CAMERA · SẴN SÀNG KẾT NỐI";
-                Message="ACQUISITION · Đã tìm thấy camera. Chọn thiết bị và bấm Kết nối.";
+                CameraStatus=AppLocalizer.Format("CameraFoundFormat",Cameras.Count);
+                Message=AppLocalizer.Text("AcquisitionFoundMessage");
             }
         }
         catch(TimeoutException)
         {
             CameraState=CameraUiState.NotFound;
-            CameraStatus=$"HẾT THỜI GIAN TÌM CAMERA ({cameraSearchTimeout.TotalSeconds:0.#}s)";
-            Message="ACQUISITION · Tìm camera quá thời gian. Chỉ nút Tìm camera được mở để thử lại.";
+            CameraStatus=AppLocalizer.Format("CameraSearchTimeoutFormat",cameraSearchTimeout.TotalSeconds.ToString("0.#"));
+            Message=AppLocalizer.Text("CameraSearchTimeoutMessage");
         }
         catch(Exception ex)
         {
             cameraDiscoveryTask=null;CameraState=CameraUiState.Error;
-            CameraStatus="LỖI TÌM CAMERA";
+            CameraStatus=AppLocalizer.Text("CameraSearchError");
             Message=$"ACQUISITION · {ex.Message}";
         }
         finally{FindingCamera=false;RefreshCameraState();}
@@ -1171,13 +1293,13 @@ public partial class MainViewModel : ObservableObject
             connectedDevice=target;
             CameraConnected=true;CameraState=CameraUiState.Connected;
             SourceStatus=target.IsSimulation?"SIMULATION":"CAMERA CONNECTED";
-            CameraStatus=$"ĐÃ KẾT NỐI · {target.Name}";
+            CameraStatus=AppLocalizer.Format("CameraConnectedDetailFormat",target.Name);
             RefreshCameraParameters();
-            Message="ACQUISITION · Kết nối camera thành công. Có thể chỉnh thông số hoặc Start Acquisition.";
+            Message=AppLocalizer.Text("CameraConnectSuccess");
         });
         if(!CameraConnected)
         {
-            CameraState=CameraUiState.Error;CameraStatus="KẾT NỐI CAMERA THẤT BẠI";
+            CameraState=CameraUiState.Error;CameraStatus=AppLocalizer.Text("CameraConnectFailed");
         }
     }
     [RelayCommand]private async Task CameraParametersAsync()
@@ -1194,7 +1316,7 @@ public partial class MainViewModel : ObservableObject
         if(applied)
         {
             RefreshCameraParameters();
-            Message="ACQUISITION · Đã áp dụng thông số camera vào thiết bị.";
+            Message=AppLocalizer.Text("CameraParametersApplied");
         }
     }
 
@@ -1207,7 +1329,7 @@ public partial class MainViewModel : ObservableObject
         if(settings==null)return;
         ShowCameraSettings(settings);
         RefreshCameraParameters();
-        Message="ACQUISITION · Đã đọc thông số hiện tại từ camera.";
+        Message=AppLocalizer.Text("CameraParametersRead");
     }
 
     /// <summary>Builds the acquisition setup stored with the recipe from the operator's form values.</summary>
@@ -1282,7 +1404,7 @@ public partial class MainViewModel : ObservableObject
                 (info.FrameRate is{}fps?$" · {fps:0.#} fps":"")+
                 (info.TemperatureCelsius is{}temp?$" · {temp:0.#} °C":"");
         }
-        catch(Exception){CameraInfo="Không đọc được thông tin camera.";}
+        catch(Exception){CameraInfo=AppLocalizer.Text("CameraInfoUnavailable");}
         RefreshCameraCapabilities();
     }
     private void RefreshCameraCapabilities()
@@ -1305,17 +1427,17 @@ public partial class MainViewModel : ObservableObject
             TriggerKind.Plc when CameraConnected=>new CameraTrigger(CameraTriggerSource.Software),
             _=>CameraTrigger.FreeRun
         };
-        var settings=new TriggerSettings(TriggerKind,TriggerMapping,camera,Whole(TriggerRepeatBlock,"Chặn trigger lặp"));
+        var settings=new TriggerSettings(TriggerKind,TriggerMapping,camera,Whole(TriggerRepeatBlock,AppLocalizer.Text("RepeatBlockMs")));
         if(settings.Validate() is{}error)throw new InvalidOperationException(error);
         return settings;
     }
 
     private static double Number(string text,string label)=>
         double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var value)&&double.IsFinite(value)
-            ?value:throw new InvalidOperationException($"{label} không hợp lệ. Dùng dấu chấm thập phân.");
+            ?value:throw new InvalidOperationException(AppLocalizer.Format("InvalidDecimalFormat",label));
     private static int Whole(string text,string label)=>
         int.TryParse(text,System.Globalization.NumberStyles.Integer,System.Globalization.CultureInfo.InvariantCulture,out var value)
-            ?value:throw new InvalidOperationException($"{label} phải là số nguyên.");
+            ?value:throw new InvalidOperationException(AppLocalizer.Format("IntegerRequiredFormat",label));
     [RelayCommand]private async Task AcquisitionAsync()
     {
         if(!CanToggleAcquisition)return;
@@ -1331,8 +1453,8 @@ public partial class MainViewModel : ObservableObject
         });
         {
             acquisition=new();Acquiring=true;CameraState=CameraUiState.Acquiring;
-            SourceStatus="CAMERA LIVE";CameraStatus="ĐANG ACQUISITION · CHỜ FRAME";
-            Message="ACQUISITION · Đã bắt đầu nhận ảnh camera.";
+            SourceStatus="CAMERA LIVE";CameraStatus=AppLocalizer.Text("CameraAcquiringStatus");
+            Message=AppLocalizer.Text("AcquisitionStarted");
             var token=acquisition.Token;
             Diagnostics.BeginRun();OnPropertyChanged(nameof(AcquisitionSummary));
             Log.Write("acquisition","started",new Dictionary<string,object?>{["device"]=connectedDevice?.Name});
@@ -1377,7 +1499,7 @@ public partial class MainViewModel : ObservableObject
                     {
                         Diagnostics.ReconnectFailed(retry.Message);
                         Log.Write("acquisition","reconnect-failed",new Dictionary<string,object?>{["error"]=retry.Message});
-                        await dispatcher.InvokeAsync(()=>CameraStatus=$"ĐANG KẾT NỐI LẠI · {retry.Message}");
+                        await dispatcher.InvokeAsync(()=>CameraStatus=AppLocalizer.Format("ReconnectingDetailFormat",retry.Message));
                     }
                 }
             }
@@ -1404,7 +1526,7 @@ public partial class MainViewModel : ObservableObject
                 Diagnostics.Timeout();
                 // A triggered camera is silent by design; only free-run silence means the link is gone.
                 if(!cameraTrigger.IsTriggered&&MonotonicClock.MillisecondsSince(lastReceived)>3000)
-                    throw new TimeoutException("Camera không có frame mới trong 3 giây.");
+                    throw new TimeoutException(AppLocalizer.Text("CameraFrameTimeout"));
                 continue;
             }
             var bitmap=ImageFiles.Bitmap(frame);
@@ -1413,7 +1535,7 @@ public partial class MainViewModel : ObservableObject
             {
                 if(token.IsCancellationRequested)return;
                 latest=frame;latestTimestamp=arrived;LiveImage=bitmap;
-                CameraStatus=$"ĐANG ACQUISITION · {frame.Width} × {frame.Height}";
+                CameraStatus=AppLocalizer.Format("AcquisitionFrameFormat",frame.Width,frame.Height);
                 if(CameraState==CameraUiState.Reconnecting)CameraState=CameraUiState.Acquiring;
                 RefreshGrabState();
                 // In triggered acquisition the arriving frame is the trigger event.
@@ -1425,7 +1547,7 @@ public partial class MainViewModel : ObservableObject
 
     private void Reopen()
     {
-        var device=connectedDevice??throw new InvalidOperationException("Không còn thông tin camera để kết nối lại.");
+        var device=connectedDevice??throw new InvalidOperationException(AppLocalizer.Text("CameraReconnectInfoMissing"));
         try{Camera.Stop();}catch{/* The device is already gone; reopening is what matters. */}
         try{Camera.Close();}catch{}
         Camera.Open(device);
@@ -1437,27 +1559,27 @@ public partial class MainViewModel : ObservableObject
     private void OnAcquisitionLost(string error)
     {
         latest=null;CameraState=CameraUiState.Reconnecting;
-        CameraStatus="MẤT KẾT NỐI CAMERA · ĐANG THỬ LẠI";
-        Message=$"ACQUISITION · {error} Đang thử kết nối lại.";
+        CameraStatus=AppLocalizer.Text("CameraReconnecting");
+        Message=AppLocalizer.Format("AcquisitionLostMessageFormat",error);
         // An interrupted product must never be completed with a frame from after the outage.
-        if(Running&&Session.Fault("Mất kết nối camera giữa chu kỳ."))
+        if(Running&&Session.Fault(AppLocalizer.Text("CameraLostDuringCycle")))
         {
             Result1.Reset(runtimeRecipe!.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
-            RunStatus="MẤT KẾT NỐI CAMERA";
-            Message="RUN · Sản phẩm đang kiểm bị hủy vì mất kết nối camera. Kiểm tra lại từ đầu 1.";
+            RunStatus=AppLocalizer.Text("RunCameraLostStatus");
+            Message=AppLocalizer.Text("RunCameraLost");
         }
         RefreshGrabState();RefreshState();OnPropertyChanged(nameof(AcquisitionSummary));
     }
 
     private void OnAcquisitionResumed()
     {
-        CameraState=CameraUiState.Acquiring;CameraStatus="ĐÃ KẾT NỐI LẠI · ĐANG ACQUISITION";
-        Message="ACQUISITION · Đã kết nối lại camera.";
+        CameraState=CameraUiState.Acquiring;CameraStatus=AppLocalizer.Text("CameraReconnectedStatus");
+        Message=AppLocalizer.Text("CameraReconnectedMessage");
         if(Running&&runtimeRecipe!=null)
         {
             Session.Begin(runtimeRecipe);
             Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);
-            waitingSince=DateTimeOffset.UtcNow;RunStatus="CHỜ ĐẦU 1";
+            waitingSince=DateTimeOffset.UtcNow;RunStatus=AppLocalizer.Text("WaitingEnd1");
         }
         RefreshState();OnPropertyChanged(nameof(AcquisitionSummary));
     }
@@ -1465,7 +1587,7 @@ public partial class MainViewModel : ObservableObject
     private void OnAcquisitionFailed(string error)
     {
         Acquiring=false;latest=null;CameraState=CameraUiState.Error;
-        CameraStatus="LỖI ACQUISITION";Message=$"ACQUISITION · {error}";
+        CameraStatus=AppLocalizer.Text("AcquisitionError");Message=$"ACQUISITION · {error}";
         if(Running){Session.Stop();Running=false;RunStatus="ERROR";}
         RefreshState();OnPropertyChanged(nameof(AcquisitionSummary));
     }
@@ -1478,22 +1600,23 @@ public partial class MainViewModel : ObservableObject
         if(CameraConnected)
         {
             CameraState=CameraUiState.Connected;SourceStatus="CAMERA CONNECTED";
-            CameraStatus=SelectedCamera==null?"ĐÃ DỪNG ACQUISITION":$"ĐÃ DỪNG ACQUISITION · {SelectedCamera.Name}";
-            Message="ACQUISITION · Đã dừng nhận ảnh. Camera vẫn đang kết nối.";
+            CameraStatus=SelectedCamera==null?AppLocalizer.Text("AcquisitionStopped"):AppLocalizer.Format("AcquisitionStoppedFormat",SelectedCamera.Name);
+            Message=AppLocalizer.Text("AcquisitionStoppedMessage");
         }
     }
     [RelayCommand]private async Task DisconnectAsync()
     {
         if(!CanDisconnectCamera)return;
         StopRun();await Task.Run(Camera.Close);CameraConnected=false;SourceStatus="OFFLINE";
-        cameraParameters=[];CameraInfo="Chưa kết nối camera.";
+        cameraParameters=[];CameraInfo=AppLocalizer.Text("CameraNotConnectedPeriod");
         RefreshCameraCapabilities();
         CameraState=Cameras.Count>0?CameraUiState.Found:CameraUiState.NotFound;
-        CameraStatus=Cameras.Count>0?"ĐÃ NGẮT CAMERA · SẴN SÀNG KẾT NỐI LẠI":"ĐÃ NGẮT CAMERA";
-        Message="ACQUISITION · Đã ngắt kết nối camera.";
+        CameraStatus=AppLocalizer.Text(Cameras.Count>0?"CameraDisconnectedReady":"CameraDisconnected");
+        Message=AppLocalizer.Text("CameraDisconnectedMessage");
     }
     public async Task ShutdownAsync()
     {
+        AppLocalizer.LanguageChanged-=OnLanguageChanged;
         StopRun();try{await DisarmTriggerAsync();}catch{/* Shutdown continues. */}
         if(plcLink!=null)try{await plcLink.DisposeAsync();}catch{/* Shutdown continues. */}
         plcLink=null;connectedPlcSettings=null;PlcConnectionState=PlcConnectionState.Disconnected;

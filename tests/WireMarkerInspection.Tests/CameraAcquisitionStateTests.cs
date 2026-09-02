@@ -17,6 +17,7 @@ public sealed class CameraAcquisitionStateTests:IDisposable
         var device=new CameraDevice("camera-1","MV-CE120-10GM · TEST","hikrobot-mvs-gige",false);
         var camera=new FakeCamera([device]);
         var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromSeconds(1));
+        vm.AsAdmin();
         try
         {
             Assert.True(vm.CanSearchCamera);

@@ -18,7 +18,7 @@ public sealed class PlcConnectionStateTests : IDisposable
         {
             openedWith=settings;
             return link;
-        });
+        }).AsAdmin();
 
         Assert.Equal(PlcTransport.Com,vm.PlcTransport);
         Assert.True(vm.PlcUsesSerial);

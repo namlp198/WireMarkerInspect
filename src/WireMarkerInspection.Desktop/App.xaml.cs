@@ -1,4 +1,5 @@
 using System.Windows;
+using WireMarkerInspection.Controls.Localization;
 using WireMarkerInspection.Desktop.ViewModels;
 using WireMarkerInspection.Infrastructure;
 namespace WireMarkerInspection.Desktop;
@@ -36,7 +37,7 @@ public partial class App : System.Windows.Application
         instance=new Mutex(true,"Local\\WireMarkerInspection."+Environment.UserName,out var created);
         if(!created)
         {
-            MessageBox.Show("Wire Marker Inspection đang chạy. Chỉ mở một phiên cho mỗi người dùng.","Wire Marker Inspection");
+            MessageBox.Show(AppLocalizer.Text("SingleInstanceOnly"),"Wire Marker Inspection");
             instance.Dispose();instance=null;Shutdown();return;
         }
         var vm=new MainViewModel(JsonFiles.DataRoot);

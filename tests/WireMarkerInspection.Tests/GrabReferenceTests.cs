@@ -15,7 +15,7 @@ public sealed class GrabReferenceTests:IDisposable
     public void GrabIsOfferedOnlyWithAModelDraftAndAFreshLiveFrame()=>DispatcherTestHost.Sta(()=>
     {
         var camera=new LiveCamera();
-        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromSeconds(1));
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromSeconds(1)).AsAdmin();
         try
         {
             Assert.False(vm.CanGrabReference);
@@ -46,7 +46,7 @@ public sealed class GrabReferenceTests:IDisposable
     public void GrabStoresAnIndependentCopyOfTheLiveFramePerEnd()=>DispatcherTestHost.Sta(()=>
     {
         var camera=new LiveCamera();
-        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromSeconds(1));
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,TimeSpan.FromSeconds(1)).AsAdmin();
         try
         {
             Connect(vm);

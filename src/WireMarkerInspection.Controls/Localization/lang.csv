@@ -1,0 +1,298 @@
+key,en,vi,ko
+AppTitle,WIRE MARKER INSPECTION,WIRE MARKER INSPECTION,WIRE MARKER INSPECTION
+Settings,SETTING,SETTING,설정
+Run,RUN,RUN,실행
+Online,ONLINE,ONLINE,온라인
+Offline,OFFLINE,OFFLINE,오프라인
+LanguageSelection,Interface language,Ngôn ngữ giao diện,인터페이스 언어
+Vietnamese,Việt Nam,Việt Nam,베트남어
+English,English,English,영어
+Korean,Korean,한국어,한국어
+Acquisition,ACQUISITION,ACQUISITION,영상 수집
+ImageSource,Image source,Nguồn ảnh,이미지 소스
+LiveCameraReadOnly,LIVE CAMERA · READ ONLY,LIVE CAMERA · CHỈ XEM,라이브 카메라 · 읽기 전용
+LiveCameraExpanded,LIVE CAMERA · EXPANDED,LIVE CAMERA · PHÓNG LỚN,라이브 카메라 · 확대
+StartAcquisition,Start Acquisition,Start Acquisition,영상 수집 시작
+StopAcquisition,Stop Acquisition,Stop Acquisition,영상 수집 중지
+SearchCamera,Search camera,Tìm camera,카메라 검색
+ConnectCamera,Connect camera,Kết nối camera,카메라 연결
+DisconnectCamera,Disconnect camera,Ngắt kết nối camera,카메라 연결 해제
+FindingCamera,FINDING CAMERA...,ĐANG TÌM CAMERA...,카메라 검색 중...
+CameraParameters,CAMERA PARAMETERS,THÔNG SỐ CAMERA,카메라 파라미터
+CameraNotConnected,Camera not connected,Chưa kết nối camera,카메라가 연결되지 않았습니다
+CameraNotConnectedPeriod,Camera not connected.,Chưa kết nối camera.,카메라가 연결되지 않았습니다.
+CameraNotFound,CAMERA NOT FOUND,KHÔNG TÌM THẤY CAMERA,카메라를 찾을 수 없음
+CameraFoundFormat,{0} CAMERA(S) FOUND · READY TO CONNECT,ĐÃ TÌM THẤY {0} CAMERA · SẴN SÀNG KẾT NỐI,카메라 {0}대 발견 · 연결 준비 완료
+CameraConnectedDetailFormat,CONNECTED · {0},ĐÃ KẾT NỐI · {0},연결됨 · {0}
+CameraAcquiringStatus,ACQUIRING · WAITING FOR FRAME,ĐANG ACQUISITION · CHỜ FRAME,영상 수집 중 · 프레임 대기
+CameraReconnecting,CAMERA DISCONNECTED · RECONNECTING,MẤT KẾT NỐI CAMERA · ĐANG THỬ LẠI,카메라 연결 끊김 · 재연결 중
+ReadCameraSettings,Read current camera parameters,Đọc thông số hiện tại từ camera,현재 카메라 파라미터 읽기
+CameraRecipeHelp,Parameters are saved with each model recipe.,Thông số được lưu theo từng model recipe.,파라미터는 각 모델 레시피에 저장됩니다.
+AdvancedParameters,Advanced parameters,Thông số nâng cao,고급 파라미터
+SensorRegion,Sensor ROI,Vùng đọc sensor,센서 ROI
+StrobeExposure,Exposure-synchronized strobe,Đèn strobe theo phơi sáng,노출 동기 스트로브
+StrobeLineModeHelp,Configure the strobe LineMode in MVS first.,LineMode của chân strobe phải đặt sẵn trong MVS.,MVS에서 스트로브 LineMode를 먼저 설정하십시오.
+Apply,Apply,Apply,적용
+ApplyCamera,Apply camera parameters,Áp dụng thông số camera,카메라 파라미터 적용
+PlcConnection,PLC CONNECTION,KẾT NỐI PLC,PLC 연결
+PlcConnectionHelp,Physical connection is machine-wide. Trigger and OUTPUT below are saved per model recipe.,Kết nối vật lý dùng chung cho máy. Trigger và OUTPUT bên dưới được lưu riêng theo model recipe.,물리 연결은 장비 공용이며 아래 Trigger와 OUTPUT은 모델 레시피별로 저장됩니다.
+PlcVendor,PLC vendor,Hãng PLC,PLC 제조사
+PhysicalConnection,Physical connection,Kết nối vật lý,물리 연결
+IpAddress,IP address,Địa chỉ IP,IP 주소
+ComPort,COM port,Cổng COM,COM 포트
+RefreshComPorts,Refresh COM ports,Quét lại cổng COM,COM 포트 새로 고침
+Protocol,Protocol,Protocol,프로토콜
+DataBits,Data bits,Data bits,데이터 비트
+Parity,Parity,Parity,패리티
+StopBits,Stop bits,Stop bits,정지 비트
+UnitId,Unit ID,Unit ID,유닛 ID
+TimeoutMs,Timeout (ms),Timeout (ms),타임아웃 (ms)
+ConnectPlc,Connect PLC,Connect PLC,PLC 연결
+Disconnect,Disconnect,Ngắt kết nối,연결 해제
+SavePlcConnection,Save physical PLC connection,Lưu kết nối vật lý PLC,PLC 물리 연결 저장
+Trigger,TRIGGER,TRIGGER,트리거
+TriggerType,Trigger type,Loại trigger,트리거 유형
+TriggerManual,Manual,Thủ công,수동
+TriggerCameraLine,Camera line,Camera line,카메라 라인
+TriggerPlc,PLC,PLC,PLC
+SignalMapping,Signal mapping,Ánh xạ tín hiệu,신호 매핑
+TriggerSourceHelp,Capture trigger source in RUN · saved per model recipe,Nguồn kích chụp khi RUN · lưu theo model recipe,RUN 캡처 트리거 소스 · 모델 레시피별 저장
+MappingShared,One shared button (Shared),Một nút chung (Shared),공용 버튼 하나 (Shared)
+MappingPerEnd,Two separate buttons (PerEnd),Hai nút riêng (PerEnd),끝별 버튼 두 개 (PerEnd)
+MappingHelp,Shared: one button; the first press captures end 1 and the next press captures end 2. PerEnd: a separate button for each end.,Shared: một nút chung; lần bấm thứ nhất nhận đầu 1 và lần tiếp theo nhận đầu 2. PerEnd: hai nút riêng cho từng đầu.,Shared: 버튼 하나로 첫 입력은 1단을 캡처하고 다음 입력은 2단을 캡처합니다. PerEnd: 각 끝에 별도 버튼을 사용합니다.
+CameraLine,Camera line,Camera line,카메라 라인
+DebouncerUs,Debouncer (µs),Debouncer (µs),디바운서 (µs)
+DelayUs,Delay (µs),Delay (µs),지연 (µs)
+RepeatBlockMs,Repeat block (ms),Chặn lặp (ms),반복 차단 (ms)
+RisingEdge,Trigger on rising edge,Kích theo sườn lên,상승 에지 트리거
+PlcPollMs,PLC polling (ms),PLC polling (ms),PLC 폴링 (ms)
+SharedTriggerBit,Shared trigger bit,Bit trigger dùng chung,공용 트리거 비트
+PlcBitAddressHint,Example X0. Delta DVP numbers X/Y addresses in octal.,Ví dụ X0. Delta DVP đánh số địa chỉ X/Y theo hệ bát phân.,예: X0. Delta DVP의 X/Y 주소는 8진수로 표기됩니다.
+End1Bit,End 1 bit,Bit đầu 1,1단 비트
+End2Bit,End 2 bit,Bit đầu 2,2단 비트
+Output,OUTPUT,OUTPUT,출력
+OutputHelp,PLC result feedback · saved per model recipe,Phản hồi kết quả PLC · lưu theo model recipe,PLC 결과 피드백 · 모델 레시피별 저장
+OutputType,Type,Loại,유형
+OutputBit,Bit pulse,Xung bit,비트 펄스
+OutputRegister,Register value,Giá trị thanh ghi,레지스터 값
+DeviceArea,Area,Vùng,영역
+PulseMs,Pulse (ms),Pulse (ms),펄스 (ms)
+RegisterValue,Register value,Giá trị thanh ghi,레지스터 값
+Index,Index,Index,인덱스
+OkOutput,OK output,OK output,OK 출력
+NgOutput,NG output,NG output,NG 출력
+PulseResetMs,Bit hold time before automatic reset (ms),Thời gian giữ bit rồi tự reset (ms),자동 리셋 전 비트 유지 시간 (ms)
+TriggerRunHelp,Hardware trigger applies only in RUN; SETTING always uses free-run for ROI setup.,Trigger phần cứng chỉ áp dụng khi RUN; SETTING luôn dùng free-run để căn ROI.,하드웨어 트리거는 RUN에서만 적용되며 SETTING은 ROI 조정을 위해 항상 프리런을 사용합니다.
+InspectionModules,INSPECTION MODULES,CÁC MODULE KIỂM TRA,검사 모듈
+OcrText,OCR text,OCR text,OCR 텍스트
+WireColor,Wire color,Màu dây,와이어 색상
+TerminalTemplate,Terminal template,Template terminal,터미널 템플릿
+NotImplemented,Color / Template: not implemented.,Color / Template: chưa triển khai.,Color / Template: 구현되지 않았습니다.
+ModelLibrary,MODEL LIBRARY,THƯ VIỆN MODEL,모델 라이브러리
+ModelCountFormat,{0} MODELS,{0} MODELS,모델 {0}개
+ChooseModel,Choose model,Chọn model,모델 선택
+SearchModel,Search model code or name,Tìm mã hoặc tên model,모델 코드 또는 이름 검색
+AddModel,Add Model,Thêm Model,모델 추가
+EditModel,Edit Model,Sửa Model,모델 편집
+DeleteModel,Delete Model,Xóa Model,모델 삭제
+SaveRecipe,Save Recipe,Lưu Recipe,레시피 저장
+NeedSave,● SAVE REQUIRED,● CẦN LƯU,● 저장 필요
+Model,MODEL,MODEL,모델
+OcrEnd1,OCR · END 1,OCR · ĐẦU 1,OCR · 1단
+OcrEnd2,OCR · END 2,OCR · ĐẦU 2,OCR · 2단
+ModelCode,Model code,Mã model,모델 코드
+ModelName,Model name,Tên model,모델 이름
+UniqueModelCode,Unique model code,Mã model duy nhất,고유 모델 코드
+Cancel,Cancel,Hủy,취소
+Confirm,Confirm,Xác nhận,확인
+OperatingModel,OPERATING MODEL,MODEL VẬN HÀNH,운영 모델
+NoModelSelected,NO MODEL SELECTED,CHƯA CHỌN MODEL,선택된 모델 없음
+SelectModelInstruction,Select a saved model before RUN.,Hãy chọn một model đã lưu trước khi RUN.,RUN 전에 저장된 모델을 선택하십시오.
+SelectedModel,SELECTED MODEL,MODEL ĐÃ CHỌN,선택된 모델
+ReadyToRun,READY TO RUN,SẴN SÀNG RUN,RUN 준비 완료
+RunningModel,RUNNING MODEL,ĐANG CHẠY MODEL,실행 중인 모델
+RevisionFormat,Revision v{0},Phiên bản v{0},리비전 v{0}
+ExpectedTextHint,Sample text · one OCR detected region per line in the original order,Text mẫu · mỗi vùng OCR detect là một dòng theo đúng thứ tự,샘플 텍스트 · OCR 검출 영역 하나당 원래 순서로 한 줄
+RequiredDirection,Required direction,Chiều yêu cầu,필수 방향
+DirectionHint,Upright = 0°; inverted = 180°; Auto ignores direction.,Thuận = 0°; nghịch = 180°. Auto không kiểm tra chiều.,정방향 = 0°; 역방향 = 180°; 자동은 방향을 검사하지 않습니다.
+LoadImage,Load Image,Load Image,이미지 불러오기
+GrabImage,Grab Image · requires Start Acquisition,Grab Image · cần Start Acquisition,이미지 캡처 · 영상 수집 시작 필요
+TestOcr,Test OCR,Test OCR,OCR 테스트
+ApplyEnd,Apply wire end,Apply đầu dây,와이어 끝 적용
+ExpandImage,Expand image,Phóng lớn ảnh,이미지 확대
+SelectRoi,Select / move / edit ROI,Chọn / di chuyển / sửa ROI,ROI 선택 / 이동 / 편집
+RectangleRoi,Draw rectangle ROI,Vẽ ROI chữ nhật,사각형 ROI 그리기
+CircleRoi,Draw circle ROI,Vẽ ROI tròn,원형 ROI 그리기
+PolygonRoi,Draw polygon ROI · Enter to finish,Vẽ ROI polygon · Enter để hoàn tất,다각형 ROI 그리기 · Enter로 완료
+PanImage,Pan · or hold Space / middle mouse and drag,Pan · hoặc giữ Space / chuột giữa rồi kéo,이동 · Space 또는 가운데 버튼을 누르고 드래그
+UndoRoi,Undo · Ctrl+Z,Undo · Ctrl+Z,실행 취소 · Ctrl+Z
+RedoRoi,Redo · Ctrl+Y,Redo · Ctrl+Y,다시 실행 · Ctrl+Y
+DeleteRoi,Delete ROI · Delete,Xóa ROI · Delete,ROI 삭제 · Delete
+FinishPolygon,Finish polygon · Enter,Hoàn tất polygon · Enter,다각형 완료 · Enter
+UndoPolygonPoint,Remove last point · Backspace,Xóa điểm cuối · Backspace,마지막 점 삭제 · Backspace
+CancelDrawing,Cancel drawing · Escape,Hủy nét vẽ · Escape,그리기 취소 · Escape
+ZoomOut,Zoom out · mouse wheel,Thu nhỏ · cuộn chuột,축소 · 마우스 휠
+ZoomIn,Zoom in · mouse wheel,Phóng to · cuộn chuột,확대 · 마우스 휠
+ResetFit,Reset to initial Fit view,Về khung mặc định khi load ảnh · Fit,초기 Fit 보기로 재설정
+ExpectedText,TEXT EXPECTED,TEXT MẪU,기준 텍스트
+RecognizedText,TEXT RECOGNIZED,TEXT ĐỌC ĐƯỢC,인식된 텍스트
+LoadOfflineImage,Load offline image,Load ảnh offline,오프라인 이미지 불러오기
+RetakeEnd,Retake this end,Chụp lại đầu này,이 끝 다시 촬영
+PreviousResult,PREVIOUS RESULT,KẾT QUẢ TRƯỚC,이전 결과
+PreviousResultHint,Toggle between current cycle and the last completed result,Chuyển giữa chu kỳ hiện tại và kết quả vừa hoàn tất,현재 주기와 마지막 완료 결과 전환
+StopRuntime,Stop RUN,Dừng RUN,RUN 중지
+Login,Login,Đăng nhập,로그인
+Access,USER ACCESS,QUYỀN TRUY CẬP,사용자 접근
+Logout,Logout,Đăng xuất,로그아웃
+Username,Username,Tên đăng nhập,사용자 이름
+Password,Password,Mật khẩu,비밀번호
+RoleOperator,OPERATOR,OPERATOR,작업자
+RoleAdmin,ADMIN,ADMIN,관리자
+LoginTitle,ADMIN LOGIN,ĐĂNG NHẬP ADMIN,관리자 로그인
+InvalidCredentials,Invalid username or password.,Sai tên đăng nhập hoặc mật khẩu.,사용자 이름 또는 비밀번호가 올바르지 않습니다.
+AdminLoggedIn,ADMIN · Full configuration access.,ADMIN · Có toàn quyền cấu hình.,관리자 · 전체 설정 권한
+OperatorMode,OPERATOR · Model selection and acquisition only.,OPERATOR · Chỉ chọn model và thao tác acquisition.,작업자 · 모델 선택 및 영상 수집만 가능
+DiscardChangesForLogout,Discard unsaved changes and log out?,Bỏ thay đổi chưa lưu và đăng xuất?,저장되지 않은 변경을 버리고 로그아웃하시겠습니까?
+LoginTooltip,Login as administrator,Đăng nhập quyền admin,관리자로 로그인
+LogoutTooltip,Return to operator mode,Trở về chế độ operator,작업자 모드로 돌아가기
+CheckOcrAssets,Check OCR assets,Kiểm tra OCR assets,OCR 자산 확인
+OcrAssetsReady,OCR assets ready · accuracy not yet validated.,OCR assets sẵn sàng · chưa xác nhận độ chính xác.,OCR 자산 준비 완료 · 정확도 미검증.
+SelectModelOrAdd,Select a model or Add Model to begin setup.,Chọn một model hoặc Add Model để bắt đầu setup.,설정을 시작하려면 모델을 선택하거나 모델을 추가하십시오.
+PlcNotConfigured,PLC is not configured.,PLC chưa cấu hình.,PLC가 구성되지 않았습니다.
+ManualTriggerStatus,Manual trigger,Trigger thủ công,수동 트리거
+NoTriggerYet,No trigger yet.,Chưa có trigger.,아직 트리거 없음.
+CaptureEndFormat,Capture end {0},Nhận ảnh đầu {0},{0}단 캡처
+NoTimingData,No processing timing data.,Chưa có số liệu thời gian xử lý.,처리 시간 데이터가 없습니다.
+CycleTimingFormat,Cycle {0} ms · avg {1} · p95 {2} · max {3} ms (n={4}),Chu kỳ {0} ms · TB {1} · p95 {2} · max {3} ms (n={4}),주기 {0} ms · 평균 {1} · p95 {2} · 최대 {3} ms (n={4})
+AcquisitionNotStarted,Acquisition has not started.,Chưa chạy acquisition.,영상 수집이 시작되지 않았습니다.
+AcquisitionMetricsFormat,Frame {0} · timeout {1} · reconnect {2},Frame {0} · timeout {1} · reconnect {2},프레임 {0} · 타임아웃 {1} · 재연결 {2}
+ReconnectFailuresFormat,reconnect errors {0},lỗi nối lại {0},재연결 오류 {0}
+LastErrorFormat,last error: {0},lỗi cuối: {0},마지막 오류: {0}
+AcquisitionFindingMessage,ACQUISITION · Searching for cameras through MVS.,ACQUISITION · Đang tìm camera qua MVS.,영상 수집 · MVS에서 카메라를 검색 중입니다.
+AcquisitionNotFoundMessage,ACQUISITION · Hikrobot camera not found. Check power/network cable and press Search camera.,ACQUISITION · Không tìm thấy camera Hikrobot. Kiểm tra nguồn/cáp mạng rồi bấm Tìm camera.,영상 수집 · Hikrobot 카메라를 찾을 수 없습니다. 전원/네트워크 케이블을 확인하고 카메라 검색을 누르십시오.
+AcquisitionFoundMessage,ACQUISITION · Camera found. Select the device and press Connect.,ACQUISITION · Đã tìm thấy camera. Chọn thiết bị và bấm Kết nối.,영상 수집 · 카메라를 찾았습니다. 장치를 선택하고 연결을 누르십시오.
+CameraSearchTimeoutFormat,CAMERA SEARCH TIMEOUT ({0}s),HẾT THỜI GIAN TÌM CAMERA ({0}s),카메라 검색 시간 초과 ({0}초)
+CameraSearchTimeoutMessage,ACQUISITION · Camera search timed out. Only Search camera remains available for retry.,ACQUISITION · Tìm camera quá thời gian. Chỉ nút Tìm camera được mở để thử lại.,영상 수집 · 카메라 검색 시간이 초과되었습니다. 다시 시도하려면 카메라 검색만 사용할 수 있습니다.
+CameraSearchError,CAMERA SEARCH ERROR,LỖI TÌM CAMERA,카메라 검색 오류
+CameraConnectSuccess,ACQUISITION · Camera connected. Start Acquisition is available.,ACQUISITION · Kết nối camera thành công. Có thể Start Acquisition.,영상 수집 · 카메라가 연결되었습니다. 영상 수집을 시작할 수 있습니다.
+CameraConnectFailed,CAMERA CONNECTION FAILED,KẾT NỐI CAMERA THẤT BẠI,카메라 연결 실패
+CameraParametersApplied,ACQUISITION · Camera parameters applied.,ACQUISITION · Đã áp dụng thông số camera vào thiết bị.,영상 수집 · 카메라 파라미터를 적용했습니다.
+CameraParametersRead,ACQUISITION · Current camera parameters loaded.,ACQUISITION · Đã đọc thông số hiện tại từ camera.,영상 수집 · 현재 카메라 파라미터를 불러왔습니다.
+CameraInfoUnavailable,Unable to read camera information.,Không đọc được thông tin camera.,카메라 정보를 읽을 수 없습니다.
+CameraUnsupported,camera does not support this parameter,camera không hỗ trợ tham số này,카메라가 이 파라미터를 지원하지 않음
+AcquisitionStarted,ACQUISITION · Camera streaming started.,ACQUISITION · Đã bắt đầu nhận ảnh camera.,영상 수집 · 카메라 스트리밍을 시작했습니다.
+AcquisitionFrameFormat,ACQUIRING · {0} × {1},ĐANG ACQUISITION · {0} × {1},영상 수집 중 · {0} × {1}
+ReconnectingDetailFormat,RECONNECTING · {0},ĐANG KẾT NỐI LẠI · {0},재연결 중 · {0}
+CameraFrameTimeout,No new camera frame for 3 seconds.,Camera không có frame mới trong 3 giây.,3초 동안 새 카메라 프레임이 없습니다.
+AcquisitionLostMessageFormat,ACQUISITION · {0} Reconnecting.,ACQUISITION · {0} Đang thử kết nối lại.,영상 수집 · {0} 재연결 중입니다.
+RunCameraLost,RUN · Current product cancelled because camera connection was lost. Restart from end 1.,RUN · Sản phẩm đang kiểm bị hủy vì mất kết nối camera. Kiểm tra lại từ đầu 1.,RUN · 카메라 연결 끊김으로 현재 제품 검사가 취소되었습니다. 1단부터 다시 시작하십시오.
+RunCameraLostStatus,CAMERA CONNECTION LOST,MẤT KẾT NỐI CAMERA,카메라 연결 끊김
+CameraReconnectedStatus,RECONNECTED · ACQUIRING,ĐÃ KẾT NỐI LẠI · ĐANG ACQUISITION,재연결됨 · 영상 수집 중
+CameraReconnectedMessage,ACQUISITION · Camera reconnected.,ACQUISITION · Đã kết nối lại camera.,영상 수집 · 카메라가 다시 연결되었습니다.
+AcquisitionError,ACQUISITION ERROR,LỖI ACQUISITION,영상 수집 오류
+AcquisitionStopped,ACQUISITION STOPPED,ĐÃ DỪNG ACQUISITION,영상 수집 중지됨
+AcquisitionStoppedFormat,ACQUISITION STOPPED · {0},ĐÃ DỪNG ACQUISITION · {0},영상 수집 중지됨 · {0}
+AcquisitionStoppedMessage,ACQUISITION · Streaming stopped. Camera remains connected.,ACQUISITION · Đã dừng nhận ảnh. Camera vẫn đang kết nối.,영상 수집 · 스트리밍을 중지했습니다. 카메라 연결은 유지됩니다.
+CameraDisconnectedReady,CAMERA DISCONNECTED · READY TO RECONNECT,ĐÃ NGẮT CAMERA · SẴN SÀNG KẾT NỐI LẠI,카메라 연결 해제됨 · 재연결 준비 완료
+CameraDisconnected,CAMERA DISCONNECTED,ĐÃ NGẮT CAMERA,카메라 연결 해제됨
+CameraDisconnectedMessage,ACQUISITION · Camera disconnected.,ACQUISITION · Đã ngắt kết nối camera.,영상 수집 · 카메라 연결을 해제했습니다.
+ReferenceRequiredFormat,End {0}: reference image and ROI are required.,Đầu {0}: cần ảnh mẫu và ROI.,{0}단: 기준 이미지와 ROI가 필요합니다.
+DifferenceFormat,OCR {0}: differs at character {1},OCR {0}: khác tại ký tự {1},OCR {0}: {1}번째 문자 불일치
+ExactMatch,Exact text and orientation match,Khớp chính xác text và chiều,텍스트와 방향이 정확히 일치
+NoTextDetected,No text detected,Không detect được text,텍스트가 검출되지 않음
+TextMismatch,Text or region count does not match,Text hoặc số vùng không khớp,텍스트 또는 영역 수 불일치
+InvalidRotationFormat,Detected rotation must be 0° or 180°; actual {0}°,Góc detect phải là 0° hoặc 180°; thực tế {0}°,검출 각도는 0° 또는 180°여야 함; 실제 {0}°
+OrientationMismatchFormat,Text orientation does not match: expected {0}° · actual {1}°,Chiều text không khớp: yêu cầu {0}° · thực tế {1}°,텍스트 방향 불일치: 기준 {0}° · 실제 {1}°
+TextAndOrientationMismatchFormat,Text/region count and orientation do not match; {0},Text/số vùng và chiều đều không khớp; {0},텍스트/영역 수와 방향이 모두 불일치; {0}
+SettingsLoadFailedFormat,Unable to read settings.json: {0},Không đọc được settings.json: {0},settings.json을 읽을 수 없음: {0}
+PlcConnectionSaved,Machine PLC physical connection saved.,Đã lưu cấu hình kết nối vật lý PLC của máy.,장비 PLC 물리 연결 구성을 저장했습니다.
+PlcConnectingFormat,CONNECTING PLC · {0}...,ĐANG KẾT NỐI PLC · {0}...,PLC 연결 중 · {0}...
+PlcConnectedRead,PLC connected and read command confirmed.,PLC đã kết nối và phản hồi lệnh đọc.,PLC 연결 및 읽기 명령 응답을 확인했습니다.
+PlcConnectionErrorFormat,PLC CONNECTION ERROR · {0},LỖI KẾT NỐI PLC · {0},PLC 연결 오류 · {0}
+PlcConnectedDetailFormat,PLC CONNECTED · {0} · {1} = {2},ĐÃ KẾT NỐI PLC · {0} · {1} = {2},PLC 연결됨 · {0} · {1} = {2}
+PlcConnectedSettingsFormat,PLC CONNECTED · {0},ĐÃ KẾT NỐI PLC · {0},PLC 연결됨 · {0}
+PlcDisconnectedStatus,PLC DISCONNECTED,PLC ĐÃ NGẮT KẾT NỐI,PLC 연결 해제됨
+PlcDisconnectedMessage,PLC disconnected.,Đã ngắt kết nối PLC.,PLC 연결을 해제했습니다.
+PlcDisconnectErrorFormat,PLC DISCONNECT ERROR · {0},LỖI NGẮT PLC · {0},PLC 연결 해제 오류 · {0}
+DiscardAndDeselect,Discard unsaved changes and deselect the model?,Bỏ thay đổi chưa lưu và bỏ chọn model?,저장되지 않은 변경을 버리고 모델 선택을 해제하시겠습니까?
+DiscardAndOpen,Discard unsaved changes and open the selected model?,Bỏ thay đổi chưa lưu và mở model đã chọn?,저장되지 않은 변경을 버리고 선택한 모델을 여시겠습니까?
+KeepUnsaved,Unsaved changes kept. Save Recipe or select the model again.,Giữ lại thay đổi chưa lưu. Save Recipe hoặc chọn lại model khác.,저장되지 않은 변경을 유지했습니다. 레시피를 저장하거나 모델을 다시 선택하십시오.
+RecipeLoadedFormat,Loaded {0} · v{1}.,Đã nạp {0} · v{1}.,{0} · v{1} 불러옴.
+StopAcquisitionToApply, Stop Acquisition and press Apply to use this model's camera parameters., Dừng acquisition rồi Apply để áp thông số camera của model., 영상 수집을 중지한 후 적용을 눌러 이 모델의 카메라 파라미터를 사용하십시오.
+CameraSettingsAppliedSuffix, Camera parameters applied., Đã áp thông số camera của model., 카메라 파라미터를 적용했습니다.
+CameraSettingsApplyFailedFormat, Unable to apply camera parameters: {0}, Không áp được thông số camera: {0}, 카메라 파라미터를 적용할 수 없음: {0}
+RecipeLoadErrorsFormat,Some recipes could not be loaded: {0},Không nạp được một số recipe: {0},일부 레시피를 불러올 수 없음: {0}
+ModelCodeRequired,Enter the model code.,Nhập mã model.,모델 코드를 입력하십시오.
+ModelNameRequired,Enter the model name.,Nhập tên model.,모델 이름을 입력하십시오.
+ModelCodeTooLong,Model code is limited to 64 characters.,Mã model tối đa 64 ký tự.,모델 코드는 최대 64자입니다.
+ModelNameTooLong,Model name is limited to 128 characters.,Tên model tối đa 128 ký tự.,모델 이름은 최대 128자입니다.
+DuplicateModelCodeFormat,Model code {0} already exists.,Mã model {0} đã tồn tại.,모델 코드 {0}이(가) 이미 존재합니다.
+DiscardForNewModel,Discard unsaved changes and create a new model?,Bỏ thay đổi chưa lưu và tạo model mới?,저장되지 않은 변경을 버리고 새 모델을 만드시겠습니까?
+NewModelFormat,New model {0} · two images; ROI; sample text; Apply and Save Recipe are required.,Model mới {0} · cần hai ảnh; ROI; text mẫu; Apply và Save Recipe.,새 모델 {0} · 이미지 두 장; ROI; 샘플 텍스트; 적용 및 레시피 저장이 필요합니다.
+EditingModelFormat,Editing {0} · Apply recipe changes and then Save Recipe.,Đang sửa {0} · Apply nếu đổi Recipe; sau đó Save Recipe.,{0} 편집 중 · 레시피 변경을 적용한 후 레시피를 저장하십시오.
+ApplyBothEndsBeforeSave,Apply both ends before Save Recipe.,Apply cả hai đầu trước khi Save Recipe.,레시피를 저장하기 전에 양쪽 끝을 적용하십시오.
+RecipeSavedFormat,Saved {0} · v{1}.,Đã lưu {0} · v{1}.,{0} · v{1} 저장됨.
+DeleteModelConfirmFormat,Delete model {0}? Reference images are retained for recovery.,Xóa model {0}? Ảnh mẫu vẫn được giữ để phục hồi.,모델 {0}을(를) 삭제하시겠습니까? 복구용 기준 이미지는 유지됩니다.
+LiveFrameStale,The live frame is stale. Wait for a new frame and press Grab Image or use Load Image.,Frame live đã quá cũ. Chờ frame mới rồi Grab Image hoặc dùng Load Image.,라이브 프레임이 오래되었습니다. 새 프레임을 기다린 후 이미지 캡처를 누르거나 이미지 불러오기를 사용하십시오.
+LiveFrameMissing,No live image. Connect the camera and Start Acquisition before Grab Image.,Chưa có ảnh live. Kết nối camera và Start Acquisition trước khi Grab Image.,라이브 이미지가 없습니다. 이미지 캡처 전에 카메라를 연결하고 영상 수집을 시작하십시오.
+GrabbedFrameFormat,End {0} · grabbed live image {1} × {2} from {3}.,Đầu {0} · đã lấy ảnh live {1} × {2} từ {3}.,{0}단 · {3}에서 라이브 이미지 {1} × {2} 캡처됨.
+SettingEntered,SETTING · RUN acquisition stopped and PLC disconnected. Camera remains connected for setup.,SETTING · Acquisition RUN đã dừng và PLC đã ngắt. Camera vẫn kết nối để setup.,설정 · RUN 영상 수집 중지 및 PLC 연결 해제됨. 설정을 위해 카메라 연결은 유지됩니다.
+SettingExitErrorFormat,SETTING · Left RUN but device shutdown failed: {0},SETTING · Đã rời RUN nhưng có lỗi khi dừng thiết bị: {0},설정 · RUN을 종료했지만 장치 중지 오류 발생: {0}
+SaveBeforeRun,Save the recipe before RUN.,Cần lưu recipe trước khi RUN.,RUN 전에 레시피를 저장하십시오.
+RunStartFailedFormat,RUN could not start · {0},RUN không bắt đầu được · {0},RUN 시작 실패 · {0}
+RunStartedFormat,RUN started · {0}.,RUN đã bắt đầu · {0}.,RUN 시작됨 · {0}.
+RunStoppedMessage,RUN stopped. Camera remains connected; PLC disconnected.,RUN đã dừng. Camera vẫn kết nối; PLC đã ngắt kết nối.,RUN 중지됨. 카메라 연결 유지; PLC 연결 해제됨.
+RunStopErrorFormat,Error stopping RUN: {0},Lỗi khi dừng RUN: {0},RUN 중지 오류: {0}
+RunCameraNotFound,No camera found for RUN.,Không tìm thấy camera để RUN.,RUN용 카메라를 찾을 수 없습니다.
+PreviousResultFormat,PREVIOUS RESULT · {0} · {1},KẾT QUẢ TRƯỚC · {0} · {1},이전 결과 · {0} · {1}
+ProcessingEndFormat,PROCESSING OCR END {0},ĐANG OCR ĐẦU {0},{0}단 OCR 처리 중
+End1Complete,End 1 complete. Waiting for end 2 of the same product.,Đã kiểm tra đầu 1. Chờ đầu 2 cùng sản phẩm.,1단 검사 완료. 같은 제품의 2단을 기다리는 중입니다.
+CycleReadyFormat,{0} saved and reported. New cycle ready; the completed result remains available for review.,Đã lưu và phản hồi {0}. Chu kỳ mới đã sẵn sàng; kết quả vừa kiểm vẫn được giữ để xem lại.,{0} 저장 및 전송 완료. 새 주기 준비됨; 완료 결과는 검토용으로 유지됩니다.
+RetakeEnd1,RUN · End 1 discarded. Capture end 1 again.,RUN · Đã bỏ ảnh đầu 1. Chụp lại đầu 1.,RUN · 1단 이미지를 버렸습니다. 1단을 다시 캡처하십시오.
+RunNotStarted,RUN has not started.,RUN chưa bắt đầu.,RUN이 시작되지 않았습니다.
+SimulationNotAllowed,Synthetic camera images are not allowed for production RUN.,Không dùng ảnh camera giả lập cho RUN sản xuất.,운영 RUN에는 시뮬레이션 카메라 이미지를 사용할 수 없습니다.
+PlcWriteErrorFormat,PLC write error: {0},Ghi PLC lỗi: {0},PLC 쓰기 오류: {0}
+ConnectPlcBeforeRun,Connect PLC in PLC CONNECTION before RUN.,Kết nối PLC trong phần PLC CONNECTION trước khi RUN.,RUN 전에 PLC CONNECTION에서 PLC를 연결하십시오.
+PlcConfigChanged,PLC configuration changed. Disconnect and reconnect before RUN.,Cấu hình PLC đã thay đổi. Ngắt kết nối rồi kết nối lại trước khi RUN.,PLC 구성이 변경되었습니다. RUN 전에 연결을 해제한 후 다시 연결하십시오.
+HardwareTriggerNeedsCamera,Hardware trigger requires a connected camera.,Trigger phần cứng cần camera đang kết nối.,하드웨어 트리거에는 연결된 카메라가 필요합니다.
+PlcConnectionLost,PLC CONNECTION LOST · Disconnect and check cable/configuration before reconnecting.,MẤT KẾT NỐI PLC · Disconnect và kiểm tra cáp/cấu hình trước khi kết nối lại.,PLC 연결 끊김 · 다시 연결하기 전에 연결을 해제하고 케이블/구성을 확인하십시오.
+NoNewCameraFrame,No new camera frame is available for this end.,Chưa có camera frame mới cho đầu này.,이 끝에 사용할 새 카메라 프레임이 없습니다.
+PlcTriggeredFrameTimeout,Camera did not return a frame after the PLC trigger.,Camera không trả frame sau khi PLC kích trigger.,PLC 트리거 후 카메라 프레임이 수신되지 않았습니다.
+ManualAction,manual action,thao tác tay,수동 조작
+PlcOutputError,PLC OUTPUT ERROR,LỖI OUTPUT PLC,PLC 출력 오류
+PlcOutputStoppedFormat,Result saved but RUN stopped to prevent continuation after a PLC OUTPUT error. {0},Kết quả đã lưu nhưng RUN đã dừng để tránh chạy tiếp khi OUTPUT PLC lỗi. {0},결과는 저장되었으나 PLC 출력 오류 후 계속 실행되지 않도록 RUN을 중지했습니다. {0}
+CameraReconnectInfoMissing,Camera information is no longer available for reconnect.,Không còn thông tin camera để kết nối lại.,재연결할 카메라 정보가 없습니다.
+CameraLostDuringCycle,Camera connection lost during the inspection cycle.,Mất kết nối camera giữa chu kỳ.,검사 주기 중 카메라 연결이 끊어졌습니다.
+InvalidDecimalFormat,{0} is invalid. Use a decimal point.,{0} không hợp lệ. Dùng dấu chấm thập phân.,{0} 값이 올바르지 않습니다. 소수점은 점을 사용하십시오.
+IntegerRequiredFormat,{0} must be an integer.,{0} phải là số nguyên.,{0}은(는) 정수여야 합니다.
+NoPreviousResult,NO PREVIOUS RESULT,CHƯA CÓ KẾT QUẢ TRƯỚC,이전 결과 없음
+NotSelected,NOT SELECTED,CHƯA CHỌN,선택 안 됨
+WaitingEnd1,WAITING END 1,CHỜ ĐẦU 1,1단 대기
+WaitingEnd2,WAITING END 2,CHỜ ĐẦU 2,2단 대기
+NotRunning,NOT RUNNING,CHƯA CHẠY,실행 안 됨
+Stopped,STOPPED,ĐÃ DỪNG,중지됨
+CameraConnected,CAMERA · CONNECTED,CAMERA · ĐÃ KẾT NỐI,카메라 · 연결됨
+CameraAcquiring,CAMERA · ACQUISITION,CAMERA · ACQUISITION,카메라 · 영상 수집 중
+CameraOffline,CAMERA · OFFLINE,CAMERA · OFFLINE,카메라 · 오프라인
+PlcConnected,PLC · CONNECTED,PLC · ĐÃ KẾT NỐI,PLC · 연결됨
+PlcOffline,PLC · OFFLINE,PLC · OFFLINE,PLC · 오프라인
+PlcUnused,PLC · NOT USED,PLC · KHÔNG DÙNG,PLC · 사용 안 함
+EndTitleFormat,END {0},ĐẦU {0},{0}단
+DirectionUpright,Upright · required 0°,Thuận · bắt buộc 0°,정방향 · 0° 필수
+DirectionInverted,Inverted · required 180°,Nghịch · bắt buộc 180°,역방향 · 180° 필수
+DirectionAuto,Do not check direction · Auto,Không kiểm tra chiều · Auto,방향 검사 안 함 · 자동
+NoRoi,No ROI,Chưa có ROI,ROI 없음
+RoiSummaryFormat,{0} · {1} × {2} px,{0} · {1} × {2} px,{0} · {1} × {2} px
+LoadReferenceFirst,Load a reference image to begin.,Load ảnh mẫu để bắt đầu.,시작하려면 기준 이미지를 불러오십시오.
+ChangesNeedApply,Changes detected · Apply required.,Có thay đổi · cần Apply.,변경됨 · 적용 필요
+DrawSearchRoi,Draw one large ROI around all text regions.,Vẽ một ROI lớn bao quanh tất cả vùng text.,모든 텍스트 영역을 포함하는 큰 ROI 하나를 그리십시오.
+SavedRecipeLoaded,Saved recipe loaded.,Recipe đã lưu.,저장된 레시피를 불러왔습니다.
+AppliedNeedSave,Applied · Save Recipe to store both ends.,Đã Apply · Save Recipe để lưu cả hai đầu.,적용됨 · 양쪽 끝을 저장하려면 레시피를 저장하십시오.
+DetectedRegionsFormat,Detected {0} regions · actual direction {1}° · sample text unchanged.,Detect {0} vùng · chiều thực tế {1}° · text mẫu không bị thay đổi.,{0}개 영역 검출 · 실제 방향 {1}° · 샘플 텍스트 변경 없음
+WaitingImage,WAITING IMAGE,CHỜ ẢNH,이미지 대기
+ProcessingOcr,PROCESSING OCR,ĐANG OCR,OCR 처리 중
+ImageEndFormat,END {0} IMAGE,ẢNH ĐẦU {0},{0}단 이미지
+CloseDiscardChanges,Exit and discard unsaved changes?,Thoát và bỏ thay đổi chưa lưu?,저장되지 않은 변경을 버리고 종료하시겠습니까?
+SingleInstanceOnly,Wire Marker Inspection is already running. Only one session is allowed per user.,Wire Marker Inspection đang chạy. Chỉ mở một phiên cho mỗi người dùng.,Wire Marker Inspection이 이미 실행 중입니다. 사용자당 하나의 세션만 실행할 수 있습니다.
+LiveCameraExpandedTitle,LIVE CAMERA,ẢNH CAMERA LIVE,라이브 카메라
+RecipeImageEditorTitle,RECIPE IMAGE EDITOR,CHỈNH ẢNH RECIPE,레시피 이미지 편집기

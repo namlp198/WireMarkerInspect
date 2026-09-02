@@ -14,7 +14,7 @@ public sealed class ModelWorkflowTests:IDisposable
     [Fact]
     public void AddSaveReloadEditAndDeleteUseOnePersistentIdentity()=>DispatcherTestHost.Sta(()=>
     {
-        var vm=new MainViewModel(root){Confirm=_=>true};
+        var vm=new MainViewModel(root){Confirm=_=>true}.AsAdmin();
         try
         {
             Assert.False(vm.CanConfigureModel);
@@ -63,7 +63,7 @@ public sealed class ModelWorkflowTests:IDisposable
     [Fact]
     public void SelectingLibraryRowLoadsRecipeAndClearingSelectionLocksSetup()=>DispatcherTestHost.Sta(()=>
     {
-        var author=new MainViewModel(root){Confirm=_=>true};
+        var author=new MainViewModel(root){Confirm=_=>true}.AsAdmin();
         try
         {
             author.NewModelCommand.Execute(new ModelIdentity("M-LOAD","Load on selection"));
@@ -76,7 +76,7 @@ public sealed class ModelWorkflowTests:IDisposable
         }
         finally{author.ShutdownAsync().GetAwaiter().GetResult();}
 
-        var vm=new MainViewModel(root){Confirm=_=>true};
+        var vm=new MainViewModel(root){Confirm=_=>true}.AsAdmin();
         try
         {
             Assert.Null(vm.SelectedModel);
@@ -115,7 +115,7 @@ public sealed class ModelWorkflowTests:IDisposable
         SaveOneModel();
         var questions=0;
         RecipeRow? selectedWhenAsked=null;
-        var vm=new MainViewModel(root);
+        var vm=new MainViewModel(root).AsAdmin();
         vm.Confirm=_=>{questions++;selectedWhenAsked=vm.SelectedModel;return false;};
         try
         {
@@ -150,7 +150,7 @@ public sealed class ModelWorkflowTests:IDisposable
     public void AcceptingTheDiscardLoadsTheSelectedModelWithoutWaitingForTheDispatcher()=>DispatcherTestHost.Sta(()=>
     {
         SaveOneModel();
-        var vm=new MainViewModel(root){Confirm=_=>true};
+        var vm=new MainViewModel(root){Confirm=_=>true}.AsAdmin();
         try
         {
             var row=Assert.Single(vm.Models);
@@ -170,7 +170,7 @@ public sealed class ModelWorkflowTests:IDisposable
     [Fact]
     public void IdentityValidationRejectsEmptyAndDuplicateCodes()=>DispatcherTestHost.Sta(()=>
     {
-        var vm=new MainViewModel(root){Confirm=_=>true};
+        var vm=new MainViewModel(root){Confirm=_=>true}.AsAdmin();
         try
         {
             Assert.NotNull(vm.ValidateModelIdentity(new("","Name")));
@@ -185,7 +185,7 @@ public sealed class ModelWorkflowTests:IDisposable
 
     private void SaveOneModel()
     {
-        var author=new MainViewModel(root){Confirm=_=>true};
+        var author=new MainViewModel(root){Confirm=_=>true}.AsAdmin();
         try
         {
             author.NewModelCommand.Execute(new ModelIdentity("M-SAVED","Saved model"));

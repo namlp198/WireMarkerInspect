@@ -21,6 +21,7 @@ public sealed class RunLifecycleTests:IDisposable
         var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,plcFactory:_=>plc){Confirm=_=>true};
         try
         {
+            Assert.False(vm.IsAdmin);Assert.True(vm.CanSelectModel);
             vm.SelectedModel=Assert.Single(vm.Models);
             Assert.False(vm.CameraConnected);Assert.False(plc.IsConnected);
 

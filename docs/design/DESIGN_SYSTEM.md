@@ -92,7 +92,9 @@ Taskbar SETTING/RUN dùng chevron kim loại 208×64 DIP, icon 18 và nhãn ng�
 
 Không xác định hình dạng bằng thứ tự visual tree hoặc converter. XAML phải khai báo `TailMode="Straight"` rõ ràng cho nút đầu để control vẫn tái sử dụng được khi thêm mode.
 
-SETTING: camera settings và Live Camera ở cột trái; model actions ở trên hai editor trung tâm; model library ở phải. Hai cột bên rộng 400 DIP, chủ động thu phần giữa. Hàng chọn model chỉ gồm combobox + Add/Edit/Delete; code/name được sửa trong dialog, Save Recipe là icon ở Model Library. Chuyển Live Camera sang cột acquisition để dành chiều cao cho hai canvas và rail HUD.
+SETTING: camera settings và Live Camera ở cột trái; model actions ở trên hai editor trung tâm; model library ở phải. Hai cột bên rộng 400 DIP, chủ động thu phần giữa. Badge vai trò và Login/Logout nằm trong card USER ACCESS riêng phía trên ACQUISITION; ACQUISITION không chứa thêm bộ chọn model. Operator chỉ được dùng ComboBox chọn model trong callout trung tâm; Add/Edit/Delete, cả hai editor, Save Recipe và Model Library bên phải đều disabled. Chỉ các vùng camera parameters và PLC/trigger/output dành cho Admin ở panel trái bị hidden. Hàng chọn model là callout viền nổi bật, luôn cho thấy code/name/revision hoặc cảnh báo chưa chọn, sau đó là combobox + Add/Edit/Delete; code/name được sửa trong dialog, Save Recipe là icon ở Model Library. RUN có callout riêng cho recipe đã freeze. Chuyển Live Camera sang cột acquisition để dành chiều cao cho hai canvas và rail HUD.
+
+Header chỉ hiển thị tên sản phẩm, bộ chọn ngôn ngữ và trạng thái camera. `OFFLINE` dùng status-error, `ONLINE` dùng status-success; không hiển thị chi tiết công nghệ triển khai. Toàn bộ text hướng dẫn/thao tác phải đi qua catalog Việt/Anh/Hàn, ngoại trừ tên giao thức, hãng và đơn vị kỹ thuật.
 
 RUN: hai canvas read-only ngang nhau; caption/verdict/toolbar nổi trên ảnh; crop OCR và text mẫu/đọc được bên dưới. Không dùng màu xanh cho trạng thái chưa kiểm tra.
 

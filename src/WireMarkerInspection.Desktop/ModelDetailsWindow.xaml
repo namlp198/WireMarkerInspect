@@ -1,18 +1,19 @@
 <Window x:Class="WireMarkerInspection.Desktop.ModelDetailsWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:loc="clr-namespace:WireMarkerInspection.Controls.Localization;assembly=WireMarkerInspection.Controls"
  Title="Model" Width="430" Height="340" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
  Background="{StaticResource Brush.Background.App}" Foreground="{StaticResource Brush.Text.Primary}" FontFamily="{StaticResource Font.Primary}">
  <Border Style="{StaticResource Panel}" Margin="12">
   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-   <TextBlock Text="MODEL" Style="{StaticResource SectionLabel}"/>
-   <TextBlock Grid.Row="1" Text="Mã model" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,4,0,4"/>
-   <TextBox Grid.Row="2" Text="{Binding Code,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="Mã model duy nhất" AutomationProperties.Name="Mã model" Margin="0,0,0,10"/>
-   <TextBlock Grid.Row="3" Text="Tên model" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,4"/>
-   <TextBox Grid.Row="4" Text="{Binding Name,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="Tên model" AutomationProperties.Name="Tên model"/>
+   <TextBlock Text="{loc:Text Model}" Style="{StaticResource SectionLabel}"/>
+   <TextBlock Grid.Row="1" Text="{loc:Text ModelCode}" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,4,0,4"/>
+   <TextBox Grid.Row="2" Text="{Binding Code,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="{loc:Text UniqueModelCode}" AutomationProperties.Name="{loc:Text ModelCode}" Margin="0,0,0,10"/>
+   <TextBlock Grid.Row="3" Text="{loc:Text ModelName}" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,4"/>
+   <TextBox Grid.Row="4" Text="{Binding Name,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="{loc:Text ModelName}" AutomationProperties.Name="{loc:Text ModelName}"/>
    <TextBlock Grid.Row="5" Text="{Binding Error}" Foreground="{StaticResource Brush.Status.Error}" TextWrapping="Wrap" MinHeight="18" Margin="0,8,0,0"/>
    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-    <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Close}" ToolTip="Hủy" AutomationProperties.Name="Hủy" IsCancel="True" Margin="0,0,6,0"/>
-    <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Check}" ToolTip="Xác nhận" AutomationProperties.Name="Xác nhận" IsDefault="True" Click="Done"/>
+    <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Close}" ToolTip="{loc:Text Cancel}" AutomationProperties.Name="{loc:Text Cancel}" IsCancel="True" Margin="0,0,6,0"/>
+    <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Check}" ToolTip="{loc:Text Confirm}" AutomationProperties.Name="{loc:Text Confirm}" IsDefault="True" Click="Done"/>
    </StackPanel>
   </Grid>
  </Border>
