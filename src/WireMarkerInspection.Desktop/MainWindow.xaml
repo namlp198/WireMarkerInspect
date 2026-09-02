@@ -115,7 +115,7 @@
        <Button x:Name="ConnectCameraButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Connect}" ToolTip="{loc:Text ConnectCamera}" AutomationProperties.Name="{loc:Text ConnectCamera}" Command="{Binding ConnectCommand}" IsEnabled="{Binding CanConnectCamera}"/>
        <Button x:Name="DisconnectCameraButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Disconnect}" ToolTip="{loc:Text DisconnectCamera}" AutomationProperties.Name="{loc:Text DisconnectCamera}" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnectCamera}"/>
       </StackPanel></Border>
-      <TextBlock Text="HIKROBOT MVS" Style="{StaticResource SectionLabel}"/>
+      <TextBlock x:Name="CameraSectionLabel" Text="{loc:Text Camera}" Style="{StaticResource SectionLabel}"/>
       <ComboBox x:Name="CameraSelector" ItemsSource="{Binding Cameras}" SelectedItem="{Binding SelectedCamera}" DisplayMemberPath="Name" IsEnabled="{Binding CanSelectCamera}" Style="{StaticResource Input.Combo}" Margin="0,0,0,8"/>
       <Border x:Name="FindingIndicator" Background="{StaticResource Brush.Background.Selected}" BorderBrush="{StaticResource Brush.Status.Warning}" BorderThickness="1" CornerRadius="{StaticResource Radius.SM}" Padding="8,6" Margin="0,4,0,8" Visibility="{Binding FindingCamera,Converter={StaticResource BoolToVisibility}}">
        <StackPanel><TextBlock Text="{loc:Text FindingCamera}" Foreground="{StaticResource Brush.Status.Warning}" FontWeight="Bold"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,6,0,0" Foreground="{StaticResource Brush.Status.Warning}"/></StackPanel>
@@ -357,8 +357,8 @@
    <Border Style="{StaticResource Panel}" Margin="0,0,0,12">
     <DockPanel>
      <Border DockPanel.Dock="Right" Style="{StaticResource Hud.Container}" Padding="4"><StackPanel Orientation="Horizontal">
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="{loc:Text LoadOfflineImage}" AutomationProperties.Name="{loc:Text LoadOfflineImage}" Command="{Binding LoadRuntimeCommand}" IsEnabled="{Binding CanCapture}"/>
-      <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{Binding CaptureLabel}" AutomationProperties.Name="Capture runtime image" Command="{Binding ManualTriggerCommand}" IsEnabled="{Binding CanCapture}"/>
+      <Button x:Name="LoadRuntimeImageButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.OpenImage}" ToolTip="{loc:Text LoadOfflineImage}" AutomationProperties.Name="{loc:Text LoadOfflineImage}" Command="{Binding LoadRuntimeCommand}" IsEnabled="{Binding CanLoadRuntime}"/>
+      <Button x:Name="CaptureRuntimeImageButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Camera}" ToolTip="{Binding CaptureLabel}" AutomationProperties.Name="Capture runtime image" Command="{Binding ManualTriggerCommand}" IsEnabled="{Binding CanCaptureFromCamera}"/>
       <Button x:Name="RetakeEndButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Sync}" ToolTip="{loc:Text RetakeEnd}" AutomationProperties.Name="{loc:Text RetakeEnd}" Command="{Binding RetakeEndCommand}"/>
       <Button Style="{StaticResource Button.Secondary}" Content="{loc:Text PreviousResult}" ToolTip="{loc:Text PreviousResultHint}" Command="{Binding TogglePreviousResultsCommand}" IsEnabled="{Binding HasPreviousResult}" Padding="8,4"/>
       <Button x:Name="StopRuntimeButton" Style="{StaticResource ToolRail.DangerButton}" Tag="{StaticResource Icon.Stop}" ToolTip="{loc:Text StopRuntime}" AutomationProperties.Name="{loc:Text StopRuntime}" Command="{Binding StopRunCommand}" IsEnabled="{Binding Running}"/>

@@ -1,5 +1,13 @@
 # Active task — Wire Marker Inspection foundation
 
+## Generic camera source and offline Simulator — completed 2026-09-02
+- [x] Rename the HIKROBOT MVS selector heading to localized CAMERA without replacing the proven physical Hikrobot backend.
+- [x] Add Simulator as the default source and preserve it while physical discovery succeeds, times out or fails.
+- [x] Run the exact saved Recipe/two-end inspection path from offline image files without camera acquisition, PLC trigger or PLC output.
+- [x] Keep Operator limited to saved-model selection, RUN and offline image loading; retain Admin-only configuration guards.
+- [x] Separate RUN controls so offline Load Image is enabled only for Simulator and physical capture is enabled only for a physical source.
+- [x] Verify Release build, managed 90/90, native 1/1 and WPF smoke at `artifacts/smoke-20260902-212906`.
+
 ## Localization, access roles and operator model visibility — completed 2026-09-02
 - [x] Remove the implementation-stack header caption and bind red OFFLINE / green ONLINE to camera connection state.
 - [x] Add live Vietnamese, English and Korean localization with persisted preference and catalog fallback.

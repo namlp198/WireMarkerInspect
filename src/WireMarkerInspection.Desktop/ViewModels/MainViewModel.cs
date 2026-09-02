@@ -31,7 +31,7 @@ public sealed record ModelIdentity(string Code,string Name);
 public sealed record PlcTransportOption(PlcTransport Value,string Label);
 public sealed record PlcSerialProtocolOption(PlcSerialProtocol Value,string Label);
 public sealed record PlcStopBitsOption(PlcSerialStopBits Value,string Label);
-public enum CameraUiState { Idle, Finding, NotFound, Found, Connected, Acquiring, Reconnecting, Error }
+public enum CameraUiState { Idle, Simulator, Finding, NotFound, Found, Connected, Acquiring, Reconnecting, Error }
 public enum PlcConnectionState { Disconnected, Connecting, Connected, Error }
 public partial class MainViewModel : ObservableObject
 {
@@ -55,6 +55,7 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<RecipeRow> Models{get;}=[];
     public ICollectionView ModelsView{get;}
     public ObservableCollection<CameraDevice> Cameras{get;}=[];
+    public static CameraDevice SimulatorCamera{get;}=new("simulator","Simulator","offline-files",true);
     private Recipe? saved;
     private Guid draftId=Guid.NewGuid();
     private bool loading;
@@ -86,6 +87,8 @@ public partial class MainViewModel : ObservableObject
     private CameraInspectionIo? runtimeIo;
     private readonly TimeSpan cameraSearchTimeout;
     private Task<IReadOnlyList<CameraDevice>>? cameraDiscoveryTask;
+    private readonly bool simulatorEnabled;
+    private bool runUsesSimulator;
     public IAuthenticationService Authentication{get;}
     [ObservableProperty]private RecipeRow? selectedModel;
     [ObservableProperty]private CameraDevice? selectedCamera;
@@ -177,10 +180,12 @@ public partial class MainViewModel : ObservableObject
     public bool CanManageSelectedModel=>IsAdmin&&CanEdit&&SelectedModel!=null;
     public bool CanSearchCamera=>CanOperateAcquisition&&!FindingCamera&&!CameraConnected&&!Acquiring;
     public bool CanSelectCamera=>CanOperateAcquisition&&!FindingCamera&&!CameraConnected&&Cameras.Count>0;
-    public bool CanConnectCamera=>CanSelectCamera&&SelectedCamera!=null;
+    public bool IsSimulatorSelected=>SelectedCamera?.IsSimulation==true;
+    public bool IsSimulatorRun=>runUsesSimulator&&Running;
+    public bool CanConnectCamera=>CanSelectCamera&&SelectedCamera is {IsSimulation:false};
     public bool CanDisconnectCamera=>CanOperateAcquisition&&CameraConnected&&!Acquiring;
-    public bool CanToggleAcquisition=>CanOperateAcquisition&&CameraConnected;
-    public bool CanEditCameraParameters=>IsAdmin&&CanEdit&&CameraConnected&&!Acquiring;
+    public bool CanToggleAcquisition=>CanOperateAcquisition&&CameraConnected&&!IsSimulatorSelected;
+    public bool CanEditCameraParameters=>IsAdmin&&CanEdit&&CameraConnected&&!Acquiring&&!IsSimulatorSelected;
     public bool HasLiveFrame=>Acquiring&&latest!=null&&DateTimeOffset.UtcNow-latest.CapturedAt<=LiveFrameMaxAge;
     public string ExposureRange=>Range("ExposureTime");
     public string GainRange=>Range("Gain");
@@ -200,6 +205,8 @@ public partial class MainViewModel : ObservableObject
     public bool CanGrabReference=>CanConfigureModel&&HasLiveFrame;
     public string AcquisitionActionLabel=>AppLocalizer.Text(Acquiring?"StopAcquisition":"StartAcquisition");
     public bool CanCapture=>Running&&!Busy&&Session.State is InspectionState.WaitingEnd1 or InspectionState.WaitingEnd2;
+    public bool CanLoadRuntime=>CanCapture&&IsSimulatorRun;
+    public bool CanCaptureFromCamera=>CanCapture&&!IsSimulatorRun;
     public string CaptureLabel=>AppLocalizer.Format("CaptureEndFormat",Session.NextEnd+1);
     public string ModelCount=>AppLocalizer.Format("ModelCountFormat",Models.Count);
     public LocalizedOption<TriggerKind>[] TriggerKindOptions{get;}=
@@ -250,10 +257,10 @@ public partial class MainViewModel : ObservableObject
     ];
     public EndResultViewModel DisplayResult1=>ShowPreviousResults?PreviousResult1:Result1;
     public EndResultViewModel DisplayResult2=>ShowPreviousResults?PreviousResult2:Result2;
-    public string RunCameraStatus=>AppLocalizer.Text(CameraConnected
+    public string RunCameraStatus=>runUsesSimulator?AppLocalizer.Text("SimulatorRunCamera"):AppLocalizer.Text(CameraConnected
         ?Acquiring?"CameraAcquiring":"CameraConnected"
         :"CameraOffline");
-    public string RunPlcStatus=>runtimeIo?.UsesPlc==true
+    public string RunPlcStatus=>runUsesSimulator?AppLocalizer.Text("SimulatorRunPlc"):runtimeIo?.UsesPlc==true
         ?AppLocalizer.Text(PlcConnected?"PlcConnected":"PlcOffline")
         :AppLocalizer.Text("PlcUnused");
     public bool CanEditTrigger=>IsAdmin&&CanEdit&&!Running;
@@ -322,8 +329,9 @@ public partial class MainViewModel : ObservableObject
         finally{Busy=false;RefreshState();}
     }
     public MainViewModel(string dataRoot,ICamera? camera=null,bool autoDiscoverCameraOnLoad=true,TimeSpan? cameraSearchTimeout=null,
-        Func<PlcSettings,IPlcLink>? plcFactory=null,IAuthenticationService? authentication=null)
+        Func<PlcSettings,IPlcLink>? plcFactory=null,IAuthenticationService? authentication=null,bool? enableSimulator=null)
     {
+        simulatorEnabled=enableSimulator??camera==null;
         Camera=camera??new HikrobotMvsCamera();Authentication=authentication??new LocalAuthenticationService();
         this.plcFactory=plcFactory??(settings=>new ModbusPlcLink(settings,PlcAddressMaps.For(settings.Vendor)));
         // The view model is created on the UI thread; the acquisition loop marshals frames back through this dispatcher.
@@ -339,6 +347,7 @@ public partial class MainViewModel : ObservableObject
         ModelsView.Filter=o=>o is RecipeRow r&&(r.Code.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase));
         End1.Changed+=(_,_)=>{if(!loading)Dirty=true;};End2.Changed+=(_,_)=>{if(!loading)Dirty=true;};
         AppLocalizer.LanguageChanged+=OnLanguageChanged;
+        if(simulatorEnabled){Cameras.Add(SimulatorCamera);SelectedCamera=SimulatorCamera;}
         Reload();RefreshOcr();LoadMachineSettings();ReloadPlcPorts();
     }
 
@@ -572,7 +581,24 @@ public partial class MainViewModel : ObservableObject
     partial void OnBusyChanged(bool value)=>RefreshState();
     partial void OnRunningChanged(bool value)=>RefreshState();
     partial void OnCurrentAccessLevelChanged(AccessLevel value)=>RefreshState();
-    partial void OnSelectedCameraChanged(CameraDevice? value)=>RefreshCameraState();
+    partial void OnSelectedCameraChanged(CameraDevice? value)
+    {
+        OnPropertyChanged(nameof(IsSimulatorSelected));
+        if(!CameraConnected&&!FindingCamera)
+        {
+            if(value?.IsSimulation==true)
+            {
+                CameraState=CameraUiState.Simulator;CameraStatus=AppLocalizer.Text("SimulatorReady");
+                CameraInfo=AppLocalizer.Text("SimulatorNoParameters");
+            }
+            else if(value!=null)
+            {
+                CameraState=CameraUiState.Found;CameraStatus=AppLocalizer.Text("CameraReadyToConnect");
+                CameraInfo=AppLocalizer.Text("CameraNotConnectedPeriod");
+            }
+        }
+        RefreshCameraState();
+    }
     partial void OnCameraConnectedChanged(bool value)=>RefreshCameraState();
     partial void OnCameraStateChanged(CameraUiState value)=>OnPropertyChanged(nameof(IsCameraOnline));
     partial void OnAcquiringChanged(bool value)=>RefreshCameraState();
@@ -605,12 +631,12 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(IsAdmin));OnPropertyChanged(nameof(CanOperateAcquisition));OnPropertyChanged(nameof(CanSelectModel));
         OnPropertyChanged(nameof(CanCreateModel));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
         OnPropertyChanged(nameof(AccessRoleLabel));OnPropertyChanged(nameof(AccessSummary));
-        OnPropertyChanged(nameof(CanCapture));
+        OnPropertyChanged(nameof(CanCapture));OnPropertyChanged(nameof(CanLoadRuntime));OnPropertyChanged(nameof(CanCaptureFromCamera));
         OnPropertyChanged(nameof(CanEditTrigger));OnPropertyChanged(nameof(CanEditRecipeIo));OnPropertyChanged(nameof(CanRetakeEnd));
         RefreshPlcState();
         RetakeEndCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CaptureLabel));OnPropertyChanged(nameof(CycleLabel));OnPropertyChanged(nameof(ActiveModel));
-        OnPropertyChanged(nameof(RunCameraStatus));OnPropertyChanged(nameof(RunPlcStatus));
+        OnPropertyChanged(nameof(IsSimulatorRun));OnPropertyChanged(nameof(RunCameraStatus));OnPropertyChanged(nameof(RunPlcStatus));
         RefreshCameraState();
     }
 
@@ -632,6 +658,7 @@ public partial class MainViewModel : ObservableObject
         CameraStatus=CameraState switch
         {
             CameraUiState.Finding=>AppLocalizer.Text("FindingCamera"),
+            CameraUiState.Simulator=>AppLocalizer.Text("SimulatorReady"),
             CameraUiState.NotFound=>AppLocalizer.Text("CameraNotFound"),
             CameraUiState.Found=>AppLocalizer.Format("CameraFoundFormat",Cameras.Count),
             CameraUiState.Connected=>AppLocalizer.Format("CameraConnectedDetailFormat",SelectedCamera?.Name??"—"),
@@ -640,7 +667,7 @@ public partial class MainViewModel : ObservableObject
             CameraUiState.Idle=>AppLocalizer.Text("CameraNotConnected"),
             _=>CameraStatus
         };
-        if(!CameraConnected)CameraInfo=AppLocalizer.Text("CameraNotConnectedPeriod");
+        if(!CameraConnected)CameraInfo=AppLocalizer.Text(IsSimulatorSelected?"SimulatorNoParameters":"CameraNotConnectedPeriod");
         if(PlcConnectionState==PlcConnectionState.Disconnected)PlcStatus=AppLocalizer.Text("PlcNotConfigured");
         if(TriggerKind==TriggerKind.Manual)TriggerStatus=AppLocalizer.Text("ManualTriggerStatus");
         if(Session.CycleId==Guid.Empty)LastTrigger=AppLocalizer.Text("NoTriggerYet");
@@ -648,6 +675,7 @@ public partial class MainViewModel : ObservableObject
         Message=CameraState switch
         {
             CameraUiState.Finding=>AppLocalizer.Text("AcquisitionFindingMessage"),
+            CameraUiState.Simulator=>AppLocalizer.Text("SimulatorReadyMessage"),
             CameraUiState.NotFound=>AppLocalizer.Text("AcquisitionNotFoundMessage"),
             CameraUiState.Found=>AppLocalizer.Text("AcquisitionFoundMessage"),
             CameraUiState.Connected=>AppLocalizer.Text("CameraConnectSuccess"),
@@ -892,27 +920,41 @@ public partial class MainViewModel : ObservableObject
             if(Ocr.AvailabilityError is{}error)throw new InvalidOperationException(error);
             runtimeRecipe=saved.Copy();
             var io=runtimeRecipe.Io??LegacyRecipeIo();runtimeIo=io;
-            if(io.Validate() is{}ioError)throw new InvalidOperationException(ioError);
-            await EnsureRunCameraAsync(runtimeRecipe);
-            if(!Acquiring)await StartAcquisitionAsync();
-            if(io.UsesPlc)
+            runUsesSimulator=IsSimulatorSelected;
+            if(runUsesSimulator)
             {
-                var plc=BuildPlcSettings() with
-                {
-                    Enabled=true,PollMs=io.TriggerProfile.PollMs,
-                    TriggerAddress=io.TriggerProfile.SharedAddress,End1Address=io.TriggerProfile.End1Address,
-                    End2Address=io.TriggerProfile.End2Address,Outputs=new PlcOutputs()
-                };
-                var probe=io.TriggerProfile.Kind==RecipeTriggerKind.Plc
-                    ?io.TriggerProfile.Mapping==RecipeTriggerMapping.Shared?io.TriggerProfile.SharedAddress:io.TriggerProfile.End1Address
-                    :"X0";
-                await ConnectPlcCoreAsync(plc,probe);
-                plcVerdictWriter=new(plcLink!,PlcAddressMaps.For(plc.Vendor),io.VerdictOutputs,Log);
-                if(plcVerdictWriter.Validate() is{}outputError)throw new InvalidOperationException(outputError);
-                await plcVerdictWriter.ClearBitsAsync(CancellationToken.None);
+                if(Acquiring)await StopAcquisitionAsync();
+                if(PlcConnected)await DisconnectPlcCoreAsync();
+                await DisarmTriggerAsync();
+                router=new(new TriggerSettings(TriggerKind.Manual,TriggerMapping.Shared));
+                TriggerStatus=AppLocalizer.Text("SimulatorTriggerStatus");
+                PlcStatus=AppLocalizer.Text("SimulatorRunPlc");
+                CameraStatus=AppLocalizer.Text("SimulatorReady");SourceStatus="SIMULATOR";
             }
-            var settings=BuildTriggerSettings();
-            await ArmTriggerAsync(settings);
+            else
+            {
+                if(io.Validate() is{}ioError)throw new InvalidOperationException(ioError);
+                await EnsureRunCameraAsync(runtimeRecipe);
+                if(!Acquiring)await StartAcquisitionAsync();
+                if(io.UsesPlc)
+                {
+                    var plc=BuildPlcSettings() with
+                    {
+                        Enabled=true,PollMs=io.TriggerProfile.PollMs,
+                        TriggerAddress=io.TriggerProfile.SharedAddress,End1Address=io.TriggerProfile.End1Address,
+                        End2Address=io.TriggerProfile.End2Address,Outputs=new PlcOutputs()
+                    };
+                    var probe=io.TriggerProfile.Kind==RecipeTriggerKind.Plc
+                        ?io.TriggerProfile.Mapping==RecipeTriggerMapping.Shared?io.TriggerProfile.SharedAddress:io.TriggerProfile.End1Address
+                        :"X0";
+                    await ConnectPlcCoreAsync(plc,probe);
+                    plcVerdictWriter=new(plcLink!,PlcAddressMaps.For(plc.Vendor),io.VerdictOutputs,Log);
+                    if(plcVerdictWriter.Validate() is{}outputError)throw new InvalidOperationException(outputError);
+                    await plcVerdictWriter.ClearBitsAsync(CancellationToken.None);
+                }
+                var settings=BuildTriggerSettings();
+                await ArmTriggerAsync(settings);
+            }
             Session.Begin(runtimeRecipe);Running=true;started=true;
             HasPreviousResult=false;ShowPreviousResults=false;PreviousResultLabel=AppLocalizer.Text("NoPreviousResult");LastProductVerdict="—";
             Result1.Reset(runtimeRecipe.Ends[0]);Result2.Reset(runtimeRecipe.Ends[1]);waitingSince=DateTimeOffset.UtcNow;
@@ -938,7 +980,7 @@ public partial class MainViewModel : ObservableObject
         catch(Exception ex){Message=AppLocalizer.Format("RunStopErrorFormat",ex.Message);}
         finally{Busy=false;RefreshState();}
     }
-    public void StopRun(){Session.Stop();Running=false;RunStatus=AppLocalizer.Text("Stopped");RefreshState();}
+    public void StopRun(){Session.Stop();Running=false;runUsesSimulator=false;RunStatus=AppLocalizer.Text("Stopped");RefreshState();}
 
     private async Task EnsureRunCameraAsync(Recipe recipe)
     {
@@ -969,7 +1011,7 @@ public partial class MainViewModel : ObservableObject
         try{await DisarmTriggerAsync();}catch(Exception ex){Log.Write("run","rollback-trigger-failed",new Dictionary<string,object?>{{"error",ex.Message}});}
         try{if(Acquiring)await StopAcquisitionAsync();}catch(Exception ex){Log.Write("run","rollback-camera-failed",new Dictionary<string,object?>{{"error",ex.Message}});}
         try{await DisconnectPlcCoreAsync();}catch(Exception ex){Log.Write("run","rollback-plc-failed",new Dictionary<string,object?>{{"error",ex.Message}});}
-        plcVerdictWriter=null;
+        plcVerdictWriter=null;runUsesSimulator=false;
     }
 
     private async Task StopRuntimeCoreAsync()
@@ -979,7 +1021,7 @@ public partial class MainViewModel : ObservableObject
         try{await DisarmTriggerAsync();}catch(Exception ex){failure=ex;}
         try{if(Acquiring)await StopAcquisitionAsync();}catch(Exception ex){failure??=ex;}
         try{await DisconnectPlcCoreAsync();}catch(Exception ex){failure??=ex;}
-        plcVerdictWriter=null;
+        plcVerdictWriter=null;runUsesSimulator=false;
         PlcStatus=AppLocalizer.Text("PlcDisconnectedStatus");
         if(failure!=null)throw failure;
     }
@@ -1131,7 +1173,7 @@ public partial class MainViewModel : ObservableObject
     }
     [RelayCommand]private async Task LoadRuntimeAsync()
     {
-        if(!CanCapture)return;
+        if(!CanLoadRuntime)return;
         var file=ChooseImage();if(file==null)return;
         await GuardAsync(()=>InspectAsync(ImageFiles.Load(file)));
     }
@@ -1139,11 +1181,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]private void ManualTrigger()
     {
         if(!Running){Message=AppLocalizer.Text("RunNotStarted");return;}
+        if(!CanCaptureFromCamera)return;
         manualTrigger.Fire(TriggerMapping==TriggerMapping.PerEnd?Session.NextEnd:null,AppLocalizer.Text("ManualAction"));
     }
     [RelayCommand]private async Task CaptureRuntimeAsync()
     {
-        if(!CanCapture)return;
+        if(!CanCaptureFromCamera)return;
         await GuardAsync(async()=>
         {
             if(!Acquiring||latest==null||latest.CapturedAt<waitingSince||DateTimeOffset.UtcNow-latest.CapturedAt>TimeSpan.FromSeconds(2))
@@ -1246,7 +1289,9 @@ public partial class MainViewModel : ObservableObject
         FindingCamera=true;CameraState=CameraUiState.Finding;
         CameraStatus=AppLocalizer.Text("FindingCamera");
         Message=AppLocalizer.Text("AcquisitionFindingMessage");
-        Cameras.Clear();SelectedCamera=null;RefreshCameraState();
+        Cameras.Clear();SelectedCamera=null;
+        if(simulatorEnabled)Cameras.Add(SimulatorCamera);
+        RefreshCameraState();
         try
         {
             cameraDiscoveryTask??=Task.Run(Camera.Enumerate);
@@ -1254,32 +1299,58 @@ public partial class MainViewModel : ObservableObject
                 TaskContinuationOptions.OnlyOnFaulted|TaskContinuationOptions.ExecuteSynchronously,TaskScheduler.Default);
             var devices=await cameraDiscoveryTask.WaitAsync(cameraSearchTimeout);
             cameraDiscoveryTask=null;
-            foreach(var device in devices)Cameras.Add(device);
-            SelectedCamera=Cameras.FirstOrDefault();
-            if(Cameras.Count==0)
+            var physicalDevices=devices.Where(device=>!device.IsSimulation).ToArray();
+            foreach(var device in physicalDevices)Cameras.Add(device);
+            if(simulatorEnabled)
             {
-                CameraState=CameraUiState.NotFound;
-                CameraStatus=AppLocalizer.Text("CameraNotFound");
-                Message=AppLocalizer.Text("AcquisitionNotFoundMessage");
+                SelectedCamera=SimulatorCamera;CameraState=CameraUiState.Simulator;
+                CameraStatus=physicalDevices.Length==0?AppLocalizer.Text("SimulatorReady"):AppLocalizer.Format("SimulatorReadyWithCamerasFormat",physicalDevices.Length);
+                Message=AppLocalizer.Text("SimulatorReadyMessage");
             }
             else
             {
-                CameraState=CameraUiState.Found;
-                CameraStatus=AppLocalizer.Format("CameraFoundFormat",Cameras.Count);
-                Message=AppLocalizer.Text("AcquisitionFoundMessage");
+                SelectedCamera=Cameras.FirstOrDefault();
+                if(Cameras.Count==0)
+                {
+                    CameraState=CameraUiState.NotFound;
+                    CameraStatus=AppLocalizer.Text("CameraNotFound");
+                    Message=AppLocalizer.Text("AcquisitionNotFoundMessage");
+                }
+                else
+                {
+                    CameraState=CameraUiState.Found;
+                    CameraStatus=AppLocalizer.Format("CameraFoundFormat",Cameras.Count);
+                    Message=AppLocalizer.Text("AcquisitionFoundMessage");
+                }
             }
         }
         catch(TimeoutException)
         {
-            CameraState=CameraUiState.NotFound;
-            CameraStatus=AppLocalizer.Format("CameraSearchTimeoutFormat",cameraSearchTimeout.TotalSeconds.ToString("0.#"));
-            Message=AppLocalizer.Text("CameraSearchTimeoutMessage");
+            if(simulatorEnabled)
+            {
+                SelectedCamera=SimulatorCamera;CameraState=CameraUiState.Simulator;
+                CameraStatus=AppLocalizer.Text("SimulatorReady");Message=AppLocalizer.Text("SimulatorSearchTimeoutMessage");
+            }
+            else
+            {
+                CameraState=CameraUiState.NotFound;
+                CameraStatus=AppLocalizer.Format("CameraSearchTimeoutFormat",cameraSearchTimeout.TotalSeconds.ToString("0.#"));
+                Message=AppLocalizer.Text("CameraSearchTimeoutMessage");
+            }
         }
         catch(Exception ex)
         {
-            cameraDiscoveryTask=null;CameraState=CameraUiState.Error;
-            CameraStatus=AppLocalizer.Text("CameraSearchError");
-            Message=$"ACQUISITION · {ex.Message}";
+            cameraDiscoveryTask=null;
+            if(simulatorEnabled)
+            {
+                SelectedCamera=SimulatorCamera;CameraState=CameraUiState.Simulator;
+                CameraStatus=AppLocalizer.Text("SimulatorReady");Message=AppLocalizer.Format("SimulatorSearchErrorFormat",ex.Message);
+            }
+            else
+            {
+                CameraState=CameraUiState.Error;CameraStatus=AppLocalizer.Text("CameraSearchError");
+                Message=$"ACQUISITION · {ex.Message}";
+            }
         }
         finally{FindingCamera=false;RefreshCameraState();}
     }

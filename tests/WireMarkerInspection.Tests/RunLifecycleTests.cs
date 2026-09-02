@@ -40,6 +40,36 @@ public sealed class RunLifecycleTests:IDisposable
         finally{DispatcherTestHost.Wait(vm.ShutdownAsync());}
     });
 
+    [Fact]
+    public void SimulatorIsDefaultAndRunsSavedRecipeWithoutCameraOrPlc()=>DispatcherTestHost.Sta(() =>
+    {
+        var camera=new LifecycleCamera();var plcCreated=false;
+        SeedRecipeAndMachineSettings();
+        var vm=new MainViewModel(root,camera,autoDiscoverCameraOnLoad:false,plcFactory:_=>
+        {
+            plcCreated=true;return new LifecyclePlcLink();
+        },enableSimulator:true);
+        try
+        {
+            Assert.True(vm.IsSimulatorSelected);Assert.Equal(MainViewModel.SimulatorCamera,vm.SelectedCamera);
+            DispatcherTestHost.Wait(vm.InitializeCameraAsync());
+            Assert.Equal(2,vm.Cameras.Count);Assert.True(vm.IsSimulatorSelected);
+            Assert.Contains(vm.Cameras,device=>!device.IsSimulation);
+            vm.SelectedModel=Assert.Single(vm.Models);
+
+            DispatcherTestHost.Wait(vm.StartRunCommand.ExecuteAsync(null));
+
+            Assert.True(vm.Running);Assert.True(vm.IsSimulatorRun);Assert.True(vm.CanLoadRuntime);
+            Assert.False(vm.CanCaptureFromCamera);Assert.False(vm.CameraConnected);Assert.False(vm.Acquiring);
+            Assert.False(plcCreated);Assert.Equal(0,camera.OpenCount);Assert.Equal(0,camera.StartCount);
+            Assert.Contains("SIMULATOR",vm.RunCameraStatus);Assert.Contains("SIMULATOR",vm.RunPlcStatus);
+
+            DispatcherTestHost.Wait(vm.SettingCommand.ExecuteAsync(null));
+            Assert.False(vm.Running);Assert.False(vm.IsSimulatorRun);
+        }
+        finally{DispatcherTestHost.Wait(vm.ShutdownAsync());}
+    });
+
     private void SeedRecipeAndMachineSettings()
     {
         var width=20;var height=20;var stride=width*3;
@@ -62,8 +92,10 @@ public sealed class RunLifecycleTests:IDisposable
     {
         private volatile bool grabbing;
         public int StopCount{get;private set;}
+        public int OpenCount{get;private set;}
+        public int StartCount{get;private set;}
         public IReadOnlyList<CameraDevice> Enumerate()=>[new("lifecycle","Lifecycle camera","test",false)];
-        public void Open(CameraDevice device){}
+        public void Open(CameraDevice device)=>OpenCount++;
         public CameraInfo ReadInfo()=>new("LIFECYCLE","SN-RUN","BGR8",20,20,30,null);
         public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>
             [new("ExposureTime","us",10,100000,0,10000,true),new("Gain","dB",0,20,0,0,true)];
@@ -74,7 +106,7 @@ public sealed class RunLifecycleTests:IDisposable
             if(grabbing)throw new InvalidOperationException("Trigger changed while grabbing.");
         }
         public void ExecuteSoftwareTrigger(){}
-        public void Start()=>grabbing=true;
+        public void Start(){grabbing=true;StartCount++;}
         public ImageFrame Grab(int timeoutMs)
         {
             if(!grabbing)throw new InvalidOperationException("Not acquiring.");

@@ -1,5 +1,12 @@
 # Current project context — 2026-08-29
 
+Session update — generic CAMERA and offline Simulator 2026-09-02:
+- Renamed the vendor-specific HIKROBOT MVS selector heading to localized CAMERA. The physical backend remains Hikrobot MVS, while the selector can now host additional camera providers later.
+- Added Simulator as the default source. Physical discovery runs without removing it, and Simulator remains available after no-device, timeout or discovery-error outcomes.
+- Simulator RUN freezes and executes the selected saved Recipe through the normal two-end inspection pipeline, but does not open/start a physical camera, validate/connect PLC, arm hardware triggers or send PLC outputs. Runtime input is restricted to offline image loading; camera capture is disabled.
+- Operator can select a saved model, open RUN and load images in Simulator while all model/device/I/O configuration remains protected. Physical-camera RUN retains its existing acquisition and PLC lifecycle.
+- Verification: Release build 0 warnings/errors; managed 90/90; native 1/1; WPF smoke PASS at `artifacts/smoke-20260902-212906`. No real hardware command was issued.
+
 Session update — localization and role access 2026-09-02:
 - Fixed a recipe-integrity bug in localized ComboBoxes: rebuilding `ItemsSource` briefly cleared `SelectedValue`, allowing WPF to write enum defaults such as Shared/Bit back into the draft. Trigger kind/mapping, OUTPUT type and end orientation now use stable observable option objects whose labels refresh in place. Regression coverage compares full recipe I/O before/after every language and checks the actual visible WPF selectors.
 - Corrected the Login XAML resource failure by using an existing shared input background; the smoke now constructs and displays the real dialog so this cannot regress unnoticed.

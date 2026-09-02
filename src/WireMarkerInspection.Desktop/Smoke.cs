@@ -23,7 +23,7 @@ internal static class Smoke
             // Each run owns fresh data; re-running release smoke must not collide with its prior recipe.
             var camera=new SmokeCamera();
             AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,persist:false);
-            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),camera,autoDiscoverCameraOnLoad:false);
+            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),camera,autoDiscoverCameraOnLoad:false,enableSimulator:true);
             window=new MainWindow(vm){Width=1920,Height=1080,Title="OFFLINE SMOKE · SYNTHETIC UI FIXTURES"};
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
@@ -42,6 +42,10 @@ internal static class Smoke
             window.SettingsScroll.ScrollToEnd();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(window,Path.Combine(output,"plc-connection.png"));
             window.SettingsScroll.ScrollToHome();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(window.CameraSectionLabel.Text!="CAMERA"||!vm.IsSimulatorSelected||!window.CameraSelector.IsEnabled||window.ConnectCameraButton.IsEnabled||window.AcquisitionButton.IsEnabled)
+                throw new Exception("CAMERA must default to selectable Simulator without physical connect/acquisition actions.");
+            Capture(window,Path.Combine(output,"setting-simulator.png"));
+            vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;
             VerifyCameraControls(window,search:true,connect:false,disconnect:false,acquisition:false,parameters:false);
             if(!window.LiveCameraHud.CanExpand)throw new Exception("Live Camera HUD must expose Expand.");
             vm.FindingCamera=true;vm.CameraState=CameraUiState.Finding;vm.CameraStatus="ĐANG TÌM CAMERA HIKROBOT...";
@@ -102,6 +106,7 @@ internal static class Smoke
             if(vm.Dirty || vm.SelectedModel?.Name!="Synthetic layout fixture v2" || vm.SelectedModel.Revision!="v2")
                 throw new Exception($"Smoke recipe edit/revision failed: {vm.Message}");
             VerifyModelControls(window,true,false,true,false);
+            await VerifySimulatorRun(window,vm);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyHudLayout(window);
             Capture(window,Path.Combine(output,"setting.png"));
@@ -156,7 +161,7 @@ internal static class Smoke
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; default Operator access with Acquisition/model selection only; Admin login unlocks configuration; Vietnamese/English/Korean switch updates bindings; red OFFLINE and green ONLINE header; prominent selected/running model callouts; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; default Operator access with Acquisition/model selection only; Admin login unlocks configuration; Vietnamese/English/Korean switch updates bindings; red OFFLINE and green ONLINE header; prominent selected/running model callouts; generic CAMERA selector defaults to Simulator; Simulator RUN enables offline image loading while bypassing physical acquisition and PLC; physical RUN disables offline loading; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -196,10 +201,10 @@ internal static class Smoke
         await Dispatcher.Yield(DispatcherPriority.DataBind);
         var before=vm.BuildRecipeIo();
         AppLocalizer.ChangeLanguage(AppLanguage.English,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
-        if(!Equals(window.LoginButton.Content,"Login")||vm.CurrentLanguage!=AppLanguage.English||vm.CameraStatus!="Camera not connected"||vm.AcquisitionSummary!="Acquisition has not started."||vm.OcrStatus!="OCR assets ready · accuracy not yet validated."||vm.End1.Message!="Load a reference image to begin.")throw new Exception("English switch did not refresh the UI and current status.");
+        if(!Equals(window.LoginButton.Content,"Login")||vm.CurrentLanguage!=AppLanguage.English||vm.CameraStatus!="SIMULATOR · OFFLINE IMAGE"||vm.AcquisitionSummary!="Acquisition has not started."||vm.OcrStatus!="OCR assets ready · accuracy not yet validated."||vm.End1.Message!="Load a reference image to begin.")throw new Exception("English switch did not refresh the UI and current status.");
         VerifyRecipeValuesWereNotChanged(window,vm,before);
         AppLocalizer.ChangeLanguage(AppLanguage.Korean,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
-        if(!Equals(window.LoginButton.Content,"로그인")||vm.CurrentLanguage!=AppLanguage.Korean||vm.CameraStatus!="카메라가 연결되지 않았습니다"||vm.OcrStatus!="OCR 자산 준비 완료 · 정확도 미검증."||vm.End1.Message!="시작하려면 기준 이미지를 불러오십시오.")throw new Exception("Korean switch did not refresh the UI and current status.");
+        if(!Equals(window.LoginButton.Content,"로그인")||vm.CurrentLanguage!=AppLanguage.Korean||vm.CameraStatus!="시뮬레이터 · 오프라인 이미지"||vm.OcrStatus!="OCR 자산 준비 완료 · 정확도 미검증."||vm.End1.Message!="시작하려면 기준 이미지를 불러오십시오.")throw new Exception("Korean switch did not refresh the UI and current status.");
         VerifyRecipeValuesWereNotChanged(window,vm,before);
         AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
         if(!Equals(window.LoginButton.Content,"Đăng nhập")||vm.CurrentLanguage!=AppLanguage.Vietnamese)throw new Exception("Vietnamese switch did not refresh the UI.");
@@ -315,6 +320,7 @@ internal static class Smoke
         if(window.FirstEndEditor.GrabButton.IsEnabled||window.SecondEndEditor.GrabButton.IsEnabled)
             throw new Exception("Grab Image must be disabled without a live camera frame.");
         await vm.InitializeCameraAsync();
+        vm.SelectedCamera=vm.Cameras.First(device=>!device.IsSimulation);
         await vm.ConnectCommand.ExecuteAsync(null);
         VerifyCameraParameterForm(window,vm);
         await vm.AcquisitionCommand.ExecuteAsync(null);
@@ -339,6 +345,16 @@ internal static class Smoke
         await vm.DisconnectCommand.ExecuteAsync(null);
         vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
         vm.End1.Clear();
+    }
+    private static async Task VerifySimulatorRun(MainWindow window,MainViewModel vm)
+    {
+        vm.Cameras.Clear();vm.Cameras.Add(MainViewModel.SimulatorCamera);vm.SelectedCamera=MainViewModel.SimulatorCamera;
+        await vm.StartRunCommand.ExecuteAsync(null);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!vm.Running||!vm.IsSimulatorRun||vm.CameraConnected||vm.Acquiring||!vm.CanLoadRuntime||vm.CanCaptureFromCamera||
+           !window.LoadRuntimeImageButton.IsEnabled||window.CaptureRuntimeImageButton.IsEnabled||!vm.RunPlcStatus.Contains("SIMULATOR",StringComparison.Ordinal))
+            throw new Exception("Simulator RUN must accept offline files while bypassing camera acquisition and PLC.");
+        await vm.SettingCommand.ExecuteAsync(null);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(vm.Running||vm.IsSimulatorRun)throw new Exception("Leaving Simulator RUN must reset the simulator runtime state.");
     }
     /// <summary>
     /// Declining the unsaved-draft question used to write the previous selection back while the

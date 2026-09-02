@@ -296,3 +296,14 @@ CloseDiscardChanges,Exit and discard unsaved changes?,Thoát và bỏ thay đổ
 SingleInstanceOnly,Wire Marker Inspection is already running. Only one session is allowed per user.,Wire Marker Inspection đang chạy. Chỉ mở một phiên cho mỗi người dùng.,Wire Marker Inspection이 이미 실행 중입니다. 사용자당 하나의 세션만 실행할 수 있습니다.
 LiveCameraExpandedTitle,LIVE CAMERA,ẢNH CAMERA LIVE,라이브 카메라
 RecipeImageEditorTitle,RECIPE IMAGE EDITOR,CHỈNH ẢNH RECIPE,레시피 이미지 편집기
+Camera,CAMERA,CAMERA,카메라
+CameraReadyToConnect,CAMERA READY TO CONNECT,CAMERA SẴN SÀNG KẾT NỐI,카메라 연결 준비 완료
+SimulatorReady,SIMULATOR · OFFLINE IMAGE,SIMULATOR · ẢNH OFFLINE,시뮬레이터 · 오프라인 이미지
+SimulatorReadyWithCamerasFormat,SIMULATOR · {0} physical camera available,SIMULATOR · có {0} camera vật lý,시뮬레이터 · 실제 카메라 {0}대 사용 가능
+SimulatorReadyMessage,SIMULATOR · Select a saved model then open RUN and load the two end images.,SIMULATOR · Chọn model đã lưu rồi mở RUN và load ảnh hai đầu.,시뮬레이터 · 저장된 모델을 선택한 후 RUN을 열고 양단 이미지를 불러오십시오.
+SimulatorSearchTimeoutMessage,SIMULATOR remains available · Physical camera search timed out.,SIMULATOR vẫn sẵn sàng · Tìm camera vật lý quá thời gian.,시뮬레이터 사용 가능 · 실제 카메라 검색 시간이 초과되었습니다.
+SimulatorSearchErrorFormat,SIMULATOR remains available · Physical camera search error: {0},SIMULATOR vẫn sẵn sàng · Lỗi tìm camera vật lý: {0},시뮬레이터 사용 가능 · 실제 카메라 검색 오류: {0}
+SimulatorNoParameters,Simulator uses image files and has no acquisition parameters.,Simulator dùng file ảnh và không có thông số acquisition.,시뮬레이터는 이미지 파일을 사용하며 영상 수집 파라미터가 없습니다.
+SimulatorRunCamera,CAMERA · SIMULATOR,CAMERA · SIMULATOR,카메라 · 시뮬레이터
+SimulatorRunPlc,PLC · BYPASSED IN SIMULATOR,PLC · BỎ QUA TRONG SIMULATOR,PLC · 시뮬레이터에서 건너뜀
+SimulatorTriggerStatus,SIMULATOR · LOAD OFFLINE IMAGE,SIMULATOR · LOAD ẢNH OFFLINE,시뮬레이터 · 오프라인 이미지 불러오기

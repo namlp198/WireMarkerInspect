@@ -1,5 +1,12 @@
 # Handoff — 2026-09-02
 
+## Generic CAMERA source and Simulator
+- The acquisition selector heading is now localized CAMERA rather than HIKROBOT MVS. Hikrobot MVS remains the current physical implementation; the UI contract no longer assumes a single vendor.
+- Simulator is the default selection and remains available alongside discovered physical devices and after physical discovery timeout/error. Simulator cannot Connect or Start Acquisition.
+- Entering RUN with Simulator freezes the saved model Recipe and uses the existing OCR, orientation, two-end and result-persistence pipeline. It bypasses camera open/start, PLC validation/connect, hardware trigger arming and PLC result output. Only offline Load Image is enabled; the physical capture action is disabled.
+- Operator can use this offline path by selecting a saved model and entering RUN, without gaining any recipe, camera-parameter, trigger or output editing privilege. Physical camera selection retains the existing production lifecycle.
+- Release build is clean; managed 90/90 and native 1/1 pass; WPF smoke PASS is at `artifacts/smoke-20260902-212906`. No real hardware command was issued.
+
 ## Localization, Operator/Admin and model visibility
 - Fixed the localization/recipe coupling bug: `TriggerKindOptions`, `TriggerMappingOptions`, `PlcOutputModeOptions` and end orientations no longer replace their `ItemsSource` on a language event. Stable option objects notify only `Label`, preventing the temporary empty WPF selection from writing Manual/Shared/Bit/0° defaults back into recipe state.
 - Fixed the Login crash caused by a nonexistent `Brush.Background.Input` resource. The WPF smoke now opens the real Login dialog and validates the resolved PasswordBox background.
@@ -172,11 +179,11 @@ Do not ship without checking vendor/model redistribution terms and target-machin
 
 ## Repository changes
 Only the WireMarkerInspection repository was changed. Source references were read-only.
-All work described above is committed on `develop`; the working tree is clean and `develop` is in sync with `origin/develop`.
+The prior localization/access work is committed on `develop` at `18e1779`. The CAMERA/Simulator changes described above are currently the only uncommitted working-tree changes.
 
 - `3b47c80` Initial Wire Marker Inspection implementation (also the current `main`/`origin/main` tip).
 - `ec06803` Validate real-image OCR and model workflow.
 - `644c12e` Improve model setup and inspection feedback.
-- `abc9b6b` Add Hikrobot camera acquisition workflow — current `develop`/`origin/develop` tip.
+- `18e1779` Add localization and role-based operator UI — current `develop`/`origin/develop` tip before the pending CAMERA/Simulator changes.
 
-`develop` is three commits ahead of `main`; the camera, OCR-acceptance, model-setup and HUD/status changes have not been merged to `main` yet.
+The camera, OCR-acceptance, model-setup, HUD/status, localization/access and pending Simulator changes have not been merged to `main` yet.
