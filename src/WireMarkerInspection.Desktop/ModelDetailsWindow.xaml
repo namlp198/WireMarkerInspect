@@ -7,13 +7,13 @@
   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <TextBlock Text="{loc:Text Model}" Style="{StaticResource SectionLabel}"/>
    <TextBlock Grid.Row="1" Text="{loc:Text ModelCode}" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,4,0,4"/>
-   <TextBox Grid.Row="2" Text="{Binding Code,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="{loc:Text UniqueModelCode}" AutomationProperties.Name="{loc:Text ModelCode}" Margin="0,0,0,10"/>
+   <TextBox x:Name="CodeInput" Grid.Row="2" Text="{Binding Code,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="{loc:Text UniqueModelCode}" AutomationProperties.Name="{loc:Text ModelCode}" Margin="0,0,0,10"/>
    <TextBlock Grid.Row="3" Text="{loc:Text ModelName}" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,4"/>
-   <TextBox Grid.Row="4" Text="{Binding Name,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="{loc:Text ModelName}" AutomationProperties.Name="{loc:Text ModelName}"/>
+   <TextBox x:Name="NameInput" Grid.Row="4" Text="{Binding Name,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextEditor}" ToolTip="{loc:Text ModelName}" AutomationProperties.Name="{loc:Text ModelName}"/>
    <TextBlock Grid.Row="5" Text="{Binding Error}" Foreground="{StaticResource Brush.Status.Error}" TextWrapping="Wrap" MinHeight="18" Margin="0,8,0,0"/>
    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
     <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Close}" ToolTip="{loc:Text Cancel}" AutomationProperties.Name="{loc:Text Cancel}" IsCancel="True" Margin="0,0,6,0"/>
-    <Button Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Check}" ToolTip="{loc:Text Confirm}" AutomationProperties.Name="{loc:Text Confirm}" IsDefault="True" Click="Done"/>
+    <Button x:Name="ConfirmButton" Style="{StaticResource ToolRail.Button}" Tag="{StaticResource Icon.Check}" ToolTip="{loc:Text Confirm}" AutomationProperties.Name="{loc:Text Confirm}" IsDefault="True" Click="Done"/>
    </StackPanel>
   </Grid>
  </Border>

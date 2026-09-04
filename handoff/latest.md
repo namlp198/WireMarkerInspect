@@ -1,4 +1,10 @@
-# Handoff — 2026-09-02
+# Handoff — 2026-09-04
+
+## Model CRUD review and OCR teaching
+- Add confirmation previously produced a draft but the callout/selector only represented saved models, making creation appear unsuccessful. The callout and selector now show the draft code/name immediately, with explicit Apply/Save guidance. A saved model is marked ready only when clean.
+- Reviewed Add/Edit modal confirmation and cancellation plus second-model Save/Delete through WPF smoke. Model identity/persistence semantics and Admin-only permissions remain intact; no incomplete recipe is saved automatically.
+- SETTING OCR fills the expected-text draft from ordered successful OCR output, retaining crops and detected-region previews. Changed text requires Apply/Save. Empty/incomplete output and malformed preview decoding preserve the old sample. Required direction and RUN's comparison pipeline are unchanged.
+- Verification: Release 0 warnings/errors; managed 93/93; native 1/1; WPF smoke PASS at `artifacts/smoke-20260904-112733`. The optional 26-image script found no BMPs at the original flat path. Read-only investigation found 24 expected files in pair subfolders; TYPE1-I1-00 and TYPE1-I2-00 are missing. This run does not claim renewed 26/26 OCR acceptance; no algorithm/manifest was changed and no hardware was contacted.
 
 ## Generic CAMERA source and Simulator
 - The acquisition selector heading is now localized CAMERA rather than HIKROBOT MVS. Hikrobot MVS remains the current physical implementation; the UI contract no longer assumes a single vendor.
@@ -179,7 +185,7 @@ Do not ship without checking vendor/model redistribution terms and target-machin
 
 ## Repository changes
 Only the WireMarkerInspection repository was changed. Source references were read-only.
-The prior localization/access work is committed on `develop` at `18e1779`. The CAMERA/Simulator changes described above are currently the only uncommitted working-tree changes.
+CAMERA/Simulator is committed at `3160ece`. The model draft visibility/OCR teaching changes from 2026-09-04 are uncommitted pending user review.
 
 - `3b47c80` Initial Wire Marker Inspection implementation (also the current `main`/`origin/main` tip).
 - `ec06803` Validate real-image OCR and model workflow.

@@ -8,6 +8,8 @@ Two end editors: independent captured image, one ROI, required text direction, o
 Both editors use a floating left HUD rail for geometry/history and bottom-right navigation, with Expand on the canvas and no editor caption. Business inputs stay below. No external geometry text toolbar.
 Model library: virtualized rows, two reference thumbnails with each end's expected text directly underneath, code/name/revision. Selecting a ComboBox item or library row immediately loads both reference images, ROIs, orientations and expected text into SETTING.
 Empty selection: both end editors, their business buttons and Save Recipe are disabled. Add Model remains available and activates a new editable draft; selecting a saved model activates its loaded setup. Edit/Delete remain disabled until a saved model row is selected.
+Add confirmation immediately shows the draft code/name in the model callout and code in the selector with an unsaved-draft label. The draft does not appear in the persisted library until both ends are valid/applied and Save succeeds. Dirty saved models must not show Ready to Run.
+SETTING OCR populates the expected-text draft using successful recognized regions in order; the required orientation remains unchanged. Changed text requires Apply and Save. Empty/incomplete reads or failures retain the previous sample.
 Save state: clean recipe disables/dims Save. Any draft change enables and highlights Save and shows one red `● CẦN LƯU` notification beside it; successful Save returns to the clean state.
 Color and Template: disabled extension positions only.
 

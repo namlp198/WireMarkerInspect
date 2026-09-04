@@ -1,5 +1,11 @@
 # Current project context — 2026-08-29
 
+Session update — model draft visibility and OCR teaching 2026-09-04:
+- The reported Add confirmation issue was checked through actual WPF Add/Edit dialogs and the save/delete path. Confirmation created an unsaved draft, but the identity callout still read “no model selected” and the selector was blank. Both now show the active draft immediately; incomplete drafts remain excluded from the saved library/RUN until Apply and Save.
+- OCR in SETTING now fills expected text from ordered recognized regions. Changed text invalidates Apply and marks the recipe dirty; previews remain visible. Empty/incomplete recognition or malformed preview data does not overwrite the existing sample. The required orientation and RUN/native comparison are unchanged.
+- Added real modal confirmation/cancellation and second-model Save/Delete smoke coverage, draft identity assertions, TextBox teaching checks and managed tests for ordered text, empty reads, unchanged reads and malformed previews.
+- Verification: Release build 0 warnings/errors; managed 93/93; native 1/1; WPF smoke PASS at `artifacts/smoke-20260904-112733`. The old 26-image acceptance dataset is no longer flat and two TYPE1-*00 BMPs are missing, so that baseline was not revalidated. No hardware was contacted.
+
 Session update — generic CAMERA and offline Simulator 2026-09-02:
 - Renamed the vendor-specific HIKROBOT MVS selector heading to localized CAMERA. The physical backend remains Hikrobot MVS, while the selector can now host additional camera providers later.
 - Added Simulator as the default source. Physical discovery runs without removing it, and Simulator remains available after no-device, timeout or discovery-error outcomes.

@@ -7,6 +7,6 @@
 - Business actions use ViewModel commands. Code-behind is restricted to visual interactions and window lifecycle.
 - Never show synthetic camera data or test fixture OCR as production results.
 - Errors must be actionable. Missing assets are shown with paths; missing camera DLLs do not crash the editor.
-- Text sample auto-recognition is preview only. Test OCR never changes the expected text.
+- SETTING OCR fills the expected-text draft with successfully recognized ordered text (approved 2026-09-04). The user reviews it and still applies/saves explicitly. Empty/incomplete reads retain the old sample; required orientation and RUN comparison are never changed by teaching.
 - A saved recipe is mandatory for RUN; any unsaved change blocks RUN.
 - Do not use Color/Template toggles as working features until their algorithms are explicitly commissioned.

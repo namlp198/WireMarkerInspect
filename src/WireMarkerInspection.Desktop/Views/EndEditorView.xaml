@@ -10,7 +10,7 @@
      <controls:ImageHud.Viewer><controls:ImageEditor Source="{Binding Image}" Roi="{Binding Roi,Mode=TwoWay}" Regions="{Binding Regions}"/></controls:ImageHud.Viewer>
     </controls:ImageHud>
     <StackPanel Grid.Row="1" Margin="8,8,8,0">
-     <TextBox Text="{Binding ExpectedText,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="54" Height="64" Style="{StaticResource TextEditor}" FontFamily="{StaticResource Font.Monospace}" VerticalContentAlignment="Top" ToolTip="{loc:Text ExpectedTextHint}"/>
+     <TextBox x:Name="ExpectedTextInput" Text="{Binding ExpectedText,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="54" Height="64" Style="{StaticResource TextEditor}" FontFamily="{StaticResource Font.Monospace}" VerticalContentAlignment="Top" ToolTip="{loc:Text ExpectedTextHint}"/>
      <DockPanel Margin="0,6,0,6"><TextBlock Text="{loc:Text RequiredDirection}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox ItemsSource="{Binding Orientations}" SelectedValue="{Binding Orientation}" SelectedValuePath="Value" DisplayMemberPath="Label" Style="{StaticResource Input.Combo}" Height="28" ToolTip="{loc:Text DirectionHint}"/></DockPanel>
     </StackPanel>
     <Border Grid.Row="2" Style="{StaticResource Hud.Container}" HorizontalAlignment="Left" Margin="8,0,8,4" Padding="4">

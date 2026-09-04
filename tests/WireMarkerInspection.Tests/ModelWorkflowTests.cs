@@ -23,6 +23,9 @@ public sealed class ModelWorkflowTests:IDisposable
             vm.NewModelCommand.Execute(new ModelIdentity(" M-001 "," Model One "));
             Assert.Equal("M-001",vm.ModelCode);
             Assert.Equal("Model One",vm.ModelName);
+            Assert.Equal("M-001",vm.SelectedModelCode);
+            Assert.Equal("Model One",vm.SelectedModelName);
+            Assert.True(vm.IsNewModelDraft);Assert.False(vm.IsModelReady);
             Assert.True(vm.Dirty);
             Assert.True(vm.CanConfigureModel);
             Assert.True(vm.CanSaveRecipe);
@@ -35,6 +38,7 @@ public sealed class ModelWorkflowTests:IDisposable
             Assert.Equal("Model One",first.Name);
             Assert.Equal("v1",first.Revision);
             Assert.False(vm.Dirty);
+            Assert.False(vm.IsNewModelDraft);Assert.True(vm.IsModelReady);
             Assert.False(vm.CanSaveRecipe);
             Assert.Equal(first,vm.SelectedModel);
 

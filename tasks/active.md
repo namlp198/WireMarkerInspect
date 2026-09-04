@@ -1,5 +1,14 @@
 # Active task — Wire Marker Inspection foundation
 
+## Model CRUD review and OCR teaching — 2026-09-04
+- [x] Exercise Add/Edit through real modal confirmation and cancellation, then save a second model and delete it.
+- [x] Show the new draft identity immediately after confirmation; keep invalid/incomplete recipes out of the saved catalog and RUN.
+- [x] Fill sample text from successful SETTING OCR while retaining region order, exact text and configured orientation.
+- [x] Preserve previous sample on empty/incomplete/failed OCR; require Apply/Save for changed samples.
+- [x] Retain Operator restrictions and add managed/WPF regression coverage.
+- [x] Verify Release build, managed 93/93, native 1/1 and WPF smoke at `artifacts/smoke-20260904-112733`.
+- [ ] Restore the original flat 26-image acceptance dataset before rerunning that historical baseline; the external folder now uses pair subfolders and lacks TYPE1-I1-00/TYPE1-I2-00.
+
 ## Generic camera source and offline Simulator — completed 2026-09-02
 - [x] Rename the HIKROBOT MVS selector heading to localized CAMERA without replacing the proven physical Hikrobot backend.
 - [x] Add Simulator as the default source and preserve it while physical discovery succeeds, times out or fails.

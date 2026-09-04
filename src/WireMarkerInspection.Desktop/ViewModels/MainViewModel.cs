@@ -289,9 +289,12 @@ public partial class MainViewModel : ObservableObject
     public string CycleLabel=>Session.CycleId==Guid.Empty?"—":Session.CycleId.ToString("N")[..12].ToUpperInvariant();
     public bool IsCameraOnline=>CameraConnected&&CameraState is CameraUiState.Connected or CameraUiState.Acquiring;
     public bool HasSelectedModel=>SelectedModel!=null;
-    public string SelectedModelCode=>SelectedModel?.Code??AppLocalizer.Text("NoModelSelected");
-    public string SelectedModelName=>SelectedModel?.Name??AppLocalizer.Text("SelectModelInstruction");
-    public string SelectedModelRevision=>SelectedModel is null?string.Empty:AppLocalizer.Format("RevisionFormat",SelectedModel.Recipe.Revision);
+    public bool IsModelReady=>HasSelectedModel&&!Dirty;
+    public bool IsNewModelDraft=>modelSetupActive&&saved==null;
+    public string SelectedModelCode=>modelSetupActive?ModelCode:AppLocalizer.Text("NoModelSelected");
+    public string SelectedModelName=>modelSetupActive?ModelName:AppLocalizer.Text("SelectModelInstruction");
+    public string SelectedModelRevision=>modelSetupActive&&Dirty?AppLocalizer.Text("UnsavedModelDraft"):
+        SelectedModel is null?string.Empty:AppLocalizer.Format("RevisionFormat",SelectedModel.Recipe.Revision);
     public string ActiveModel=>runtimeRecipe is null?AppLocalizer.Text("NotSelected"):$"{runtimeRecipe.ModelCode} / v{runtimeRecipe.Revision}";
     public string ActiveModelName=>runtimeRecipe?.Name??AppLocalizer.Text("SelectModelInstruction");
     public string AccessRoleLabel=>AppLocalizer.Text(IsAdmin?"RoleAdmin":"RoleOperator");
@@ -575,9 +578,13 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(PlcUsesNetwork));OnPropertyChanged(nameof(PlcUsesSerial));
     }
     partial void OnPlcConnectionStateChanged(PlcConnectionState value)=>RefreshPlcState();
-    partial void OnModelCodeChanged(string value){if(!loading)Dirty=true;}
-    partial void OnModelNameChanged(string value){if(!loading)Dirty=true;}
-    partial void OnDirtyChanged(bool value)=>OnPropertyChanged(nameof(CanSaveRecipe));
+    partial void OnModelCodeChanged(string value){if(!loading)Dirty=true;OnPropertyChanged(nameof(SelectedModelCode));}
+    partial void OnModelNameChanged(string value){if(!loading)Dirty=true;OnPropertyChanged(nameof(SelectedModelName));}
+    partial void OnDirtyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(IsModelReady));
+        OnPropertyChanged(nameof(SelectedModelRevision));OnPropertyChanged(nameof(IsNewModelDraft));
+    }
     partial void OnBusyChanged(bool value)=>RefreshState();
     partial void OnRunningChanged(bool value)=>RefreshState();
     partial void OnCurrentAccessLevelChanged(AccessLevel value)=>RefreshState();
@@ -628,6 +635,7 @@ public partial class MainViewModel : ObservableObject
     }
     private void RefreshState()
     {
+        OnPropertyChanged(nameof(IsModelReady));OnPropertyChanged(nameof(IsNewModelDraft));OnPropertyChanged(nameof(SelectedModelRevision));
         OnPropertyChanged(nameof(CanEdit));OnPropertyChanged(nameof(IsAdmin));OnPropertyChanged(nameof(CanOperateAcquisition));OnPropertyChanged(nameof(CanSelectModel));
         OnPropertyChanged(nameof(CanCreateModel));OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));OnPropertyChanged(nameof(CanManageSelectedModel));
         OnPropertyChanged(nameof(AccessRoleLabel));OnPropertyChanged(nameof(AccessSummary));
@@ -719,6 +727,7 @@ public partial class MainViewModel : ObservableObject
     }
     partial void OnSelectedModelChanged(RecipeRow? oldValue,RecipeRow? newValue)
     {
+        OnPropertyChanged(nameof(IsModelReady));
         OnPropertyChanged(nameof(CanManageSelectedModel));OnPropertyChanged(nameof(HasSelectedModel));
         OnPropertyChanged(nameof(SelectedModelCode));OnPropertyChanged(nameof(SelectedModelName));OnPropertyChanged(nameof(SelectedModelRevision));
         if(loading)return;
@@ -761,6 +770,8 @@ public partial class MainViewModel : ObservableObject
     {
         if(modelSetupActive==value)return;
         modelSetupActive=value;OnPropertyChanged(nameof(CanConfigureModel));OnPropertyChanged(nameof(CanSaveRecipe));
+        OnPropertyChanged(nameof(IsNewModelDraft));
+        OnPropertyChanged(nameof(SelectedModelCode));OnPropertyChanged(nameof(SelectedModelName));OnPropertyChanged(nameof(SelectedModelRevision));
         OnPropertyChanged(nameof(CanEditRecipeIo));RefreshGrabState();
     }
     private void ClearModelSetup()

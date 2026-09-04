@@ -77,9 +77,13 @@ public partial class EndEditorViewModel(int number) : ObservableObject
     }
     public void ShowReading(OcrReading reading)
     {
+        // Decode before changing the draft: a malformed OCR preview must not partially teach a recipe.
+        var previews=reading.Regions.Select((region,index)=>new RegionViewModel(index+1,region)).ToArray();
+        var hasText=reading.Regions.Length>0&&reading.Regions.All(region=>!string.IsNullOrWhiteSpace(region.Text));
+        if(hasText)ExpectedText=string.Join("\n",reading.Regions.Select(region=>region.Text));
         Regions=reading.Regions;Previews.Clear();
-        for(int i=0;i<reading.Regions.Length;i++)Previews.Add(new(i+1,reading.Regions[i]));
-        SetMessage("DetectedRegionsFormat",reading.Regions.Length,reading.Rotation);
+        foreach(var preview in previews)Previews.Add(preview);
+        SetMessage(hasText?"OcrSampleFilledFormat":"OcrSampleUnchanged",reading.Regions.Length,reading.Rotation);
     }
     private void SetMessage(string key,params object[] args){messageKey=key;messageArgs=args;Message=AppLocalizer.Format(key,args);}
     public void RefreshLanguage(){OnPropertyChanged(nameof(Title));foreach(var option in Orientations)option.RefreshLabel();OnPropertyChanged(nameof(RoiSummary));Message=AppLocalizer.Format(messageKey,messageArgs);}

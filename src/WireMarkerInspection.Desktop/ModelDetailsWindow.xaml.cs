@@ -11,6 +11,7 @@ public partial class ModelDetailsWindow : Window
     {
         InitializeComponent();Title=title;this.validate=validate;
         model=new(code,name);DataContext=model;
+        Loaded+=(_,_)=>{CodeInput.Focus();CodeInput.SelectAll();};
     }
     private void Done(object sender,RoutedEventArgs e)
     {

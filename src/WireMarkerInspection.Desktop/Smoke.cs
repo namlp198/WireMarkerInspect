@@ -80,7 +80,10 @@ internal static class Smoke
             if(vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("Model setup must be locked before selection or Add Model.");
             VerifyModelControls(window,false,false,false,false);
             var image=Fixture();
-            vm.NewModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture"));
+            RunModelDialog(window.AddModelButton,"UI-FIXTURE","Synthetic layout fixture");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(window.SelectedModelCodeText.Text!="UI-FIXTURE"||window.NewModelDraftText.Visibility!=Visibility.Visible||!window.ModelSetupEditors.IsEnabled)
+                throw new Exception("Confirm Add must immediately show the new draft identity and unlock its editors.");
             if(!vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("A new model draft must unlock setup without enabling selected-model actions.");
             VerifyModelControls(window,true,true,false,true);
             await VerifyLiveGrab(window,vm,camera);
@@ -88,7 +91,11 @@ internal static class Smoke
             vm.End2.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End1.Roi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
             vm.End2.Roi=new(RoiShape.Polygon,[new(120,110),new(1000,130),new(970,450),new(110,425)]);
-            vm.End1.ExpectedText="QK1.11\nFT3.F";vm.End2.ExpectedText="FT3.F\nQK1.11";
+            vm.End1.ShowReading(new([new("QK1.11",0.99,[],ImageFiles.Png(image)),new("FT3.F",0.99,[],ImageFiles.Png(image))],0));
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(window.FirstEndEditor.ExpectedTextInput.Text!="QK1.11\nFT3.F"||vm.End1.Previews.Count!=2||vm.End1.Applied)
+                throw new Exception("OCR teaching must fill the actual sample TextBox and retain previews without auto-Apply.");
+            vm.End2.ExpectedText="FT3.F\nQK1.11";
             vm.LiveImage=image;vm.End1.Apply();vm.End2.Apply();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyModelControls(window,true,true,false,true);
@@ -97,10 +104,11 @@ internal static class Smoke
             if(vm.Dirty || vm.SelectedModel?.Code!="UI-FIXTURE" || vm.SelectedModel.Revision!="v1" || vm.Models.Count!=1)
                 throw new Exception($"Smoke recipe save/reload failed: {vm.Message}");
             if(!vm.CanConfigureModel||!vm.CanManageSelectedModel)throw new Exception("A saved selected model must keep setup and model actions enabled.");
+            if(window.NewModelDraftText.Visibility!=Visibility.Collapsed||!vm.IsModelReady)throw new Exception("Saved model must leave draft state.");
             VerifyModelControls(window,true,false,true,false);
             if(window.SelectedModelCodeText.Text!="UI-FIXTURE"||ColorOf(window.ModelSelectionPanel.BorderBrush)!=ColorOf((Brush)window.FindResource("Brush.Brand.Secondary")))
                 throw new Exception("Selected operating model callout is not prominent or synchronized.");
-            vm.EditModelCommand.Execute(new ModelIdentity("UI-FIXTURE","Synthetic layout fixture v2"));
+            RunModelDialog(window.EditModelButton,"UI-FIXTURE","Synthetic layout fixture v2");
             VerifyModelControls(window,true,true,true,true);
             vm.SaveRecipeCommand.Execute(null);
             if(vm.Dirty || vm.SelectedModel?.Name!="Synthetic layout fixture v2" || vm.SelectedModel.Revision!="v2")
@@ -149,6 +157,7 @@ internal static class Smoke
             Capture(window,Path.Combine(output,"setting-1366.png"));
             VerifyHudLayout(window);
             await VerifyDeclinedModelSwitch(window,vm);
+            await VerifyModelCrudButtons(window,vm);
             var hudEditor=new ImageEditor{Source=image,Roi=vm.End1.Roi?.Copy(),Tool=EditorTool.Rectangle};
             var hud=new ImageHud{Viewer=hudEditor,ShowCaption=false};
             var hudWindow=new Window{Title="HUD CONTROL SMOKE",Width=1100,Height=760,Content=hud,Owner=window};
@@ -162,6 +171,7 @@ internal static class Smoke
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
             File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; default Operator access with Acquisition/model selection only; Admin login unlocks configuration; Vietnamese/English/Korean switch updates bindings; red OFFLINE and green ONLINE header; prominent selected/running model callouts; generic CAMERA selector defaults to Simulator; Simulator RUN enables offline image loading while bypassing physical acquisition and PLC; physical RUN disables offline loading; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.AppendAllText(Path.Combine(output,"result.txt")," Additional checks: real Add/Edit modal confirmation and cancellation; second-model Save/Delete; immediate draft identity; OCR teaching updates the sample TextBox while retaining previews and requiring Apply.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -345,6 +355,51 @@ internal static class Smoke
         await vm.DisconnectCommand.ExecuteAsync(null);
         vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
         vm.End1.Clear();
+    }
+    private static void RunModelDialog(System.Windows.Controls.Button action,string code,string name,bool cancel=false)
+    {
+        Exception? failure=null;
+        action.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>
+        {
+            var dialog=System.Windows.Application.Current.Windows.OfType<ModelDetailsWindow>().Single();
+            try
+            {
+                dialog.CodeInput.SetCurrentValue(System.Windows.Controls.TextBox.TextProperty,code);
+                dialog.NameInput.SetCurrentValue(System.Windows.Controls.TextBox.TextProperty,name);
+                if(cancel){dialog.Close();return;}
+                dialog.ConfirmButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                if(dialog.IsVisible)throw new Exception($"Model dialog rejected input: {((ModelDetailsViewModel)dialog.DataContext).Error}");
+            }
+            catch(Exception ex){failure=ex;dialog.Close();}
+        }));
+        action.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        if(failure!=null)throw failure;
+    }
+    private static async Task VerifyModelCrudButtons(MainWindow window,MainViewModel vm)
+    {
+        var original=vm.SelectedModel!;var confirm=vm.Confirm;vm.Confirm=_=>true;
+        try
+        {
+            RunModelDialog(window.AddModelButton,"CANCELLED","Cancelled model",cancel:true);
+            RunModelDialog(window.EditModelButton,"CANCELLED","Cancelled edit",cancel:true);
+            if(vm.ModelCode!=original.Code||vm.Dirty)throw new Exception("Cancel Add/Edit changed the selected recipe.");
+            RunModelDialog(window.AddModelButton,"UI-SECOND","Second model");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(vm.ModelCode!="UI-SECOND"||!vm.CanConfigureModel||!vm.Dirty)throw new Exception("Add from a selected model lost the new draft.");
+            var frame=ImageFiles.Frame(Fixture(),"SYNTHETIC CRUD FIXTURE");
+            foreach(var end in new[]{vm.End1,vm.End2})
+            {
+                end.SetFrame(frame);end.Roi=original.Recipe.Ends[0].Roi.Copy();end.ExpectedText="SECOND";end.Apply();
+            }
+            vm.SaveRecipeCommand.Execute(null);await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(vm.SelectedModel?.Code!="UI-SECOND"||vm.Models.Count!=2)throw new Exception($"Second model save failed: {vm.Message}");
+            // Execute the actual command bound to the Delete button.
+            window.DeleteModelButton.Command.Execute(null);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(vm.Models.Count!=1||vm.CanConfigureModel)throw new Exception("Delete must remove the selected model and lock setup.");
+            vm.SelectedModel=vm.Models.Single();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        }
+        finally{vm.Confirm=confirm;}
     }
     private static async Task VerifySimulatorRun(MainWindow window,MainViewModel vm)
     {

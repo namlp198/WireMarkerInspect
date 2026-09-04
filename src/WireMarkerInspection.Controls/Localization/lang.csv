@@ -117,7 +117,7 @@ RequiredDirection,Required direction,Chiều yêu cầu,필수 방향
 DirectionHint,Upright = 0°; inverted = 180°; Auto ignores direction.,Thuận = 0°; nghịch = 180°. Auto không kiểm tra chiều.,정방향 = 0°; 역방향 = 180°; 자동은 방향을 검사하지 않습니다.
 LoadImage,Load Image,Load Image,이미지 불러오기
 GrabImage,Grab Image · requires Start Acquisition,Grab Image · cần Start Acquisition,이미지 캡처 · 영상 수집 시작 필요
-TestOcr,Test OCR,Test OCR,OCR 테스트
+TestOcr,Read OCR and fill sample text,Đọc OCR và điền text mẫu,OCR 인식 및 샘플 텍스트 입력
 ApplyEnd,Apply wire end,Apply đầu dây,와이어 끝 적용
 ExpandImage,Expand image,Phóng lớn ảnh,이미지 확대
 SelectRoi,Select / move / edit ROI,Chọn / di chuyển / sửa ROI,ROI 선택 / 이동 / 편집
@@ -307,3 +307,6 @@ SimulatorNoParameters,Simulator uses image files and has no acquisition paramete
 SimulatorRunCamera,CAMERA · SIMULATOR,CAMERA · SIMULATOR,카메라 · 시뮬레이터
 SimulatorRunPlc,PLC · BYPASSED IN SIMULATOR,PLC · BỎ QUA TRONG SIMULATOR,PLC · 시뮬레이터에서 건너뜀
 SimulatorTriggerStatus,SIMULATOR · LOAD OFFLINE IMAGE,SIMULATOR · LOAD ẢNH OFFLINE,시뮬레이터 · 오프라인 이미지 불러오기
+UnsavedModelDraft,DRAFT · APPLY BOTH ENDS AND SAVE,BẢN NHÁP · APPLY HAI ĐẦU VÀ LƯU,초안 · 양단 적용 후 저장
+OcrSampleFilledFormat,Read {0} regions · actual direction {1}° · sample text filled. Review then Apply and Save.,Đã đọc {0} vùng · chiều thực tế {1}° · đã điền text mẫu. Kiểm tra rồi Apply và lưu.,{0}개 영역 인식 · 실제 방향 {1}° · 샘플 텍스트 입력 완료. 확인 후 적용하고 저장하십시오.
+OcrSampleUnchanged,No complete text detected · existing sample text retained.,Không đọc được đầy đủ text · giữ nguyên text mẫu hiện tại.,완전한 텍스트를 인식하지 못함 · 기존 샘플 텍스트 유지.

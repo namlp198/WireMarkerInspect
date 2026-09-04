@@ -2,7 +2,9 @@
 
 Windows x64 inspection application: WPF/.NET 8 UI, reusable image controls, C++/OpenCV/ONNX Runtime core.
 
-## Current status — 2026-09-02
+## Current status — 2026-09-04
+
+Add Model confirmation now visibly identifies the new unsaved draft in the center callout and selector, rather than continuing to show “no model selected”. Both editors unlock immediately; the model joins the saved library only after configuring and applying both ends and saving the Recipe. SETTING OCR now fills the expected-text draft with recognized lines in order. It preserves required direction, requires explicit Apply/Save for changed text, and keeps the existing sample if the read is empty/incomplete or fails.
 
 Implemented: SETTING/RUN screens, independent ImageViewer and ImageEditor controls, recipe persistence, exact comparison, two-capture session, native OCR interface/pipeline, offline Load Image validation, NAcquire C API adapter, tests and deployment scripts.
 
@@ -86,7 +88,7 @@ Back up this entire directory. Inspection image retention/automatic cleanup is n
 
 ## Verification
 
-Latest software-only verification (2026-09-02): Release build 0 warnings/errors, managed 90/90, native 1/1, and WPF smoke PASS at `artifacts/smoke-20260902-212906`. Coverage includes default Simulator selection, coexistence with discovered physical cameras, RUN without opening camera or PLC, offline-load/physical-capture button separation, Login, Operator/Admin permissions, localization integrity, camera-backed header and selected/running model callouts. No real hardware command was issued.
+Latest software-only verification (2026-09-04): Release build 0 warnings/errors, managed 93/93, native 1/1, and WPF smoke PASS at `artifacts/smoke-20260904-112733`. Added real Add/Edit modal confirmation/cancellation, second-model Save/Delete, visible draft identity and OCR-to-sample TextBox checks. Previous Simulator, role and localization regressions also pass. The 26-image acceptance script could not revalidate the old baseline: its flat input folder was reorganized into `pair*` subfolders and `TYPE1-I1-00.bmp` / `TYPE1-I2-00.bmp` are missing. No OCR algorithm or manifest was changed to compensate. No real hardware command was issued.
 
     powershell -ExecutionPolicy Bypass -File scripts/test.ps1
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
