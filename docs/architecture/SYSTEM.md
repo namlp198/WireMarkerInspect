@@ -2,6 +2,7 @@
 
 Desktop -> Application -> Domain.
 Infrastructure implements storage/acquisition interfaces; Vision implements IOcrEngine with a serialized C ABI adapter.
+Vision also implements ITemplateMatcher through a separate matching ABI v1. InspectionSession combines exact OCR/direction with per-end terminal matching on the same owned frame. See TERMINAL_MATCHING.md for algorithms, thresholds, masks, schema v3, teaching workflow and acceptance limits.
 Controls depends on Domain geometry only. Desktop's constructor composition wires implementations.
 No external reference repository is required at runtime.
 
@@ -24,7 +25,7 @@ Duplicate frame identity, wrong image dimensions, bad recipe, missing model and 
 Manual capture uses a new live frame after entering the next waiting state. Camera-line and PLC sources enter through `TriggerRouter`; PLC may use a shared rising edge or distinct per-end inputs.
 
 ## Persistence
-Versioned JSON recipes with immutable generation-named reference images. JSON rename is the publication point. Schema v2 adds recipe-owned `CameraInspectionIo`; schema v1 remains readable and migrates on the next save.
+Versioned JSON recipes with immutable generation-named reference/template images. JSON rename is the publication point. Schema v2 adds recipe-owned `CameraInspectionIo`; schema v3 adds per-end terminal templates/profiles. Schema v1/v2 remain readable and migrate on the next save without silently enabling matching.
 Results include exact recipe, ordered OCR evidence, verdicts and full source PPM images.
 Deleted recipes are moved out of the catalog but remain recoverable.
 Concurrent multi-process recipe editing is not supported; one application instance per data directory is intended.

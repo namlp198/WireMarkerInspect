@@ -9,4 +9,4 @@
 - Errors must be actionable. Missing assets are shown with paths; missing camera DLLs do not crash the editor.
 - SETTING OCR fills the expected-text draft with successfully recognized ordered text (approved 2026-09-04). The user reviews it and still applies/saves explicitly. Empty/incomplete reads retain the old sample; required orientation and RUN comparison are never changed by teaching.
 - A saved recipe is mandatory for RUN; any unsaved change blocks RUN.
-- Do not use Color/Template toggles as working features until their algorithms are explicitly commissioned.
+- Color remains uncommissioned. Terminal matching is commissioned per end; use the isolated template window with the shared ImageHud and Admin-only access. See docs/architecture/TERMINAL_MATCHING.md.

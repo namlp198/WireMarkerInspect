@@ -1,11 +1,11 @@
-param([string]$OutputDirectory,[switch]$Published)
+param([string]$OutputDirectory,[switch]$Published,[ValidateSet('Debug','Release')][string]$Configuration='Release')
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
 if(-not $OutputDirectory){$OutputDirectory=Join-Path $repo ('artifacts\smoke-'+(Get-Date -Format 'yyyyMMdd-HHmmss'))}
 $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
-$exe=Join-Path $repo 'src\WireMarkerInspection.Desktop\bin\Release\net8.0-windows\WireMarkerInspection.Desktop.exe'
+$exe=Join-Path $repo "src\WireMarkerInspection.Desktop\bin\$Configuration\net8.0-windows\WireMarkerInspection.Desktop.exe"
 if($Published){$exe=Join-Path $repo 'publish\WireMarkerInspection\WireMarkerInspection.Desktop.exe'}
-if(-not(Test-Path -LiteralPath $exe)){throw 'Build Release first.'}
+if(-not(Test-Path -LiteralPath $exe)){throw "Build $Configuration first."}
 $process=Start-Process -FilePath $exe -ArgumentList @('--offline-smoke',('"{0}"' -f $OutputDirectory)) -WorkingDirectory $repo -WindowStyle Hidden -PassThru
 if(-not $process.WaitForExit(30000)){Stop-Process -Id $process.Id;throw 'Offline UI smoke timed out.'}
 $result=Join-Path $OutputDirectory 'result.txt'

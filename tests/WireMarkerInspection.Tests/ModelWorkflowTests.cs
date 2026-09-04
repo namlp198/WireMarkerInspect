@@ -204,6 +204,7 @@ public sealed class ModelWorkflowTests:IDisposable
         foreach(var editor in new[]{vm.End1,vm.End2})
         {
             editor.SetFrame(InspectionTests.Frame());
+            editor.SetTerminal(new()); // This fixture explicitly exercises legacy OCR-only models.
             editor.Roi=SearchRoi.FullImage(100,100);
             editor.ExpectedText="QK1.11/FT3.f";
             editor.Orientation=TextOrientation.Auto;

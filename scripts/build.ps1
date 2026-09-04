@@ -3,7 +3,8 @@ param(
  [string]$OpenCvRoot='D:\opencv',
  [string]$OrtRoot='D:\src\learn_opencv_all\Libraries\onnxruntime-win-x64-gpu-1.17.3',
  [switch]$Publish,
- [switch]$RequireOcrAssets
+ [switch]$RequireOcrAssets,
+ [switch]$NativeOnly
 )
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
@@ -35,9 +36,10 @@ if($RequireOcrAssets) {
   if(-not(Test-Path -LiteralPath (Join-Path $repo "assets\ocr\$name"))){throw "Missing production OCR asset: $name"}
  }
 }
-Invoke-Checked 'dotnet' @('build',(Join-Path $repo 'WireMarkerInspection.sln'),'-c',$Configuration,'--nologo')
+if($NativeOnly){return}
+Invoke-Checked 'dotnet' @('build',(Join-Path $repo 'WireMarkerInspection.sln'),'-c',$Configuration,'--nologo','-p:SkipNativeBuild=true')
 if($Publish) {
- Invoke-Checked 'dotnet' @('publish',(Join-Path $repo 'src\WireMarkerInspection.Desktop'),'-c','Release','-r','win-x64','--self-contained','true','-o',(Join-Path $repo 'publish\WireMarkerInspection'))
+ Invoke-Checked 'dotnet' @('publish',(Join-Path $repo 'src\WireMarkerInspection.Desktop'),'-c','Release','-r','win-x64','--self-contained','true','-o',(Join-Path $repo 'publish\WireMarkerInspection'),'-p:SkipNativeBuild=true')
  $manifest=[ordered]@{createdUtc=[DateTime]::UtcNow.ToString('O');ocrAssetsPresent=((Test-Path (Join-Path $repo 'assets\ocr\detector.onnx')) -and (Test-Path (Join-Path $repo 'assets\ocr\recognizer.onnx')) -and (Test-Path (Join-Path $repo 'assets\ocr\dictionary.txt')));hardwareValidated=$false;note='Development build. See README and handoff for acceptance limits.'}
  $manifest|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $repo 'publish\WireMarkerInspection\build-status.json')
 }

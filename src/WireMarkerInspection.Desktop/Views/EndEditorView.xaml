@@ -12,6 +12,7 @@
     <StackPanel Grid.Row="1" Margin="8,8,8,0">
      <TextBox x:Name="ExpectedTextInput" Text="{Binding ExpectedText,UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="54" Height="64" Style="{StaticResource TextEditor}" FontFamily="{StaticResource Font.Monospace}" VerticalContentAlignment="Top" ToolTip="{loc:Text ExpectedTextHint}"/>
      <DockPanel Margin="0,6,0,6"><TextBlock Text="{loc:Text RequiredDirection}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox ItemsSource="{Binding Orientations}" SelectedValue="{Binding Orientation}" SelectedValuePath="Value" DisplayMemberPath="Label" Style="{StaticResource Input.Combo}" Height="28" ToolTip="{loc:Text DirectionHint}"/></DockPanel>
+     <DockPanel Margin="0,0,0,6"><Button x:Name="TemplateButton" DockPanel.Dock="Right" Content="{loc:Text TerminalTemplate}" Style="{StaticResource Button.Secondary}" Click="SetupTemplate"/><TextBlock Text="{Binding TerminalSummary}" Style="{StaticResource StatusMessage.Attention}" VerticalAlignment="Center" TextWrapping="Wrap"/></DockPanel>
     </StackPanel>
     <Border Grid.Row="2" Style="{StaticResource Hud.Container}" HorizontalAlignment="Left" Margin="8,0,8,4" Padding="4">
      <StackPanel Orientation="Horizontal">

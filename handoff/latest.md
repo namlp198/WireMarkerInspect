@@ -1,5 +1,28 @@
 # Handoff — 2026-09-04
 
+## Matching all-zero diagnostics and per-check colors — latest
+- Root cause proven against the exact screenshot cycle: native feature-gate failures dropped measured evidence and returned default zero-filled NoCandidate. SIFT end1 actually had 38 reciprocal matches, 24 inliers (.63158 < .65), with diagnostic NCC .98895 / SSIM .91150 / edge .69364. End2 had 12 matches, 4 inliers and invalid geometry. See TERMINAL_MATCHING.md for the AKAZE replay and thresholds.
+- Native preserves filter counts, inlier evidence, geometry/appearance availability and separate verification reason. It may calculate diagnostic appearance for a below-gate candidate but keeps NG. A rejected second candidate cannot replace the first valid candidate. New result metadata snapshots thresholds; old results remain readable with an explicit missing-diagnostics notice. No ABI signature or recipe schema change.
+- RUN/teaching render independent check colors. Matching text stays green on template or orientation NG; each NCC/SSIM/edge/score/count gate gets its own color. Not evaluated = neutral N/A, not measured zero. Text 18 DIP/checks 16 DIP; total/per-end verdicts retain 40 DIP. Scrollable result panels protect navigation HUDs at 1366×900. Critical teaching parameters use amber asterisks plus localized impact hints; stable option/profile identities remain unchanged.
+- Added tools/MatchingReplay (no UI, camera, PLC or persistence writes). It accepts a recipe JSON, the paired PPM result folder, optional algorithm and in-memory Parameter=value overrides. Build native first. The actual replay used the saved model4/v8 recipe, confirmed equal to the cycle's embedded end configuration.
+- Verification: clean Debug/Release builds, 124/124 managed and 1/1 native in both configurations. WPF smoke includes direction-only NG, template-only NG, text-only NG and independent metric colors, at Full HD and 1366×900. Final smoke paths are recorded below. No user data writes or hardware commands. Pending commit.
+- Final WPF artifacts: Release `artifacts/smoke-20260904-174719`; Debug `artifacts/smoke-20260904-174731`. Inspected `run-mixed-checks.png`, `run-mixed-checks-1366.png` and the teaching render. Full-HD metrics/preview text remain visible; the small-window panel scrolls to the larger result details. Tests: `artifacts/test-results/managed-Release.trx` and `managed-Debug.trx`.
+
+## Debug DLL entry-point failure — latest fix
+- User screenshot was reproduced by inspecting exports: `build/native/Debug/WireMarkerVision.dll` and the Desktop Debug copy were old OCR-only binaries; Release exports were current. Rebuilt Debug and verified source/output SHA-256 equality.
+- Desktop MSBuild now invokes `build.ps1 -NativeOnly` before `AssignTargetPaths`, then collects native DLLs with a dedicated metadata item type. Visual Studio fast-up-to-date is disabled so F5 consults CMake dependencies. Temporary WPF/design-time builds do not execute native builds; the full build wrapper uses SkipNativeBuild only after its own native build succeeds.
+- `NativeTemplateMatcher` probes required exports before calling the ABI version function. Missing/old DLLs produce explicit rebuild/restart diagnostics instead of a raw EntryPointNotFoundException. Native algorithm and recipe logic are unchanged.
+- Test/smoke scripts now take Configuration. Debug and Release builds: 0 warnings/errors; both managed suites 117/117 and native 1/1. WPF template smoke PASS Debug `artifacts/smoke-20260904-163344`, Release `artifacts/smoke-20260904-163449`. No hardware commands. If an old debug process is still open, stop it before F5 so the new DLL is loaded. Changes remain uncommitted.
+
+## Terminal template matching — latest
+- Added native matching ABI v1 and managed ITemplateMatcher for Normal, AKAZE, SIFT, ORB and ORB Max Stable. The OCR ABI/decoder and camera/PLC sequencing remain unchanged. Session now requires template + exact text + required direction on the same frame when enabled; total OK still requires both ends.
+- Schema v3 owns immutable template PNGs, separate learn/search ROIs and per-algorithm profiles per end. RUN deep-copies bytes/ROIs/dictionaries. PNG metadata/ranges and local asset basenames are validated. Missing assets exclude the recipe; runtime native errors fault rather than pass. Legacy models remain OCR-only; newly created models default to required templates on both ends, with explicit Admin opt-out.
+- EndEditor opens an isolated Admin-only TemplateWindow with two HUD editors, reference/file teaching, independent test loading, five algorithms, basic/advanced thresholds and aligned evidence. Cancel does not modify the recipe. Apply Template, Apply End and Save are separate commits. Language switching refreshes stable option labels and cannot reset profiles. RUN shows learned/aligned crops, outline, reason and all scores/geometry/inlier metrics; result JSON retains evidence PNGs.
+- Reference: read-only `D:\entry\NCore\NProjects\PinInsertMachine\vision\NVisionInspectProcessor`. Reused algorithm ideas, not its weak SSIM surrogate or replicated-border verifier. New code uses covariance-based local SSIM, real valid masks, no reflection/invalid geometry, and ambiguity rejection. No external runtime reference dependency.
+- Verification: clean Release 0 warnings/errors; managed 115/115; native 1/1; WPF smoke PASS at `artifacts/smoke-20260904-155757`, including actual template Test/Cancel, re-enabled Test action, multilingual profile preservation and RUN evidence rendering. Inspected `template-matching.png` and `run.png`. Fixtures are synthetic, not production accuracy evidence.
+- Next acceptance: independent real images of each terminal type and near-confusable NG types, reverse/offset/scale, glare/blur/occlusion, tuning false accepts before false rejects, then actual cycle time. Full-resolution Normal multi-pose search can be expensive; keep sensible ROI/ranges. Cancellation discards the result but cannot interrupt an OpenCV call already running. No hardware/PLC write was performed. Original 26-image OCR baseline still cannot be revalidated with the incomplete external dataset.
+- All current matching changes are uncommitted. Earlier model/OCR teaching changes were committed as `c23e3b0`. Full workflow, parameter semantics and ABI ownership: `docs/architecture/TERMINAL_MATCHING.md`.
+
 ## Model CRUD review and OCR teaching
 - Add confirmation previously produced a draft but the callout/selector only represented saved models, making creation appear unsuccessful. The callout and selector now show the draft code/name immediately, with explicit Apply/Save guidance. A saved model is marked ready only when clean.
 - Reviewed Add/Edit modal confirmation and cancellation plus second-model Save/Delete through WPF smoke. Model identity/persistence semantics and Admin-only permissions remain intact; no incomplete recipe is saved automatically.
@@ -180,12 +203,12 @@ Offline OCR acceptance after the prior release verification:
 The supplied 26 BMP images are now a checked regression set, but they are too small and homogeneous to support a production accuracy or throughput claim. Raw images and ONNX assets remain outside Git.
 NAcquire at the supplied location remains a scaffold and is retained only as a legacy adapter. Live Desktop acquisition now uses the official MVS SDK directly and has been run successfully against the development camera. External triggering, disconnect/reconnect soak, production optics and throughput remain unvalidated.
 Actual mouse/touch/DPI acceptance remains for the workstation review. Geometry and native masks were tested programmatically; window layouts were visually inspected.
-External triggers/PLC pairing, automatic retention and Color/Template are deferred.
+Automatic retention and Color/print-quality remain deferred. PLC triggers and terminal matching are implemented; production acceptance remains outstanding.
 Do not ship without checking vendor/model redistribution terms and target-machine native runtimes.
 
 ## Repository changes
 Only the WireMarkerInspection repository was changed. Source references were read-only.
-CAMERA/Simulator is committed at `3160ece`. The model draft visibility/OCR teaching changes from 2026-09-04 are uncommitted pending user review.
+CAMERA/Simulator is committed at `3160ece`; model draft visibility/OCR teaching is committed at `c23e3b0`. The terminal-matching changes from this session are uncommitted pending user review.
 
 - `3b47c80` Initial Wire Marker Inspection implementation (also the current `main`/`origin/main` tip).
 - `ec06803` Validate real-image OCR and model workflow.

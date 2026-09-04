@@ -67,7 +67,8 @@ Dùng chung geometry icon của RoboStation. Các icon bổ sung Select, Pan, Re
 - Nút cuối navigation (icon `[1]`) reset viewport về Fit mặc định lúc load ảnh, gồm cả zoom và offset căn giữa. Không dùng nút này cho 100%/1:1 pixel-to-DIP.
 - Save Recipe ở trạng thái clean phải disabled/nhạt. Khi recipe dirty, icon Save sáng, hiện đúng một notify đỏ `● CẦN LƯU` cạnh nút; notify biến mất ngay sau khi lưu thành công.
 - RUN dùng warning nổi bật cho `CHỜ ĐẦU 1/2`; Stop luôn có viền error đỏ khi RUN hoạt động.
-- OK/NG của từng đầu và verdict tổng dùng 40 DIP (gấp đôi kích thước cũ 20 DIP). Text đọc được và detail màu success khi OK, màu error khi NG/ERROR.
+- OK/NG của từng đầu và verdict tổng dùng 40 DIP. Text đọc được dùng 18 DIP, các dòng kiểm tra dùng 16 DIP. Mỗi phần text/chiều/template/chỉ số có màu riêng: đạt xanh, không đạt đỏ, chưa đánh giá trung tính N/A. Không tô đỏ text đúng vì template hoặc góc bị NG. Panel kết quả cuộn ở cửa sổ nhỏ, không được cắt navigation HUD.
+- Setting template: thông số quyết định chính đánh dấu `*` màu warning và có tooltip giải thích tác động. Màu nhãn quan trọng không phải kết quả NG; đổi ngôn ngữ chỉ đổi nhãn, tuyệt đối không đổi giá trị.
 - Không tự tạo OK, OCR text hoặc camera frame để làm đầy giao diện. Nguồn offline/synthetic phải ghi rõ.
 
 ## 5. Phân tách control và nghiệp vụ

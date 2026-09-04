@@ -11,7 +11,7 @@ Empty selection: both end editors, their business buttons and Save Recipe are di
 Add confirmation immediately shows the draft code/name in the model callout and code in the selector with an unsaved-draft label. The draft does not appear in the persisted library until both ends are valid/applied and Save succeeds. Dirty saved models must not show Ready to Run.
 SETTING OCR populates the expected-text draft using successful recognized regions in order; the required orientation remains unchanged. Changed text requires Apply and Save. Empty/incomplete reads or failures retain the previous sample.
 Save state: clean recipe disables/dims Save. Any draft change enables and highlights Save and shows one red `● CẦN LƯU` notification beside it; successful Save returns to the clean state.
-Color and Template: disabled extension positions only.
+Color remains a disabled extension. Terminal Template is implemented per end: Admin-only isolated modal with learn/search ImageEditor HUDs, separate test-image loading, five stable algorithm options, basic/advanced numeric profiles and aligned/template previews. Apply updates the end draft; Apply End/Save remain explicit. Cancel cannot mutate the recipe. New models enable matching by default; explicit OCR-only/legacy models are clearly labeled.
 
 Expected text format: one detected text region per newline, preserving all other characters.
 The original two small OCR boxes are examples of automatic detector output, not a fixed number of manually authored ROIs.
@@ -20,8 +20,8 @@ The original two small OCR boxes are examples of automatic detector output, not 
 Press RUN to validate and freeze the saved recipe, automatically prepare camera acquisition, connect PLC when that recipe uses it, and enter WaitingEnd1. SETTING stops production acquisition/PLC but retains the camera connection for teaching.
 Capture may be manual, camera-line Shared, PLC Shared or PLC PerEnd. Shared assigns one signal sequentially; PerEnd uses two distinct addressed signals.
 After processing end 1, wait for end 2; only then publish a product result.
-Both ends must pass ordinal exact text comparison and their configured 0°/180° direction for OK. OCR evaluates both directions independently of expected text. No OCR region, text mismatch or fixed-direction mismatch → NG. Dimension mismatch/native failure/disk failure → Error.
+Both ends must pass ordinal exact text comparison, their configured 0°/180° direction and enabled terminal-template matching for OK. OCR evaluates both directions independently of expected text. No OCR region, text mismatch, fixed-direction mismatch or rejected template → NG. Dimension mismatch/native failure/disk failure → Error. RUN additionally shows template/aligned crops, source-space match outline and metrics; OCR-only models remain explicitly labeled.
 Stop invalidates late processing results. After a completed product is persisted and its output finishes, the next cycle starts automatically. The last completed images and total verdict remain available through KẾT QUẢ TRƯỚC.
 Per end: full image and overlay, detected crops, expected/actual text, reason and first mismatched character index.
 The image uses read-only ImageHud with caption and verdict floating above it. There is no ROI drawing rail in RUN.
-RUN state styling: waiting is a prominent warning color; Stop has an error-red outline while active. Total and per-end OK/NG are 40 DIP. Recognized text and detail are green for OK and red for NG/ERROR, including text mismatch and rotation mismatch.
+RUN state styling: waiting is a prominent warning color; Stop has an error-red outline while active. Total and per-end OK/NG are 40 DIP. Recognized text is 18 DIP and check details 16 DIP. Text, direction, template and individual metrics are independently green/red; correct text stays green even on rotation/template NG. Unmeasured values are neutral N/A. Small result panels scroll and retain unclipped HUDs.

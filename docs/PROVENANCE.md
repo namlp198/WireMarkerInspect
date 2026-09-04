@@ -1,6 +1,7 @@
 # Reference provenance
 
 Read-only references:
+- D:\entry\NCore\NProjects\PinInsertMachine\vision\NVisionInspectProcessor\cpp\NVisionInspectCore.cpp and header\NVisionInspectRecipe.h
 - D:\src\ai-workspace\06_Repositories\sol-drcp\robo-station
 - D:\src\learn_opencv_all\WireMarkerInspection
 - D:\src\ai-workspace\06_Repositories\NVision\NAcquire
@@ -18,4 +19,5 @@ The latest taskbar and cleanup annotations are preserved as taskbar-chevron.png,
 The final parallel-edge reference is preserved as taskbar-chevron-parallel.png; its geometry is implemented with matching 42x31 edge vectors and 14-DIP separation.
 OpenCV/ONNX notices are copied by the build script. Local detector/recognizer conversion sources, runtime contracts and SHA-256 values are recorded in `assets/ocr/README.md`. Model and vendor runtime redistribution terms still need confirmation before distribution.
 The first-item straight-tail annotation is preserved as design/references/taskbar-first-straight.png.
+Terminal matching follows the inspected AKAZE/SIFT/ORB/ORB Max Stable candidate pipelines in PinInsertMachine. Normal multi-pose search, strict geometry/masks and true local SSIM were implemented here; the old non-covariance SSIM surrogate and permissive border-replication verification were not copied. No files in that reference repository were modified or linked at runtime. OpenCV supplies all five algorithms; no additional matching package is required.
 The operator-status and text-Apply annotation is preserved as design/references/status-apply-annotation.png; it defines the highlighted action messages and explicit Apply buttons.

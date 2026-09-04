@@ -2,7 +2,7 @@ using WireMarkerInspection.Domain;
 namespace WireMarkerInspection.Application;
 public enum InspectionState { Idle, WaitingEnd1, ProcessingEnd1, WaitingEnd2, ProcessingEnd2, Completed, Faulted, Stopped }
 
-public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
+public sealed class InspectionSession(IOcrEngine ocr, IResultStore results, ITemplateMatcher? matcher=null)
 {
     private readonly object gate = new();
     private CancellationTokenSource? cancellation;
@@ -66,12 +66,19 @@ public sealed class InspectionSession(IOcrEngine ocr, IResultStore results)
             var compareStarted = MonotonicClock.Now;
             var result = ExactTextComparer.Compare(frame, spec, reading);
             var compareMs = MonotonicClock.MillisecondsSince(compareStarted);
+            if(spec.Terminal is {Enabled:true} terminal)
+            {
+                if(matcher==null)throw new InvalidOperationException("Terminal matcher is unavailable.");
+                var matching=await matcher.MatchAsync(frame,terminal,token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                result=CombinedInspectionComparer.Combine(result,matching,true);
+            }
             ProductResult? product = null; ImageFrame[]? captured = null;
             result = result with
             {
                 Timings =
                 [
-                    new("frame-age", frameAgeMs), new("ocr", ocrMs), new("compare", compareMs),
+                    new("frame-age", frameAgeMs), new("ocr", ocrMs), new("compare", compareMs),new("template",result.Terminal?.Milliseconds??0),
                     new("end", MonotonicClock.MillisecondsSince(started))
                 ]
             };

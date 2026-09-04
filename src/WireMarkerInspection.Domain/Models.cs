@@ -66,12 +66,12 @@ public sealed record SearchRoi(RoiShape Shape, PixelPoint[] Points)
 }
 
 public sealed record EndRecipe(string ReferenceImage, int Width, int Height, SearchRoi Roi,
-    string[] ExpectedLines, TextOrientation Orientation = TextOrientation.Degrees0)
+    string[] ExpectedLines, TextOrientation Orientation = TextOrientation.Degrees0, TerminalTemplate? Terminal = null)
 {
-    public EndRecipe Copy() => this with { Roi = Roi.Copy(), ExpectedLines = [.. ExpectedLines] };
+    public EndRecipe Copy() => this with { Roi = Roi.Copy(), ExpectedLines = [.. ExpectedLines],Terminal=Terminal?.Copy() };
     public string? Validate() => Roi.Validate(Width, Height) ??
         (ExpectedLines.Length == 0 || ExpectedLines.Any(string.IsNullOrEmpty)
-            ? "Enter expected text, one detected region per line. Empty lines are not allowed." : null);
+            ? "Enter expected text, one detected region per line. Empty lines are not allowed." : null)??Terminal?.Validate(Width,Height);
 }
 /// <summary>Sensor readout window in sensor pixels. Null means the full sensor.</summary>
 public sealed record SensorRoi(int OffsetX, int OffsetY, int Width, int Height)
@@ -188,7 +188,7 @@ public sealed record Recipe(Guid Id, string ModelCode, string Name, int Revision
     public Recipe Copy() => this with { Ends = Ends.Select(e => e.Copy()).ToArray() };
     public string? Validate()
     {
-        if (SchemaVersion is not (1 or 2)) return "Unsupported recipe schema.";
+        if (SchemaVersion is not (1 or 2 or 3)) return "Unsupported recipe schema.";
         if (Id == Guid.Empty || string.IsNullOrWhiteSpace(ModelCode) || string.IsNullOrWhiteSpace(Name))
             return "Model code and name are required.";
         if (Ends.Length != 2) return "Both ends must be configured.";
@@ -228,7 +228,7 @@ public static class MonotonicClock
 }
 
 public sealed record EndResult(Guid FrameId, Verdict Verdict, OcrReading Reading, TextDifference[] Differences, string Reason,
-    StageTiming[]? Timings = null)
+    StageTiming[]? Timings = null, TemplateMatchResult? Terminal = null)
 {
     public double MillisecondsOf(string stage) => Timings?.FirstOrDefault(t => t.Stage == stage)?.Milliseconds ?? 0;
 }

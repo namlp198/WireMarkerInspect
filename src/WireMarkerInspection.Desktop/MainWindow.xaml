@@ -305,7 +305,7 @@
       <TextBlock Text="{loc:Text InspectionModules}" Style="{StaticResource SectionLabel}"/>
       <CheckBox Content="{loc:Text OcrText}" IsChecked="True" IsEnabled="False" Margin="0,0,0,10"/>
       <CheckBox Content="{loc:Text WireColor}" IsEnabled="False" Margin="0,0,0,10"/>
-      <CheckBox Content="{loc:Text TerminalTemplate}" IsEnabled="False"/>
+      <TextBlock Text="{loc:Text MatchingPerEndHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
       <TextBlock Text="{loc:Text NotImplemented}" Style="{StaticResource Caption}" Margin="0,12,0,0"/>
       </StackPanel>
      </StackPanel>

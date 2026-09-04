@@ -30,6 +30,9 @@ public sealed class FileRecipeStore(string root) : IRecipeStore
             {
                 var recipe = JsonSerializer.Deserialize<Recipe>(File.ReadAllBytes(path), JsonFiles.Options)
                     ?? throw new InvalidDataException("Empty recipe.");
+                for(var end=0;end<recipe.Ends.Length;end++)
+                    if(recipe.Ends[end].Terminal is{} terminal&&!string.IsNullOrEmpty(terminal.TemplateImage))
+                        recipe.Ends[end]=recipe.Ends[end] with {Terminal=terminal with {TemplatePng=File.ReadAllBytes(AssetPath(recipe,terminal.TemplateImage))}};
                 if (recipe.Validate() is { } error) throw new InvalidDataException(error);
                 for(var end=0; end<2; end++) _ = ReferencePath(recipe, end);
                 if (values.Any(r => r.Id == recipe.Id || string.Equals(r.ModelCode, recipe.ModelCode, StringComparison.OrdinalIgnoreCase)))
@@ -61,6 +64,12 @@ public sealed class FileRecipeStore(string root) : IRecipeStore
             var name = $"end{i + 1}-{generation}.png";
             JsonFiles.AtomicWrite(Path.Combine(folder, name), referencePngs[i]);
             updated.Ends[i] = updated.Ends[i] with { ReferenceImage = name };
+            if(updated.Ends[i].Terminal is {TemplatePng.Length:>0} terminal)
+            {
+                var templateName=$"terminal{i+1}-{generation}.png";
+                JsonFiles.AtomicWrite(Path.Combine(folder,templateName),terminal.TemplatePng);
+                updated.Ends[i]=updated.Ends[i] with {Terminal=terminal with {TemplateImage=templateName}};
+            }
         }
         // Publish only after both immutable image files exist. Old versions remain recoverable.
         JsonFiles.AtomicWrite(Path.Combine(folder, "recipe.json"), JsonSerializer.SerializeToUtf8Bytes(updated, JsonFiles.Options));
@@ -69,6 +78,10 @@ public sealed class FileRecipeStore(string root) : IRecipeStore
     private string ReferencePath(Recipe recipe, int end)
     {
         var name = recipe.Ends[end].ReferenceImage;
+        return AssetPath(recipe,name);
+    }
+    private string AssetPath(Recipe recipe,string name)
+    {
         if (string.IsNullOrWhiteSpace(name) || Path.GetFileName(name) != name || Path.IsPathRooted(name))
             throw new InvalidDataException("Invalid reference image path.");
         var path = Path.Combine(directory, recipe.Id.ToString("N"), name);

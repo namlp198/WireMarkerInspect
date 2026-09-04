@@ -5,7 +5,7 @@ The user approved the implementation plan on 2026-08-29.
 Windows x64, WPF/.NET 8, MVVM; processing core is C++ through a C ABI.
 One camera captures two ends. Each end has one search ROI containing automatically detected ordered text regions.
 OK requires exact text (punctuation, case and order) plus the configured per-end 0°/180° text direction. Never repair or choose OCR output from expected text or the other end.
-Color/template classification and print-quality inspection are out of scope.
+Terminal template matching was approved on 2026-09-04: per-end Normal, AKAZE, SIFT, ORB and ORB Max Stable; combine its verdict with exact OCR/direction. Color classification and print-quality inspection remain out of scope.
 Use shared design tokens; ImageViewer is read-only, ImageEditor adds geometry editing, recipe logic stays outside controls.
 HUD style is mandatory: wrap image surfaces in ImageHud; follow RoboStation Geo Measure tool rail/overlay/icon styles. Never restore external text-button geometry or zoom toolbars. DESIGN_SYSTEM.md governs this requirement.
 Current approved compact UI: metallic chevron SETTING/RUN taskbar at 208x64 with parallel tip/notch edges; 400-DIP camera and Model Library columns; model row is ComboBox + Add/Edit/Delete icons; recipe editor has no caption/helper labels; HUD button/icon 32/16 DIP at 53% alpha; use icons and tooltips for practical actions.

@@ -1,0 +1,58 @@
+<Window x:Class="WireMarkerInspection.Desktop.TemplateWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:WireMarkerInspection.Controls;assembly=WireMarkerInspection.Controls"
+ xmlns:loc="clr-namespace:WireMarkerInspection.Controls.Localization;assembly=WireMarkerInspection.Controls"
+ Title="{loc:Text TerminalTemplate}" Width="1450" Height="920" MinWidth="1080" MinHeight="700"
+ Background="{StaticResource Brush.Background.App}" Foreground="{StaticResource Brush.Text.Primary}" WindowStartupLocation="CenterOwner">
+ <Window.Resources>
+  <DataTemplate x:Key="MatchingParameterRow"><Grid Margin="0,6,0,0">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="86"/></Grid.ColumnDefinitions>
+   <TextBlock Text="{Binding Label}" ToolTip="{Binding Hint}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}"/><Style.Triggers><DataTrigger Binding="{Binding IsImportant}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Warning}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+   <TextBox Grid.Column="1" Text="{Binding Text,UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding Hint}" Style="{StaticResource TextEditor}"/>
+  </Grid></DataTemplate>
+ </Window.Resources>
+ <Grid Margin="12">
+  <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Grid IsEnabled="{Binding CanEdit}">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="340"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Border Style="{StaticResource Panel}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+    <CheckBox Content="{loc:Text MatchingRequired}" IsChecked="{Binding Enabled}"/>
+    <TextBlock Text="{loc:Text MatchingDisabledWarning}" TextWrapping="Wrap" Style="{StaticResource StatusMessage.Attention}" Margin="0,6"/>
+    <TextBlock Text="{loc:Text MatchingAlgorithmLabel}" Style="{StaticResource SectionLabel}"/>
+    <ComboBox ItemsSource="{Binding Algorithms}" SelectedValue="{Binding Algorithm}" SelectedValuePath="Value" DisplayMemberPath="Label" Style="{StaticResource Input.Combo}"/>
+    <TextBlock Text="{loc:Text MatchingThresholdHint}" TextWrapping="Wrap" Margin="0,10"/>
+    <TextBlock Text="{loc:Text MatchingImportantHint}" TextWrapping="Wrap" Style="{StaticResource StatusMessage.Attention}" Margin="0,0,0,8"/>
+    <Button Content="{loc:Text MatchingResetProfile}" Command="{Binding ResetProfileCommand}" Style="{StaticResource Button.Secondary}"/>
+    <ItemsControl ItemsSource="{Binding BasicParameters}" ItemTemplate="{StaticResource MatchingParameterRow}"/>
+    <Expander Header="{loc:Text AdvancedParameters}" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,12,0,0">
+     <ItemsControl ItemsSource="{Binding AdvancedParameters}" ItemTemplate="{StaticResource MatchingParameterRow}"/>
+    </Expander>
+   </StackPanel></ScrollViewer></Border>
+   <Grid Grid.Column="2">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="190"/></Grid.RowDefinitions>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <StackPanel><TextBlock Text="{loc:Text MatchingLearnImage}" Style="{StaticResource SectionLabel}"/><StackPanel Orientation="Horizontal">
+     <Button Content="{loc:Text MatchingUseReference}" Command="{Binding UseReferenceCommand}" Style="{StaticResource Button.Secondary}"/>
+     <Button Content="{loc:Text LoadImage}" Command="{Binding LoadTemplateCommand}" Style="{StaticResource Button.Secondary}" Margin="6,0"/>
+    </StackPanel></StackPanel>
+    <StackPanel Grid.Column="2"><TextBlock Text="{loc:Text MatchingSearchImage}" Style="{StaticResource SectionLabel}"/>
+     <Button Content="{loc:Text MatchingLoadTest}" Command="{Binding LoadTestCommand}" Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"/>
+    </StackPanel>
+    <controls:ImageHud x:Name="LearnHud" Grid.Row="1" ShowCaption="False" CanExpand="True" ExpandRequested="Expand"><controls:ImageHud.Viewer><controls:ImageEditor Source="{Binding TemplateImage}" Roi="{Binding LearnRoi,Mode=TwoWay}"/></controls:ImageHud.Viewer></controls:ImageHud>
+    <controls:ImageHud x:Name="SearchHud" Grid.Row="1" Grid.Column="2" ShowCaption="False" CanExpand="True" ExpandRequested="Expand"><controls:ImageHud.Viewer><controls:ImageEditor Source="{Binding TestImage}" Roi="{Binding SearchRoi,Mode=TwoWay}"/></controls:ImageHud.Viewer></controls:ImageHud>
+    <controls:ImageHud Grid.Row="2" Caption="{loc:Text MatchingLearnImage}"><controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding CroppedTemplate}"/></controls:ImageHud.Viewer></controls:ImageHud>
+    <controls:ImageHud Grid.Row="2" Grid.Column="2" Caption="{loc:Text MatchingAligned}"><controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding AlignedImage}"/></controls:ImageHud.Viewer></controls:ImageHud>
+   </Grid>
+  </Grid>
+  <DockPanel Grid.Row="1" Margin="0,8,0,0">
+   <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom" IsEnabled="{Binding CanEdit}">
+    <Button x:Name="TestMatchingButton" Content="{loc:Text MatchingTest}" Command="{Binding TestCommand}" Style="{StaticResource Button.Primary}"/>
+    <Button x:Name="ApplyTemplateButton" Content="{loc:Text Apply}" Click="Apply" Style="{StaticResource Button.Apply}" Margin="8,0"/>
+    <Button Content="{loc:Text Cancel}" IsCancel="True" Style="{StaticResource Button.Secondary}"/>
+   </StackPanel>
+   <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0">
+    <ItemsControl ItemsSource="{Binding Checks}" ItemTemplate="{StaticResource Inspection.Check}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+   </ScrollViewer>
+  </DockPanel>
+ </Grid>
+</Window>

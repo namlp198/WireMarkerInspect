@@ -14,6 +14,34 @@ using WireMarkerInspection.Controls.Localization;
 namespace WireMarkerInspection.Desktop;
 internal static class Smoke
 {
+    private static async Task<TemplateMatchResult> VerifyTemplateWindow(Window owner,MainViewModel main,string output)
+    {
+        using var draft=new TemplateEditorViewModel(main.End1,main.Matcher);
+        draft.Enabled=true;draft.UseReferenceCommand.Execute(null);
+        draft.LearnRoi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
+        draft.SearchRoi=SearchRoi.FullImage(main.End1.Frame!.Width,main.End1.Frame.Height);
+        foreach(var p in draft.Parameters)
+        {
+            if(p.Key is MatchParameter.AngleMin or MatchParameter.AngleMax)p.Text="0";
+            if(p.Key is MatchParameter.ScaleMin or MatchParameter.ScaleMax)p.Text="1";
+        }
+        var dialog=new TemplateWindow{Owner=owner,DataContext=draft};dialog.Show();
+        await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        await draft.TestCommand.ExecuteAsync(null);
+        await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        if(!dialog.TestMatchingButton.IsEnabled)throw new Exception($"Test matching did not re-enable: busy={draft.Busy}; canExecute={draft.TestCommand.CanExecute(null)}; running={draft.TestCommand.IsRunning}");
+        if(!draft.Passed)throw new Exception("Template teaching smoke failed: "+draft.Message);
+        var before=System.Text.Json.JsonSerializer.Serialize(draft.Build());
+        foreach(var language in Enum.GetValues<AppLanguage>())
+        {
+            AppLocalizer.ChangeLanguage(language,false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(before!=System.Text.Json.JsonSerializer.Serialize(draft.Build()))throw new Exception("Language switch changed matching recipe.");
+        }
+        Capture(dialog,Path.Combine(output,"template-matching.png"));dialog.Close();
+        if(main.End1.Terminal.Enabled)throw new Exception("Template dialog Cancel mutated recipe.");
+        AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,false);
+        return draft.Result!;
+    }
     public static async void Run(string output)
     {
         output=Path.GetFullPath(output);Directory.CreateDirectory(output);
@@ -96,6 +124,8 @@ internal static class Smoke
             if(window.FirstEndEditor.ExpectedTextInput.Text!="QK1.11\nFT3.F"||vm.End1.Previews.Count!=2||vm.End1.Applied)
                 throw new Exception("OCR teaching must fill the actual sample TextBox and retain previews without auto-Apply.");
             vm.End2.ExpectedText="FT3.F\nQK1.11";
+            vm.End1.SetTerminal(new());vm.End2.SetTerminal(new()); // Existing OCR-only UI fixture.
+            var matching=await VerifyTemplateWindow(window,vm,output);
             vm.LiveImage=image;vm.End1.Apply();vm.End2.Apply();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyModelControls(window,true,true,false,true);
@@ -143,7 +173,7 @@ internal static class Smoke
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyWaitingStatusVisuals(window);
             Capture(window,Path.Combine(output,"run-waiting.png"));
-            vm.Result1.Show(frame1,ExactTextComparer.Compare(frame1,spec1,Reading(0,"QK1.11","FT3.F")));
+            vm.Result1.Show(frame1,CombinedInspectionComparer.Combine(ExactTextComparer.Compare(frame1,spec1,Reading(0,"QK1.11","FT3.F")),matching,true));
             vm.Result2.Show(frame2,ExactTextComparer.Compare(frame2,spec2,Reading(180,"FT3.F","QK1.11")));
             vm.RunStatus="NG";
             vm.RecordCycleTime(742);vm.RecordCycleTime(910);
@@ -152,6 +182,23 @@ internal static class Smoke
             VerifyTimingReadout(window,vm);
             VerifyHudLayout(window);
             Capture(window,Path.Combine(output,"run.png"));
+            if(!vm.Result1.HasTerminal||vm.Result1.TerminalAligned==null)throw new Exception("RUN must render template evidence.");
+            // Synthetic mixed evidence: template NG must not repaint correct OCR/pose/NCC red.
+            var rejected=matching with {Passed=false,Reason="SsimBelowThreshold",Score=.3,Ssim=.3,
+                Diagnostics=matching.Diagnostics! with {VerificationReason="SsimBelowThreshold"}};
+            vm.Result1.Show(frame1,CombinedInspectionComparer.Combine(ExactTextComparer.Compare(frame1,spec1,Reading(0,"QK1.11","FT3.F")),rejected,true));
+            vm.Result2.Reset(spec2 with {Orientation=TextOrientation.Degrees180});
+            vm.Result2.Show(frame2,ExactTextComparer.Compare(frame2,spec2 with {Orientation=TextOrientation.Degrees180},Reading(180,"WRONG","QK1.11")));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            var green=ColorOf((Brush)window.FindResource("Brush.Status.Success"));var red=ColorOf((Brush)window.FindResource("Brush.Status.Error"));
+            if(ColorOf(window.FirstEndResult.StatusText.Foreground)!=red||ColorOf(window.FirstEndResult.ActualText.Foreground)!=green||
+               ColorOf(window.FirstEndResult.DetailText.Foreground)!=green||ColorOf(window.FirstEndResult.OrientationText.Foreground)!=green||
+               ColorOf(window.SecondEndResult.OrientationText.Foreground)!=green||ColorOf(window.SecondEndResult.ActualText.Foreground)!=red)
+                throw new Exception("Independent OCR/template/direction result colors regressed.");
+            VerifyCheckColors(window.FirstEndResult.TerminalCheckItems,green,red);
+            Capture(window,Path.Combine(output,"run-mixed-checks.png"));
+            window.Width=1366;window.Height=900;await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyHudLayout(window);Capture(window,Path.Combine(output,"run-mixed-checks-1366.png"));
             vm.Running=false;window.Width=1366;window.Height=900;vm.RunPage=false;
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(window,Path.Combine(output,"setting-1366.png"));
@@ -171,7 +218,7 @@ internal static class Smoke
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
             File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; default Operator access with Acquisition/model selection only; Admin login unlocks configuration; Vietnamese/English/Korean switch updates bindings; red OFFLINE and green ONLINE header; prominent selected/running model callouts; generic CAMERA selector defaults to Simulator; Simulator RUN enables offline image loading while bypassing physical acquisition and PLC; physical RUN disables offline loading; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
-            File.AppendAllText(Path.Combine(output,"result.txt")," Additional checks: real Add/Edit modal confirmation and cancellation; second-model Save/Delete; immediate draft identity; OCR teaching updates the sample TextBox while retaining previews and requiring Apply.");
+            File.AppendAllText(Path.Combine(output,"result.txt")," Additional checks: real Add/Edit modal confirmation and cancellation; second-model Save/Delete; immediate draft identity; OCR teaching updates the sample TextBox while retaining previews and requiring Apply; real template teaching window/test with native matcher; isolated Cancel; language switches preserve matching profiles; RUN renders template/aligned/outline evidence. Matching images are synthetic fixtures, not production acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -389,7 +436,7 @@ internal static class Smoke
             var frame=ImageFiles.Frame(Fixture(),"SYNTHETIC CRUD FIXTURE");
             foreach(var end in new[]{vm.End1,vm.End2})
             {
-                end.SetFrame(frame);end.Roi=original.Recipe.Ends[0].Roi.Copy();end.ExpectedText="SECOND";end.Apply();
+                end.SetFrame(frame);end.SetTerminal(new());end.Roi=original.Recipe.Ends[0].Roi.Copy();end.ExpectedText="SECOND";end.Apply();
             }
             vm.SaveRecipeCommand.Execute(null);await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             if(vm.SelectedModel?.Code!="UI-SECOND"||vm.Models.Count!=2)throw new Exception($"Second model save failed: {vm.Message}");
@@ -549,8 +596,9 @@ internal static class Smoke
            ColorOf(window.FirstEndResult.ActualText.Foreground)!=success)
             throw new Exception("Per-end OK verdict/read text is not rendered large and green.");
         if(window.SecondEndResult.StatusText.FontSize!=40||ColorOf(window.SecondEndResult.StatusText.Foreground)!=error||
-           ColorOf(window.SecondEndResult.ActualText.Foreground)!=error||ColorOf(window.SecondEndResult.DetailText.Foreground)!=error)
-            throw new Exception("Per-end NG verdict/read text/detail is not rendered large and red.");
+           ColorOf(window.SecondEndResult.ActualText.Foreground)!=success||ColorOf(window.SecondEndResult.DetailText.Foreground)!=success||
+           ColorOf(window.SecondEndResult.OrientationText.Foreground)!=error)
+            throw new Exception("Direction-only NG must retain green matching text and red direction/verdict.");
     }
     private static void VerifyWaitingStatusVisuals(MainWindow window)
     {
@@ -563,6 +611,15 @@ internal static class Smoke
             throw new Exception("Stop button does not have a red border while RUN is active.");
     }
     private static Color ColorOf(Brush brush)=>brush is SolidColorBrush solid?solid.Color:throw new Exception("Expected a solid status brush.");
+    private static void VerifyCheckColors(DependencyObject root,Color green,Color red)
+    {
+        if(root is System.Windows.Controls.TextBlock text&&text.DataContext is InspectionCheck check)
+        {
+            if(text.FontSize<16)throw new Exception("Inspection check text must be at least 16 DIP.");
+            if(check.Passed is{}pass&&ColorOf(text.Foreground)!=(pass?green:red))throw new Exception("Check color must follow its own measured verdict.");
+        }
+        for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)VerifyCheckColors(VisualTreeHelper.GetChild(root,i),green,red);
+    }
     /// <summary>Synthetic frame source for the offline smoke. It never touches acquisition hardware.</summary>
     private sealed class SmokeCamera:ICamera
     {

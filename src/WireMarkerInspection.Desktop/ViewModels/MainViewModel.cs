@@ -38,6 +38,7 @@ public partial class MainViewModel : ObservableObject
     public FileRecipeStore Store{get;}
     public FileSettingsStore Settings{get;}
     public NativeOcrEngine Ocr{get;}
+    public NativeTemplateMatcher Matcher{get;}=new();
     public ICamera Camera{get;}
     public bool AutoDiscoverCameraOnLoad{get;}
     public InspectionSession Session{get;}
@@ -345,7 +346,7 @@ public partial class MainViewModel : ObservableObject
         Store=new(dataRoot);Ocr=new(Path.Combine(AppContext.BaseDirectory,"assets","ocr"));
         Log=new FileDiagnosticsLog(dataRoot);
         Settings=new(dataRoot);
-        Session=new(Ocr,new FileResultStore(dataRoot));
+        Session=new(Ocr,new FileResultStore(dataRoot),Matcher);
         ModelsView=CollectionViewSource.GetDefaultView(Models);
         ModelsView.Filter=o=>o is RecipeRow r&&(r.Code.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase));
         End1.Changed+=(_,_)=>{if(!loading)Dirty=true;};End2.Changed+=(_,_)=>{if(!loading)Dirty=true;};
@@ -837,7 +838,7 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedModel=null;saved=null;draftId=Guid.NewGuid();
             ModelCode=identity.Code.Trim();ModelName=identity.Name.Trim();
-            End1.Clear();End2.Clear();ShowRecipeIo(new CameraInspectionIo());Dirty=true;SetModelSetupActive(true);
+            End1.Clear();End2.Clear();End1.SetTerminal(new(Enabled:true));End2.SetTerminal(new(Enabled:true));ShowRecipeIo(new CameraInspectionIo());Dirty=true;SetModelSetupActive(true);
         }
         finally{loading=false;}
         Message=AppLocalizer.Format("NewModelFormat",ModelCode);
@@ -863,7 +864,7 @@ public partial class MainViewModel : ObservableObject
         if(!CanSaveRecipe)return;
         if(!End1.Applied||!End2.Applied)throw new InvalidOperationException(AppLocalizer.Text("ApplyBothEndsBeforeSave"));
         var draft=new Recipe(draftId,ModelCode.Trim(),ModelName.Trim(),saved?.Revision??0,[End1.Spec(),End2.Spec()],
-            DateTimeOffset.UtcNow,2,BuildCameraSettings(),BuildRecipeIo());
+            DateTimeOffset.UtcNow,3,BuildCameraSettings(),BuildRecipeIo());
         var updated=Store.Save(draft,[ImageFiles.Png(End1.Image!),ImageFiles.Png(End2.Image!)]);
         loading=true;try{Reload();SelectedModel=Models.First(r=>r.Recipe.Id==updated.Id);}finally{loading=false;}
         Load(updated);Message=AppLocalizer.Format("RecipeSavedFormat",updated.ModelCode,updated.Revision);
@@ -930,6 +931,9 @@ public partial class MainViewModel : ObservableObject
             if(saved==null||Dirty)throw new InvalidOperationException(AppLocalizer.Text("SaveBeforeRun"));
             if(Ocr.AvailabilityError is{}error)throw new InvalidOperationException(error);
             runtimeRecipe=saved.Copy();
+            if(runtimeRecipe.Validate() is{}recipeError)throw new InvalidOperationException(recipeError);
+            if(runtimeRecipe.Ends.Any(e=>e.Terminal?.Enabled==true)&&Matcher.AvailabilityError is{}matchingError)
+                throw new InvalidOperationException(AppLocalizer.Text("MatchingError")+": "+matchingError);
             var io=runtimeRecipe.Io??LegacyRecipeIo();runtimeIo=io;
             runUsesSimulator=IsSimulatorSelected;
             if(runUsesSimulator)

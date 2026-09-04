@@ -3,22 +3,30 @@
  xmlns:controls="clr-namespace:WireMarkerInspection.Controls;assembly=WireMarkerInspection.Controls"
  xmlns:loc="clr-namespace:WireMarkerInspection.Controls.Localization;assembly=WireMarkerInspection.Controls">
  <Border Style="{StaticResource Panel}" Padding="0">
-  <Grid>
-   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="148"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <ScrollViewer x:Name="ResultScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <Grid MinHeight="700" Height="{Binding ViewportHeight,ElementName=ResultScroll}">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="150"/><RowDefinition Height="Auto"/><RowDefinition Height="148"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <controls:ImageHud Grid.Row="1" Caption="{Binding Title}"><controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding Image}" Roi="{Binding Roi}" Regions="{Binding Regions}">
     <controls:ImageViewer.Style>
      <Style TargetType="controls:ImageViewer">
       <Setter Property="OverlayBrush" Value="{StaticResource Brush.Status.Info}"/>
       <Style.Triggers>
-       <DataTrigger Binding="{Binding Status}" Value="OK"><Setter Property="OverlayBrush" Value="{StaticResource Brush.Status.Success}"/></DataTrigger>
-       <DataTrigger Binding="{Binding Status}" Value="NG"><Setter Property="OverlayBrush" Value="{StaticResource Brush.Status.Error}"/></DataTrigger>
+       <DataTrigger Binding="{Binding TextPassed}" Value="True"><Setter Property="OverlayBrush" Value="{StaticResource Brush.Status.Success}"/></DataTrigger>
+       <DataTrigger Binding="{Binding TextPassed}" Value="False"><Setter Property="OverlayBrush" Value="{StaticResource Brush.Status.Error}"/></DataTrigger>
       </Style.Triggers>
      </Style>
     </controls:ImageViewer.Style>
    </controls:ImageViewer></controls:ImageHud.Viewer></controls:ImageHud>
    <Border Grid.Row="1" Style="{StaticResource Hud.Container}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Padding="12,6" IsHitTestVisible="False">
     <TextBlock x:Name="StatusText" Text="{Binding Status}" Style="{StaticResource VerdictLabel}"/>
-   </Border>   <Border Grid.Row="3" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,1,0,1" Padding="12,10">
+   </Border>
+   <Grid Grid.Row="2" Height="120" Visibility="{Binding HasTerminal,Converter={StaticResource BoolToVisibility}}">
+    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+    <controls:ImageHud Caption="{loc:Text MatchingLearnImage}"><controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding TerminalReference}"/></controls:ImageHud.Viewer></controls:ImageHud>
+    <controls:ImageHud Grid.Column="1" Caption="{loc:Text MatchingAligned}"><controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding TerminalAligned}"/></controls:ImageHud.Viewer></controls:ImageHud>
+    <controls:ImageHud Grid.Column="2" Caption="{loc:Text TerminalTemplate}"><controls:ImageHud.Viewer><controls:ImageViewer Source="{Binding Image}" Roi="{Binding TerminalOutline,Mode=OneWay}"/></controls:ImageHud.Viewer></controls:ImageHud>
+   </Grid>
+   <Border Grid.Row="3" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,1,0,1" Padding="12,10">
     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
      <ItemsControl ItemsSource="{Binding Previews}" ItemTemplate="{StaticResource OcrPreview}">
       <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -27,10 +35,19 @@
    </Border>
    <Grid Grid.Row="4" Margin="12,12,12,8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <StackPanel><TextBlock Text="{loc:Text ExpectedText}" Style="{StaticResource SectionLabel}"/><TextBlock Text="{Binding Expected}" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Text.Primary}"/></StackPanel>
-    <StackPanel Grid.Column="2"><TextBlock Text="{loc:Text RecognizedText}" Style="{StaticResource SectionLabel}"/><TextBlock x:Name="ActualText" Text="{Binding Actual}" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/><Style.Triggers><DataTrigger Binding="{Binding Status}" Value="OK"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="NG"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="ERROR"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
+    <StackPanel><TextBlock Text="{loc:Text ExpectedText}" Style="{StaticResource SectionLabel}"/><TextBlock Text="{Binding Expected}" FontSize="18" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Text.Primary}"/></StackPanel>
+    <StackPanel Grid.Column="2"><TextBlock Text="{loc:Text RecognizedText}" Style="{StaticResource SectionLabel}"/><TextBlock x:Name="ActualText" Text="{Binding Actual}" FontSize="18" FontFamily="{StaticResource Font.Monospace}" TextWrapping="Wrap" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/><Style.Triggers><DataTrigger Binding="{Binding TextPassed}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger><DataTrigger Binding="{Binding TextPassed}" Value="False"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
    </Grid>
-   <TextBlock x:Name="DetailText" Grid.Row="5" Text="{Binding Detail}" MinHeight="28" Margin="12,0"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Caption}"><Style.Triggers><DataTrigger Binding="{Binding Status}" Value="OK"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Success}"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="NG"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger><DataTrigger Binding="{Binding Status}" Value="ERROR"><Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+   <ScrollViewer Grid.Row="5" MaxHeight="190" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="12,0,6,6">
+    <StackPanel>
+     <TextBlock x:Name="DetailText" DataContext="{Binding TextCheck}" Text="{Binding Text}" Style="{StaticResource Inspection.CheckText}"/>
+     <TextBlock x:Name="OrientationText" DataContext="{Binding OrientationCheck}" Text="{Binding Text}" Style="{StaticResource Inspection.CheckText}"/>
+     <ItemsControl x:Name="TerminalCheckItems" ItemsSource="{Binding TerminalChecks}" ItemTemplate="{StaticResource Inspection.Check}">
+      <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+     </ItemsControl>
+    </StackPanel>
+   </ScrollViewer>
   </Grid>
+  </ScrollViewer>
  </Border>
 </UserControl>

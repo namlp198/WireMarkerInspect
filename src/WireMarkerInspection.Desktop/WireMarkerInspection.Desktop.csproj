@@ -1,11 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><OutputType>WinExe</OutputType>
+    <!-- F5 must consult CMake's incremental dependency checks, not only C# timestamps. -->
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     <MvsManagedSdkPath Condition="Exists('../../vendor/camera/MvCameraControl.Net.dll')">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../vendor/camera/MvCameraControl.Net.dll'))</MvsManagedSdkPath>
     <MvsManagedSdkPath Condition="'$(MvsManagedSdkPath)' == '' and Exists('$(MSBuildProgramFiles32)/MVS/Development/DotNet/AnyCpu/MvCameraControl.Net.dll')">$(MSBuildProgramFiles32)/MVS/Development/DotNet/AnyCpu/MvCameraControl.Net.dll</MvsManagedSdkPath>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../WireMarkerInspection.Domain/WireMarkerInspection.Domain.csproj" /><ProjectReference Include="../WireMarkerInspection.Application/WireMarkerInspection.Application.csproj" /><ProjectReference Include="../WireMarkerInspection.Infrastructure/WireMarkerInspection.Infrastructure.csproj" /><ProjectReference Include="../WireMarkerInspection.Vision/WireMarkerInspection.Vision.csproj" /><ProjectReference Include="../WireMarkerInspection.Controls/WireMarkerInspection.Controls.csproj" /><PackageReference Include="CommunityToolkit.Mvvm" /></ItemGroup>
   <ItemGroup><Reference Include="MvCameraControl.Net" HintPath="$(MvsManagedSdkPath)" Private="true" Condition="'$(MvsManagedSdkPath)' != ''" /></ItemGroup>
-  <ItemGroup><Content Include="../../build/native/$(Configuration)/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /><Content Include="../../assets/ocr/*" Link="assets/ocr/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /><Content Include="../../vendor/camera/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="../../assets/ocr/*" Link="assets/ocr/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /><Content Include="../../vendor/camera/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="../../assets/licenses/*" Link="licenses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <Target Name="BuildAndStageNativeVision" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true' and '$(MSBuildProjectName)' == 'WireMarkerInspection.Desktop'">
+    <Exec Condition="'$(SkipNativeBuild)' != 'true'" Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)/../../scripts/build.ps1&quot; -Configuration $(Configuration) -NativeOnly" />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../build/native/$(Configuration)/WireMarkerVision.dll')" Text="Missing $(Configuration) native vision DLL. Run scripts/build.ps1 -Configuration $(Configuration)." />
+    <!-- Evaluate after CMake so a clean checkout also includes freshly produced native DLLs. -->
+    <ItemGroup>
+      <_NativeVisionRuntime Include="../../build/native/$(Configuration)/*.dll" />
+      <Content Include="@(_NativeVisionRuntime)" Link="%(_NativeVisionRuntime.Filename)%(_NativeVisionRuntime.Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 </Project>

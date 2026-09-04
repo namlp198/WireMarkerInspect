@@ -4,6 +4,14 @@ Windows x64 inspection application: WPF/.NET 8 UI, reusable image controls, C++/
 
 ## Current status — 2026-09-04
 
+Matching diagnostics no longer turn an early feature-gate rejection into a misleading row of zero scores. Counts survive KNN/distance/mutual/RANSAC filtering; a valid diagnostic alignment can report appearance even below a feature gate, but that gate still forces NG. Unmeasured metrics display **N/A**, and results retain their threshold snapshot. Critical teaching parameters have amber `*` labels and impact tooltips. RUN/teaching color each check independently; recognized text is 18 DIP and check details 16 DIP, with scrollable small-window results. The exact reported model4/v8 cycle was replayed read-only: SIFT end 1 had 24/38 inliers (63.16% < 65%), not zero matches; NCC 0.989 / SSIM 0.912 / edge 0.694. End 2 had 4/12 inliers and invalid geometry. No saved thresholds, OCR rules, camera or PLC behavior were changed. See [diagnostic evidence and replay](docs/architecture/TERMINAL_MATCHING.md#diagnostic-evidence--2026-09-04).
+
+Debug/native deployment fix: the reported `wmi_matching_abi_version` entry-point failure was caused by an old Debug DLL (Release already contained matching). Desktop builds/F5 now run the matching native configuration through incremental CMake before collecting runtime DLLs; Visual Studio's C#-only fast-up-to-date shortcut is disabled. The matcher checks required exports before calling them and reports rebuild/restart guidance for an outdated DLL. Debug and Release both pass clean builds, 117/117 managed tests, native 1/1 and WPF matching smoke (`artifacts/smoke-20260904-163344` Debug; `artifacts/smoke-20260904-163449` Release).
+
+Per-end terminal/cos template matching is implemented with **Normal, AKAZE, SIFT, ORB and ORB Max Stable**. Each end has an independent template image, learn mask, runtime search ROI, algorithm and basic/advanced thresholds. With matching enabled, OK requires **exact text AND required text direction AND terminal match**; both ends must pass. Simulator uses exactly this pipeline. Admin teaches/tests the template from the new button in each end editor; Operator remains read-only. See [terminal matching workflow and acceptance limits](docs/architecture/TERMINAL_MATCHING.md).
+
+New models enable template inspection on both ends by default. Legacy recipes remain explicitly labeled OCR-only; they are not silently changed. Saving publishes schema v3 and immutable template PNGs alongside the reference images. RUN freezes template bytes/profiles and shows the learned/aligned images, source-space outline, score/NCC/SSIM/edge/pose/inlier evidence. Native errors cannot produce OK; Stop discards late matching results.
+
 Add Model confirmation now visibly identifies the new unsaved draft in the center callout and selector, rather than continuing to show “no model selected”. Both editors unlock immediately; the model joins the saved library only after configuring and applying both ends and saving the Recipe. SETTING OCR now fills the expected-text draft with recognized lines in order. It preserves required direction, requires explicit Apply/Save for changed text, and keeps the existing sample if the read is empty/incomplete or fails.
 
 Implemented: SETTING/RUN screens, independent ImageViewer and ImageEditor controls, recipe persistence, exact comparison, two-capture session, native OCR interface/pipeline, offline Load Image validation, NAcquire C API adapter, tests and deployment scripts.
@@ -14,13 +22,13 @@ The application starts in **Operator** mode. A separate USER ACCESS area provide
 
 The UI can switch live between Vietnamese, English and Korean and remembers the selected language under `%LOCALAPPDATA%\WireMarkerInspection\language.txt`. The header uses a single circular vector flag aligned with the product title. The header no longer shows implementation-stack text: its red `OFFLINE` / green `ONLINE` indicator now reflects the physical camera connection. The selected model and frozen RUN model are shown in prominent bordered callouts so the operator can confirm the active recipe at a glance.
 
-Each end now evaluates two independent conditions: ordinal exact text and configured text direction. Thuận requires detected 0°, Nghịch requires detected 180°; Auto explicitly accepts either direction. OCR always evaluates both directions without using expected text to choose a result.
+Each end retains independent ordinal exact text and configured text direction checks, plus terminal-template matching when enabled. Thuận requires detected 0°, Nghịch requires detected 180°; Auto explicitly accepts either direction. OCR always evaluates both directions without using expected text to choose a result. Terminal pose is relative to the taught template and never substitutes for text direction.
 
 UI style is **RoboStation / Geo Measure HUD**: a metallic chevron SETTING/RUN taskbar, shared low-alpha floating toolbars, compact vector icons, a left ROI tool rail and bottom-right navigation. The mandatory specification is docs/design/DESIGN_SYSTEM.md. Live Camera now sits in the acquisition column to leave more room for the two editors.
 
 Model setup is locked until an existing model is selected or Add Model creates a new draft. Selecting either the ComboBox item or a Model Library row immediately loads both reference images and recipe fields. Library rows show the expected text below each end thumbnail; the Add/Edit dialog labels its model-code and model-name inputs.
 
-Save Recipe is dimmed and disabled when the active recipe is clean. Any draft change highlights Save and shows a red “CẦN LƯU” notification. RUN renders waiting states prominently, keeps Stop outlined in red, doubles total/per-end OK/NG text to 40 DIP, and colors recognized text plus result detail green for OK or red for NG/error.
+Save Recipe is dimmed and disabled when the active recipe is clean. Any draft change highlights Save and shows a red “CẦN LƯU” notification. RUN renders waiting states prominently, keeps Stop outlined in red, and uses 40-DIP total/per-end OK/NG. Text, direction and template metrics now use their own green/red verdicts; unavailable measurements remain neutral.
 
 The supplied 26 BMP dataset now passes 26/26 in both the native CLI and the managed WPF Load Image path using a representative ROI and Auto 0°/180°. This is a regression baseline for the supplied images, not a production accuracy/throughput claim.
 
@@ -45,6 +53,7 @@ Prerequisites: Windows, .NET SDK with .NET 8 Windows Desktop targeting pack, Vis
     dotnet run --project src/WireMarkerInspection.Desktop -c Release
 
 The `.bat` and `.sh` launchers call the same `build.ps1`; additional PowerShell arguments such as `-OpenCvRoot` and `-OrtRoot` can be appended. Debug now builds and stages native Debug DLLs, while Release uses native Release DLLs. The `.sh` files are Windows Git Bash/WSL launchers and still require Windows PowerShell, Visual Studio C++ tools and the Windows SDK.
+Direct Desktop `dotnet build` and Visual Studio Build/F5 also build native code for the selected configuration. `build.ps1 -NativeOnly` is the non-recursive native build entry point used by MSBuild. The full build script uses `SkipNativeBuild=true` only after completing that native build itself. Restart the app after replacing a DLL already loaded by a debugging session. Test and smoke scripts accept `-Configuration Debug` or `-Configuration Release` (default Release).
 
 ## Operator workflow
 
@@ -55,7 +64,7 @@ The `.bat` and `.sh` launchers call the same `build.ps1`; additional PowerShell 
 5. Draw **one search ROI per end**. The OCR core detects multiple text regions inside it.
 6. Enter expected text with **one detected region per line**, ordered top-to-bottom, then left-to-right in a row. This is a data format, not two manually drawn OCR ROIs.
 7. Select the required direction per end: Thuận (must detect 0°), Nghịch (must detect 180°), or Auto (do not reject by direction).
-8. Apply each end; the Save icon publishes the two ends, camera setup, trigger and outputs as one revision.
+8. Open **Terminal template** for each end, use/load its template image, draw the learn and search regions, choose the algorithm and thresholds, then Test on OK/NG samples. Apply the template draft, Apply each end and Save the two ends, camera setup, trigger and outputs as one revision. Only Admin may explicitly opt out of template inspection.
 9. RUN freezes that saved recipe and automatically prepares its camera/PLC runtime. After both ends complete, the next cycle is armed automatically; use **KẾT QUẢ TRƯỚC** to review the last completed product without blocking production.
 10. A camera-line trigger supports Shared only. PerEnd is a PLC feature because it needs two independently identified signals. Repeats inside the configured window and signals received while processing are ignored and logged. Chụp lại đầu này drops a bad first image without losing the product.
 
@@ -83,12 +92,12 @@ Per-user data: %LOCALAPPDATA%\WireMarkerInspection
 - results/<date>/<cycle-id>/result.json and end1/end2.ppm
 
 Recipe saves publish JSON only after both images exist. Previous immutable images remain for recovery; delete removes the model from the catalog by renaming its recipe JSON, not destroying the assets.
-Schema-v1 recipes remain readable. Saving one publishes schema v2 and migrates its legacy machine-level trigger/verdict bits into recipe-owned I/O settings; physical PLC transport remains in `settings.json`.
+Schema-v1/v2 recipes remain readable. Saving publishes schema v3; v1 legacy machine-level trigger/verdict bits still migrate into recipe-owned I/O settings, while physical PLC transport remains in `settings.json`. Legacy recipes stay OCR-only unless Admin explicitly teaches/enables templates. Missing required template assets reject the recipe with a visible load error.
 Back up this entire directory. Inspection image retention/automatic cleanup is not yet enabled: provision and monitor disk capacity.
 
 ## Verification
 
-Latest software-only verification (2026-09-04): Release build 0 warnings/errors, managed 93/93, native 1/1, and WPF smoke PASS at `artifacts/smoke-20260904-112733`. Added real Add/Edit modal confirmation/cancellation, second-model Save/Delete, visible draft identity and OCR-to-sample TextBox checks. Previous Simulator, role and localization regressions also pass. The 26-image acceptance script could not revalidate the old baseline: its flat input folder was reorganized into `pair*` subfolders and `TYPE1-I1-00.bmp` / `TYPE1-I2-00.bmp` are missing. No OCR algorithm or manifest was changed to compensate. No real hardware command was issued.
+Latest software-only verification (2026-09-04): Debug and Release builds 0 warnings/errors, managed **124/124** and native **1/1** in both configurations. WPF smoke PASS: Release `artifacts/smoke-20260904-174719`, Debug `artifacts/smoke-20260904-174731`. Coverage includes all five algorithms, different terminals, reflection/wrong rotation, ambiguous duplicates, masks, persistence, cancellation and stable multilingual profiles, plus retained early-gate evidence, N/A versus measured zero and independently colored text/direction/template metrics. Real teaching-window Test/Cancel and RUN evidence render at Full HD/1366×900 are covered alongside model/Simulator/role/OCR tests. Read-only replay of the supplied cycle establishes its diagnostic cause, not production accuracy; calibrate with independent labeled OK/NG images. The historical 26-image OCR baseline was not revalidated: the external dataset still lacks TYPE1-I1-00/TYPE1-I2-00. No real hardware command or PLC write was issued.
 
     powershell -ExecutionPolicy Bypass -File scripts/test.ps1
     powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1

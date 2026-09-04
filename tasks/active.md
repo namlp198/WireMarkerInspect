@@ -1,5 +1,29 @@
 # Active task — Wire Marker Inspection foundation
 
+## Matching all-zero diagnostics and independent colors — 2026-09-04
+- [x] Replay the exact saved cycle/recipe read-only and identify actual feature-gate failures for SIFT and AKAZE.
+- [x] Retain intermediate counts and separately report geometry/appearance availability, failure reasons and frozen thresholds; never turn missing measurements into displayed zero scores.
+- [x] Continue diagnostic verification when a transform exists without bypassing any failed acceptance gate; keep rejected second attempts out of accepted-candidate selection.
+- [x] Mark critical parameter rows and explain their impact in Vietnamese/English/Korean without mutating saved profiles.
+- [x] Separate text/direction/template/metric colors; enlarge actual text to 18 DIP and checks to 16 DIP; preserve small-window HUDs with scrolling.
+- [x] Add seven regression cases; verify 124/124 managed, 1/1 native, Debug/Release builds and mixed-color WPF smoke.
+- [ ] Calibrate production thresholds using independently labeled OK/NG terminal samples. Existing defaults and saved profiles intentionally remain unchanged.
+
+## Debug native matching export mismatch — fixed 2026-09-04
+- [x] Confirm old Debug DLL lacked matching exports while Release had them.
+- [x] Integrate per-configuration incremental native build/staging with Desktop/F5 and avoid the C#-only fast-up-to-date shortcut.
+- [x] Detect missing matching exports without invoking them; report rebuild/restart guidance.
+- [x] Add Debug/Release support to test/smoke scripts; verify clean builds, 117/117 managed, 1/1 native and WPF template smoke on both configurations.
+
+## Terminal template matching — implemented 2026-09-04
+- [x] Inspect PinInsertMachine matching sources read-only and implement Normal / AKAZE / SIFT / ORB / ORB Max Stable locally.
+- [x] Add per-end schema-v3 immutable template assets, learn/search masks and separate algorithm threshold profiles; retain explicit legacy OCR-only behavior.
+- [x] Combine template verdict with exact text/direction on the same owned frame for Simulator and physical RUN; reject invalid assets/native failures and late cancelled results.
+- [x] Add Admin-only template teaching/testing with shared HUD, basic/advanced parameters and language-stable identities; preserve Apply/Save/Cancel behavior and Operator restrictions.
+- [x] Render/persist template evidence, metrics and source-space match outline in RUN.
+- [x] Verify Release 0 warnings/errors, managed 115/115, native 1/1 and WPF smoke `artifacts/smoke-20260904-155757`.
+- [ ] Production acceptance with independent actual terminal OK/NG images, difficult similar types/poses/lighting, false-accept review and target-PC cycle time. No accuracy claim from synthetic fixtures.
+
 ## Model CRUD review and OCR teaching — 2026-09-04
 - [x] Exercise Add/Edit through real modal confirmation and cancellation, then save a second model and delete it.
 - [x] Show the new draft identity immediately after confirmation; keep invalid/incomplete recipes out of the saved catalog and RUN.
@@ -151,7 +175,7 @@
 - [ ] Human review of ImageEditor mouse interactions and target DPI/resolution.
 - [ ] Clean target-PC install and production acceptance.
 
-Color/template/print-quality and external PLC trigger integrations are outside the current implemented slice.
+Color/print-quality remain outside the implemented slice. Terminal matching and PLC triggers are now implemented; their production hardware/image acceptance remains separate.
 
 ## Model setup usability — completed 2026-08-30
 - [x] Add visible model-code and model-name labels to the Add/Edit dialog.

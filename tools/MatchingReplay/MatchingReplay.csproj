@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+ <ItemGroup>
+  <ProjectReference Include="../../src/WireMarkerInspection.Vision/WireMarkerInspection.Vision.csproj"/>
+  <None Include="../../build/native/$(Configuration)/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
+ </ItemGroup>
+</Project>

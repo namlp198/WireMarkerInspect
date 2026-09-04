@@ -84,7 +84,7 @@ public sealed class CameraSettingsTests:IDisposable
             vm.SaveRecipeCommand.Execute(null);
 
             var stored=Assert.Single(new FileRecipeStore(root).LoadAll());
-            Assert.Equal(2,stored.SchemaVersion);
+            Assert.Equal(3,stored.SchemaVersion);
             var io=Assert.IsType<CameraInspectionIo>(stored.Io);
             Assert.Equal(RecipeTriggerKind.Plc,io.TriggerProfile.Kind);
             Assert.Equal(RecipeTriggerMapping.PerEnd,io.TriggerProfile.Mapping);
@@ -176,6 +176,7 @@ public sealed class CameraSettingsTests:IDisposable
         foreach(var editor in new[]{vm.End1,vm.End2})
         {
             editor.SetFrame(InspectionTests.Frame());
+            editor.SetTerminal(new()); // Camera/I/O fixture explicitly opts out of template inspection.
             editor.Roi=SearchRoi.FullImage(100,100);
             editor.ExpectedText="QK1.11/FT3.f";
             editor.Orientation=TextOrientation.Auto;

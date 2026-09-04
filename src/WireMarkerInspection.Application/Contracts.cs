@@ -5,6 +5,10 @@ public interface IOcrEngine
 {
     Task<OcrReading> ReadAsync(ImageFrame frame, EndRecipe recipe, CancellationToken cancellationToken);
 }
+public interface ITemplateMatcher
+{
+    Task<TemplateMatchResult> MatchAsync(ImageFrame frame,TerminalTemplate template,CancellationToken cancellationToken);
+}
 public interface IRecipeStore
 {
     IReadOnlyList<Recipe> LoadAll();
