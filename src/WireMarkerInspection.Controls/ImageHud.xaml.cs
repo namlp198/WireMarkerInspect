@@ -42,6 +42,7 @@ public partial class ImageHud : UserControl
         DrawingRail.Visibility=Editor==null?Visibility.Collapsed:Visibility.Visible;
         DrawingRail.IsEnabled=source!=null;
         ExpandPanel.Visibility=CanExpand?Visibility.Visible:Visibility.Collapsed;
+        ExpandPanel.IsEnabled=source!=null;
         PolygonStrip.Visibility=Editor?.IsDrawingPolygon==true?Visibility.Visible:Visibility.Collapsed;
         FinishButton.IsEnabled=Editor?.CanFinishPolygon==true;
         UndoButton.IsEnabled=Editor?.CanUndo==true || Editor?.IsDrawingPolygon==true;
@@ -63,6 +64,6 @@ public partial class ImageHud : UserControl
     private void Cancel(object s,RoutedEventArgs e){Editor?.Cancel();Viewer?.Focus();}
     private void ZoomOut(object s,RoutedEventArgs e)=>Viewer?.ZoomBy(0.8);
     private void ZoomIn(object s,RoutedEventArgs e)=>Viewer?.ZoomBy(1.25);
-    private void ActualSize(object s,RoutedEventArgs e)=>Viewer?.ActualSize();
+    private void ResetView(object s,RoutedEventArgs e)=>Viewer?.Fit();
     private void Expand(object s,RoutedEventArgs e)=>ExpandRequested?.Invoke(this,EventArgs.Empty);
 }

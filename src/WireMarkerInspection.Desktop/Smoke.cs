@@ -4,13 +4,44 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using WireMarkerInspection.Controls;
+using WireMarkerInspection.Application;
+using WireMarkerInspection.Desktop.Views;
 using WireMarkerInspection.Domain;
 using WireMarkerInspection.Desktop.Services;
 using WireMarkerInspection.Desktop.ViewModels;
+using WireMarkerInspection.Controls.Localization;
 
 namespace WireMarkerInspection.Desktop;
 internal static class Smoke
 {
+    private static async Task<TemplateMatchResult> VerifyTemplateWindow(Window owner,MainViewModel main,string output)
+    {
+        using var draft=new TemplateEditorViewModel(main.End1,main.Matcher);
+        draft.Enabled=true;draft.UseReferenceCommand.Execute(null);
+        draft.LearnRoi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
+        draft.SearchRoi=SearchRoi.FullImage(main.End1.Frame!.Width,main.End1.Frame.Height);
+        foreach(var p in draft.Parameters)
+        {
+            if(p.Key is MatchParameter.AngleMin or MatchParameter.AngleMax)p.Text="0";
+            if(p.Key is MatchParameter.ScaleMin or MatchParameter.ScaleMax)p.Text="1";
+        }
+        var dialog=new TemplateWindow{Owner=owner,DataContext=draft};dialog.Show();
+        await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        await draft.TestCommand.ExecuteAsync(null);
+        await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        if(!dialog.TestMatchingButton.IsEnabled)throw new Exception($"Test matching did not re-enable: busy={draft.Busy}; canExecute={draft.TestCommand.CanExecute(null)}; running={draft.TestCommand.IsRunning}");
+        if(!draft.Passed)throw new Exception("Template teaching smoke failed: "+draft.Message);
+        var before=System.Text.Json.JsonSerializer.Serialize(draft.Build());
+        foreach(var language in Enum.GetValues<AppLanguage>())
+        {
+            AppLocalizer.ChangeLanguage(language,false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(before!=System.Text.Json.JsonSerializer.Serialize(draft.Build()))throw new Exception("Language switch changed matching recipe.");
+        }
+        Capture(dialog,Path.Combine(output,"template-matching.png"));dialog.Close();
+        if(main.End1.Terminal.Enabled)throw new Exception("Template dialog Cancel mutated recipe.");
+        AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,false);
+        return draft.Result!;
+    }
     public static async void Run(string output)
     {
         output=Path.GetFullPath(output);Directory.CreateDirectory(output);
@@ -18,24 +49,106 @@ internal static class Smoke
         try
         {
             // Each run owns fresh data; re-running release smoke must not collide with its prior recipe.
-            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")));
+            var camera=new SmokeCamera();
+            AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,persist:false);
+            var vm=new MainViewModel(Path.Combine(output,"isolated-data",Guid.NewGuid().ToString("N")),camera,autoDiscoverCameraOnLoad:false,enableSimulator:true);
             window=new MainWindow(vm){Width=1920,Height=1080,Title="OFFLINE SMOKE · SYNTHETIC UI FIXTURES"};
             vm.SourceStatus="SMOKE FIXTURE · NOT LIVE";
             window.Show();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyOperatorAccess(window,vm);
+            Capture(window,Path.Combine(output,"setting-operator.png"));
+            var loginWindow=new LoginWindow((_,_)=>false){Owner=window};loginWindow.Show();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(loginWindow.PasswordInput.Background==null)throw new Exception("Login PasswordBox theme resource was not resolved.");
+            Capture(loginWindow,Path.Combine(output,"login.png"));loginWindow.Close();
+            if(!vm.TryLogin("admin","admin"))throw new Exception("Admin login failed in UI smoke.");
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyAdminAccess(window,vm);
+            await VerifyLanguageSwitch(window,vm);
+            VerifyPlcConnectionUi(window,vm);
+            window.SettingsScroll.ScrollToEnd();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Capture(window,Path.Combine(output,"plc-connection.png"));
+            window.SettingsScroll.ScrollToHome();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(window.CameraSectionLabel.Text!="CAMERA"||!vm.IsSimulatorSelected||!window.CameraSelector.IsEnabled||window.ConnectCameraButton.IsEnabled||window.AcquisitionButton.IsEnabled)
+                throw new Exception("CAMERA must default to selectable Simulator without physical connect/acquisition actions.");
+            Capture(window,Path.Combine(output,"setting-simulator.png"));
+            vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;
+            VerifyCameraControls(window,search:true,connect:false,disconnect:false,acquisition:false,parameters:false);
+            if(!window.LiveCameraHud.CanExpand)throw new Exception("Live Camera HUD must expose Expand.");
+            vm.FindingCamera=true;vm.CameraState=CameraUiState.Finding;vm.CameraStatus="ĐANG TÌM CAMERA HIKROBOT...";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:false,connect:false,disconnect:false,acquisition:false,parameters:false);
+            if(window.FindingIndicator.Visibility!=Visibility.Visible)throw new Exception("Camera finding indicator is not visible.");
+            Capture(window,Path.Combine(output,"camera-finding.png"));
+            vm.FindingCamera=false;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:true,connect:false,disconnect:false,acquisition:false,parameters:false);
+            var smokeCamera=new CameraDevice("smoke-camera","Hikrobot smoke device","smoke",false);
+            vm.Cameras.Add(smokeCamera);vm.SelectedCamera=smokeCamera;vm.CameraState=CameraUiState.Found;vm.CameraStatus="ĐÃ TÌM THẤY 1 CAMERA · SẴN SÀNG KẾT NỐI";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:true,connect:true,disconnect:false,acquisition:false,parameters:false);
+            vm.CameraConnected=true;vm.CameraState=CameraUiState.Connected;vm.CameraStatus="ĐÃ KẾT NỐI · Hikrobot smoke device";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(window.HeaderConnectionStatus.Text!="ONLINE"||ColorOf(window.HeaderConnectionStatus.Foreground)!=ColorOf((Brush)window.FindResource("Brush.Status.Success")))
+                throw new Exception("Header must show green ONLINE when the camera is connected.");
+            VerifyCameraControls(window,search:false,connect:false,disconnect:true,acquisition:true,parameters:true);
+            vm.Acquiring=true;vm.CameraState=CameraUiState.Acquiring;vm.CameraStatus="ĐANG ACQUISITION · 4024 × 3036";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            VerifyCameraControls(window,search:false,connect:false,disconnect:false,acquisition:true,parameters:false);
+            var cameraError=ColorOf((Brush)window.FindResource("Brush.Status.Error"));
+            if(window.AcquisitionButton.Width!=32||ColorOf(window.AcquisitionButton.BorderBrush)!=cameraError||window.AcquisitionButton.BorderThickness.Left<1)
+                throw new Exception("Stop Acquisition state must be a rounded square with a red border.");
+            Capture(window,Path.Combine(output,"camera-acquiring.png"));
+            vm.CameraState=CameraUiState.Reconnecting;await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(window.HeaderConnectionStatus.Text!="OFFLINE"||ColorOf(window.HeaderConnectionStatus.Foreground)!=cameraError)
+                throw new Exception("Header must return to red OFFLINE while the camera is reconnecting.");
+            vm.Acquiring=false;vm.CameraConnected=false;vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("Model setup must be locked before selection or Add Model.");
+            VerifyModelControls(window,false,false,false,false);
             var image=Fixture();
+            RunModelDialog(window.AddModelButton,"UI-FIXTURE","Synthetic layout fixture");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(window.SelectedModelCodeText.Text!="UI-FIXTURE"||window.NewModelDraftText.Visibility!=Visibility.Visible||!window.ModelSetupEditors.IsEnabled)
+                throw new Exception("Confirm Add must immediately show the new draft identity and unlock its editors.");
+            if(!vm.CanConfigureModel||vm.CanManageSelectedModel)throw new Exception("A new model draft must unlock setup without enabling selected-model actions.");
+            VerifyModelControls(window,true,true,false,true);
+            await VerifyLiveGrab(window,vm,camera);
             vm.End1.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End2.SetFrame(ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE"));
             vm.End1.Roi=new(RoiShape.Rectangle,[new(120,110),new(1000,440)]);
             vm.End2.Roi=new(RoiShape.Polygon,[new(120,110),new(1000,130),new(970,450),new(110,425)]);
-            vm.End1.ExpectedText="QK1.11\nFT3.F";vm.End2.ExpectedText="FT3.F\nQK1.11";
-            vm.ModelCode="UI-FIXTURE";vm.ModelName="Synthetic layout fixture";
-            vm.LiveImage=image;vm.End1.Apply();vm.End2.Apply();vm.SaveRecipeCommand.Execute(null);
-            if(vm.Dirty || vm.SelectedModel?.Code!="UI-FIXTURE" || vm.Models.Count!=1)
+            vm.End1.ShowReading(new([new("QK1.11",0.99,[],ImageFiles.Png(image)),new("FT3.F",0.99,[],ImageFiles.Png(image))],0));
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            if(window.FirstEndEditor.ExpectedTextInput.Text!="QK1.11\nFT3.F"||vm.End1.Previews.Count!=2||vm.End1.Applied)
+                throw new Exception("OCR teaching must fill the actual sample TextBox and retain previews without auto-Apply.");
+            vm.End2.ExpectedText="FT3.F\nQK1.11";
+            vm.End1.SetTerminal(new());vm.End2.SetTerminal(new()); // Existing OCR-only UI fixture.
+            var matching=await VerifyTemplateWindow(window,vm,output);
+            vm.LiveImage=image;vm.End1.Apply();vm.End2.Apply();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyModelControls(window,true,true,false,true);
+            Capture(window,Path.Combine(output,"setting-dirty.png"));
+            vm.SaveRecipeCommand.Execute(null);
+            if(vm.Dirty || vm.SelectedModel?.Code!="UI-FIXTURE" || vm.SelectedModel.Revision!="v1" || vm.Models.Count!=1)
                 throw new Exception($"Smoke recipe save/reload failed: {vm.Message}");
+            if(!vm.CanConfigureModel||!vm.CanManageSelectedModel)throw new Exception("A saved selected model must keep setup and model actions enabled.");
+            if(window.NewModelDraftText.Visibility!=Visibility.Collapsed||!vm.IsModelReady)throw new Exception("Saved model must leave draft state.");
+            VerifyModelControls(window,true,false,true,false);
+            if(window.SelectedModelCodeText.Text!="UI-FIXTURE"||ColorOf(window.ModelSelectionPanel.BorderBrush)!=ColorOf((Brush)window.FindResource("Brush.Brand.Secondary")))
+                throw new Exception("Selected operating model callout is not prominent or synchronized.");
+            RunModelDialog(window.EditModelButton,"UI-FIXTURE","Synthetic layout fixture v2");
+            VerifyModelControls(window,true,true,true,true);
+            vm.SaveRecipeCommand.Execute(null);
+            if(vm.Dirty || vm.SelectedModel?.Name!="Synthetic layout fixture v2" || vm.SelectedModel.Revision!="v2")
+                throw new Exception($"Smoke recipe edit/revision failed: {vm.Message}");
+            VerifyModelControls(window,true,false,true,false);
+            await VerifySimulatorRun(window,vm);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             VerifyHudLayout(window);
             Capture(window,Path.Combine(output,"setting.png"));
-            var modelDialog=new ModelDetailsWindow{Owner=window,DataContext=vm,Title="MODEL DIALOG · UI SMOKE"};
+            var modelDialog=new ModelDetailsWindow("MODEL DIALOG · UI SMOKE",vm.ModelCode,vm.ModelName,_=>null){Owner=window};
             modelDialog.Show();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(modelDialog,Path.Combine(output,"model-dialog.png"));modelDialog.Close();
             var viewer=new ImageViewer{Source=image,Width=600,Height=300};
@@ -48,25 +161,64 @@ internal static class Smoke
             editor.Measure(new(600,300));editor.Arrange(new(0,0,600,300));editor.FullImage();editor.DeleteRoi();editor.Undo();
             if(editor.Roi==null)throw new Exception("Editor undo failed.");
             editor.Redo();if(editor.Roi!=null)throw new Exception("Editor redo failed.");
-            vm.RunPage=true;vm.RunStatus="SMOKE · NO OCR";vm.Result1.Reset(vm.End1.Spec());vm.Result2.Reset(vm.End2.Spec());
+            var crop=ImageFiles.Png(image);
+            OcrReading Reading(int rotation,params string[] lines)=>new(
+                lines.Select(text=>new OcrRegion(text,0.99,[],crop)).ToArray(),rotation);
+            var frame1=ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE");
+            var frame2=ImageFiles.Frame(image,"SYNTHETIC UI FIXTURE");
+            var spec1=vm.End1.Spec();var spec2=vm.End2.Spec();
+            vm.Result1.Reset(spec1);vm.Result2.Reset(spec2);
             vm.Result1.Image=image;vm.Result2.Image=image;
+            vm.RunPage=true;vm.Running=true;vm.RunStatus="CHỜ ĐẦU 1";
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyWaitingStatusVisuals(window);
+            Capture(window,Path.Combine(output,"run-waiting.png"));
+            vm.Result1.Show(frame1,CombinedInspectionComparer.Combine(ExactTextComparer.Compare(frame1,spec1,Reading(0,"QK1.11","FT3.F")),matching,true));
+            vm.Result2.Show(frame2,ExactTextComparer.Compare(frame2,spec2,Reading(180,"FT3.F","QK1.11")));
+            vm.RunStatus="NG";
+            vm.RecordCycleTime(742);vm.RecordCycleTime(910);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyRunStatusVisuals(window);
+            VerifyTimingReadout(window,vm);
             VerifyHudLayout(window);
             Capture(window,Path.Combine(output,"run.png"));
-            window.Width=1366;window.Height=900;vm.RunPage=false;
+            if(!vm.Result1.HasTerminal||vm.Result1.TerminalAligned==null)throw new Exception("RUN must render template evidence.");
+            // Synthetic mixed evidence: template NG must not repaint correct OCR/pose/NCC red.
+            var rejected=matching with {Passed=false,Reason="SsimBelowThreshold",Score=.3,Ssim=.3,
+                Diagnostics=matching.Diagnostics! with {VerificationReason="SsimBelowThreshold"}};
+            vm.Result1.Show(frame1,CombinedInspectionComparer.Combine(ExactTextComparer.Compare(frame1,spec1,Reading(0,"QK1.11","FT3.F")),rejected,true));
+            vm.Result2.Reset(spec2 with {Orientation=TextOrientation.Degrees180});
+            vm.Result2.Show(frame2,ExactTextComparer.Compare(frame2,spec2 with {Orientation=TextOrientation.Degrees180},Reading(180,"WRONG","QK1.11")));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            var green=ColorOf((Brush)window.FindResource("Brush.Status.Success"));var red=ColorOf((Brush)window.FindResource("Brush.Status.Error"));
+            if(ColorOf(window.FirstEndResult.StatusText.Foreground)!=red||ColorOf(window.FirstEndResult.ActualText.Foreground)!=green||
+               ColorOf(window.FirstEndResult.DetailText.Foreground)!=green||ColorOf(window.FirstEndResult.OrientationText.Foreground)!=green||
+               ColorOf(window.SecondEndResult.OrientationText.Foreground)!=green||ColorOf(window.SecondEndResult.ActualText.Foreground)!=red)
+                throw new Exception("Independent OCR/template/direction result colors regressed.");
+            VerifyCheckColors(window.FirstEndResult.TerminalCheckItems,green,red);
+            Capture(window,Path.Combine(output,"run-mixed-checks.png"));
+            window.Width=1366;window.Height=900;await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            VerifyHudLayout(window);Capture(window,Path.Combine(output,"run-mixed-checks-1366.png"));
+            vm.Running=false;window.Width=1366;window.Height=900;vm.RunPage=false;
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(window,Path.Combine(output,"setting-1366.png"));
             VerifyHudLayout(window);
+            await VerifyDeclinedModelSwitch(window,vm);
+            await VerifyModelCrudButtons(window,vm);
             var hudEditor=new ImageEditor{Source=image,Roi=vm.End1.Roi?.Copy(),Tool=EditorTool.Rectangle};
             var hud=new ImageHud{Viewer=hudEditor,ShowCaption=false};
             var hudWindow=new Window{Title="HUD CONTROL SMOKE",Width=1100,Height=760,Content=hud,Owner=window};
             hudWindow.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            var defaultZoom=hudEditor.Zoom;hudEditor.ZoomBy(2);
+            ((System.Windows.Controls.Button)hud.FindName("ResetViewButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(Math.Abs(hudEditor.Zoom-defaultZoom)>1e-8)throw new Exception("HUD reset did not restore the initial Fit view.");
             VerifyHudLayout(hudWindow);
             Capture(hud,Path.Combine(output,"hud-editor.png"));
             hudWindow.Close();
             vm.Dirty=false;await vm.ShutdownAsync();
-            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; recipe save/reload path. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: WPF views rendered; default Operator access with Acquisition/model selection only; Admin login unlocks configuration; Vietnamese/English/Korean switch updates bindings; red OFFLINE and green ONLINE header; prominent selected/running model callouts; generic CAMERA selector defaults to Simulator; Simulator RUN enables offline image loading while bypassing physical acquisition and PLC; physical RUN disables offline loading; strict camera Finding/NotFound/Found/Connected/Acquiring enable states; visible finding indicator; red rounded-square Stop Acquisition; Live Camera Expand enabled; dirty/save notification states; prominent RUN waiting and red Stop; 40-DIP total/per-end verdicts; green/red actual text and detail; HUD reset restores initial Fit; per-model camera parameters showing real device limits with optional groups disabled; Grab Image disabled without a live frame, enabled while acquiring and storing the grabbed frame; HUD bounds/non-overlap at 1920 and 1366; expanded HUD render; transform roundtrip; editor undo/redo; model Add/Save v1/Edit/Save v2/reload path; measured cycle time with average/p95/max and acquisition diagnostics on screen; hardware trigger arming that keeps the camera silent until a pulse and restores free-run, with per-end mapping on one camera line refused; PLC connection defaults to COM11 / Modbus ASCII / 9600 / 7E1 with Ethernet IP as a separate physical option; Shared shows one common bit while PerEnd exposes two independent bits; declined draft discard keeps the draft and restores the library selection outside the selection change. Synthetic UI fixtures only. No OCR or hardware acceptance.");
+            File.AppendAllText(Path.Combine(output,"result.txt")," Additional checks: real Add/Edit modal confirmation and cancellation; second-model Save/Delete; immediate draft identity; OCR teaching updates the sample TextBox while retaining previews and requiring Apply; real template teaching window/test with native matcher; isolated Cancel; language switches preserve matching profiles; RUN renders template/aligned/outline evidence. Matching images are synthetic fixtures, not production acceptance.");
             window.Close();
             System.Windows.Application.Current.Shutdown(0);
         }
@@ -75,6 +227,312 @@ internal static class Smoke
             File.WriteAllText(Path.Combine(output,"result.txt"),ex.ToString());
             System.Windows.Application.Current.Shutdown(1);
         }
+    }
+    private static void VerifyOperatorAccess(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(vm.IsAdmin||vm.CurrentAccessLevel!=Security.AccessLevel.Operator)throw new Exception("Application must start in Operator mode.");
+        if(!window.LoginButton.IsVisible||window.LogoutButton.IsVisible)throw new Exception("Operator must see Login, not Logout.");
+        if(!window.AccessPanel.IsVisible||!window.ScanCameraButton.IsEnabled||!window.ModelSelector.IsEnabled)throw new Exception("Operator must retain the separate access area plus Acquisition and center model selection.");
+        if(!window.OcrStatusPanel.IsVisible||window.OcrStatusPanel.IsEnabled||!window.ModelWorkspaceGrid.IsVisible||!window.ModelLibraryPanel.IsVisible||window.ModelLibraryPanel.IsEnabled)
+            throw new Exception("Operator SETTING must keep the center and right panels visible while disabling configuration.");
+        if(window.AdminSettingsPanel.IsVisible)throw new Exception("Operator SETTING must hide Admin-only sections in the left panel.");
+        if(window.ModelSetupEditors.IsEnabled||window.AddModelButton.IsEnabled||window.EditModelButton.IsEnabled||window.DeleteModelButton.IsEnabled||window.SaveRecipeButton.IsEnabled||window.ConnectPlcButton.IsEnabled||window.ApplyCameraParametersButton.IsEnabled)
+            throw new Exception("Operator must not have model, PLC or parameter configuration access.");
+        if(window.HeaderConnectionStatus.Text!="OFFLINE"||ColorOf(window.HeaderConnectionStatus.Foreground)!=ColorOf((Brush)window.FindResource("Brush.Status.Error")))
+            throw new Exception("Header must show red OFFLINE before the camera connects.");
+    }
+    private static void VerifyAdminAccess(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(!vm.IsAdmin||window.LoginButton.IsVisible||!window.LogoutButton.IsVisible)throw new Exception("Admin login state is not visible.");
+        if(!window.OcrStatusPanel.IsVisible||!window.OcrStatusPanel.IsEnabled||!window.AdminSettingsPanel.IsVisible||!window.ModelWorkspaceGrid.IsVisible||!window.ModelLibraryPanel.IsVisible||!window.ModelLibraryPanel.IsEnabled)
+            throw new Exception("Admin login must enable all configuration panels.");
+        if(!window.AddModelButton.IsEnabled||!window.ConnectPlcButton.IsEnabled)throw new Exception("Admin must have full configuration access.");
+    }
+    private static async Task VerifyLanguageSwitch(MainWindow window,MainViewModel vm)
+    {
+        vm.TriggerKind=TriggerKind.Plc;vm.TriggerMapping=TriggerMapping.PerEnd;
+        vm.OkOutputMode=PlcOutputMode.Register;vm.NgOutputMode=PlcOutputMode.Register;
+        vm.Dirty=false;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        var before=vm.BuildRecipeIo();
+        AppLocalizer.ChangeLanguage(AppLanguage.English,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!Equals(window.LoginButton.Content,"Login")||vm.CurrentLanguage!=AppLanguage.English||vm.CameraStatus!="SIMULATOR · OFFLINE IMAGE"||vm.AcquisitionSummary!="Acquisition has not started."||vm.OcrStatus!="OCR assets ready · accuracy not yet validated."||vm.End1.Message!="Load a reference image to begin.")throw new Exception("English switch did not refresh the UI and current status.");
+        VerifyRecipeValuesWereNotChanged(window,vm,before);
+        AppLocalizer.ChangeLanguage(AppLanguage.Korean,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!Equals(window.LoginButton.Content,"로그인")||vm.CurrentLanguage!=AppLanguage.Korean||vm.CameraStatus!="시뮬레이터 · 오프라인 이미지"||vm.OcrStatus!="OCR 자산 준비 완료 · 정확도 미검증."||vm.End1.Message!="시작하려면 기준 이미지를 불러오십시오.")throw new Exception("Korean switch did not refresh the UI and current status.");
+        VerifyRecipeValuesWereNotChanged(window,vm,before);
+        AppLocalizer.ChangeLanguage(AppLanguage.Vietnamese,persist:false);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!Equals(window.LoginButton.Content,"Đăng nhập")||vm.CurrentLanguage!=AppLanguage.Vietnamese)throw new Exception("Vietnamese switch did not refresh the UI.");
+        VerifyRecipeValuesWereNotChanged(window,vm,before);
+        vm.TriggerKind=TriggerKind.Manual;vm.TriggerMapping=TriggerMapping.Shared;
+        vm.OkOutputMode=PlcOutputMode.Bit;vm.NgOutputMode=PlcOutputMode.Bit;
+        vm.Dirty=false;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+    }
+    private static void VerifyRecipeValuesWereNotChanged(MainWindow window,MainViewModel vm,CameraInspectionIo before)
+    {
+        if(vm.Dirty||vm.BuildRecipeIo()!=before||vm.TriggerMapping!=TriggerMapping.PerEnd||vm.OkOutputMode!=PlcOutputMode.Register||vm.NgOutputMode!=PlcOutputMode.Register||
+           !Equals(window.TriggerMappingSelector.SelectedValue,TriggerMapping.PerEnd)||!Equals(window.OkOutputModeSelector.SelectedValue,PlcOutputMode.Register)||!Equals(window.NgOutputModeSelector.SelectedValue,PlcOutputMode.Register))
+            throw new Exception("Changing language must update labels only and must not mutate recipe trigger/output/orientation values.");
+    }
+    private static void VerifyPlcConnectionUi(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(window.PlcComPanel.Visibility!=Visibility.Visible||window.PlcEthernetPanel.Visibility==Visibility.Visible)
+            throw new Exception("PLC must default to the COM physical connection, separate from Ethernet IP.");
+        if(vm.PlcSerialPort!="COM11"||vm.PlcBaudRate!="9600"||vm.PlcSerialProtocol!=PlcSerialProtocol.ModbusAscii||
+           vm.PlcDataBits!="7"||vm.PlcParity!=PlcSerialParity.Even||vm.PlcStopBits!=PlcSerialStopBits.One)
+            throw new Exception("PLC COM defaults must preserve the proven COM11 / 9600 / Modbus ASCII / 7E1 setup.");
+        if(!Equals(window.PlcSerialPortSelector.SelectedItem,"COM11"))
+            throw new Exception("The configured COM port is not visible in the PLC connection selector.");
+        if(!window.ConnectPlcButton.IsEnabled||window.DisconnectPlcButton.IsEnabled)
+            throw new Exception("PLC must offer Connect only before a physical link is open.");
+        var ethernet=vm.PlcTransports.Single(option=>option.Value==PlcTransport.EthernetIp);
+        var com=vm.PlcTransports.Single(option=>option.Value==PlcTransport.Com);
+        if(ethernet.Label!="Ethernet IP"||com.Label!="COM")throw new Exception("PLC transport labels are not operator-facing.");
+    }
+    /// <summary>
+    /// Drives the real acquisition loop with a synthetic camera so Grab Image is verified end to end:
+    /// disabled without a live frame, enabled while acquiring, and it stores the frame in the end editor.
+    /// </summary>
+    /// <summary>
+    /// Arming a hardware trigger is an acquisition lifecycle change. This drives it against a camera that
+    /// really stays silent until pulsed, and checks the form only offers valid combinations.
+    /// </summary>
+    private static async Task VerifyTriggerArming(MainWindow window,MainViewModel vm,SmokeCamera camera)
+    {
+        window.UpdateLayout();
+        if(!window.TriggerKindSelector.IsEnabled||!window.TriggerMappingSelector.IsEnabled)
+            throw new Exception("Trigger settings must be editable while RUN is stopped.");
+        if(window.CameraTriggerPanel.Visibility==Visibility.Visible)
+            throw new Exception("Camera trigger fields must be hidden for a manual trigger.");
+
+        vm.TriggerKind=TriggerKind.CameraLine;
+        vm.TriggerLine="2";
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        window.UpdateLayout();
+        if(window.CameraTriggerPanel.Visibility!=Visibility.Visible)
+            throw new Exception("Camera trigger fields must appear for a hardware trigger.");
+
+        // One camera has a single trigger source, so this combination must be refused, not silently accepted.
+        vm.TriggerMapping=TriggerMapping.PerEnd;
+        try
+        {
+            vm.BuildTriggerSettings();
+            throw new Exception("A per-end mapping on one camera line must be rejected.");
+        }
+        catch(InvalidOperationException){}
+        vm.TriggerMapping=TriggerMapping.Shared;
+
+        // A PLC trigger shows its own recipe-owned fields.
+        vm.TriggerKind=TriggerKind.Plc;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        window.UpdateLayout();
+        if(window.PlcTriggerPanel.Visibility!=Visibility.Visible||window.CameraTriggerPanel.Visibility==Visibility.Visible)
+            throw new Exception("Selecting a PLC trigger must show the PLC fields and hide the camera line fields.");
+        if(window.SharedPlcTriggerPanel.Visibility!=Visibility.Visible||window.PerEndPlcTriggerPanel.Visibility==Visibility.Visible)
+            throw new Exception("Shared must show one common PLC bit and no end-2 field.");
+        vm.TriggerMapping=TriggerMapping.PerEnd;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);window.UpdateLayout();
+        if(window.SharedPlcTriggerPanel.Visibility==Visibility.Visible||window.PerEndPlcTriggerPanel.Visibility!=Visibility.Visible||
+           !window.PlcEnd1AddressTextBox.IsEnabled||!window.PlcEnd2AddressTextBox.IsEnabled)
+            throw new Exception("PerEnd must expose two independently editable PLC bits.");
+        vm.TriggerMapping=TriggerMapping.Shared;
+        vm.TriggerKind=TriggerKind.CameraLine;
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+
+        await vm.ArmTriggerAsync(vm.BuildTriggerSettings());
+        if(!vm.TriggerStatus.Contains("Line 2",StringComparison.Ordinal))
+            throw new Exception($"Trigger status does not describe the armed line: {vm.TriggerStatus}");
+        var before=camera.Frames;
+        var quiet=DateTime.UtcNow.AddMilliseconds(400);
+        while(DateTime.UtcNow<quiet)await Dispatcher.Yield(DispatcherPriority.Background);
+        if(camera.Frames!=before)throw new Exception("A triggered camera must stay silent without a pulse.");
+
+        camera.Pulse();
+        var deadline=DateTime.UtcNow.AddSeconds(5);
+        while(camera.Frames==before)
+        {
+            if(DateTime.UtcNow>deadline)throw new Exception("The trigger pulse produced no frame.");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+        if(window.RunTriggerText.Text.Length==0)throw new Exception("RUN must report the last trigger.");
+
+        await vm.DisarmTriggerAsync();
+        vm.TriggerKind=TriggerKind.Manual;
+        var resumed=camera.Frames;
+        deadline=DateTime.UtcNow.AddSeconds(5);
+        while(camera.Frames==resumed)
+        {
+            if(DateTime.UtcNow>deadline)throw new Exception("Free-run did not resume after disarming.");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+    }
+
+    private static async Task VerifyLiveGrab(MainWindow window,MainViewModel vm,SmokeCamera smokeCamera)
+    {
+        window.UpdateLayout();
+        if(window.FirstEndEditor.GrabButton.IsEnabled||window.SecondEndEditor.GrabButton.IsEnabled)
+            throw new Exception("Grab Image must be disabled without a live camera frame.");
+        await vm.InitializeCameraAsync();
+        vm.SelectedCamera=vm.Cameras.First(device=>!device.IsSimulation);
+        await vm.ConnectCommand.ExecuteAsync(null);
+        VerifyCameraParameterForm(window,vm);
+        await vm.AcquisitionCommand.ExecuteAsync(null);
+        var deadline=DateTime.UtcNow.AddSeconds(10);
+        while(!vm.CanGrabReference)
+        {
+            if(DateTime.UtcNow>deadline)throw new Exception($"No live frame reached the view model: {vm.Message}");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+        window.UpdateLayout();
+        if(!window.FirstEndEditor.GrabButton.IsEnabled||!window.SecondEndEditor.GrabButton.IsEnabled)
+            throw new Exception("Grab Image must be enabled while a fresh live frame is available.");
+        await VerifyTriggerArming(window,vm,smokeCamera);
+        vm.GrabReferenceCommand.Execute("1");
+        if(vm.End1.Frame==null||vm.End1.Image==null||vm.End1.Frame.Width!=SmokeCamera.FrameWidth)
+            throw new Exception($"Grab Image did not store the live frame: {vm.Message}");
+        await vm.StopAcquisitionAsync();
+        await Dispatcher.Yield(DispatcherPriority.DataBind);
+        window.UpdateLayout();
+        if(window.FirstEndEditor.GrabButton.IsEnabled||window.SecondEndEditor.GrabButton.IsEnabled)
+            throw new Exception("Grab Image must be disabled again after acquisition stops.");
+        await vm.DisconnectCommand.ExecuteAsync(null);
+        vm.Cameras.Clear();vm.SelectedCamera=null;vm.CameraState=CameraUiState.NotFound;vm.CameraStatus="KHÔNG TÌM THẤY CAMERA";
+        vm.End1.Clear();
+    }
+    private static void RunModelDialog(System.Windows.Controls.Button action,string code,string name,bool cancel=false)
+    {
+        Exception? failure=null;
+        action.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>
+        {
+            var dialog=System.Windows.Application.Current.Windows.OfType<ModelDetailsWindow>().Single();
+            try
+            {
+                dialog.CodeInput.SetCurrentValue(System.Windows.Controls.TextBox.TextProperty,code);
+                dialog.NameInput.SetCurrentValue(System.Windows.Controls.TextBox.TextProperty,name);
+                if(cancel){dialog.Close();return;}
+                dialog.ConfirmButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                if(dialog.IsVisible)throw new Exception($"Model dialog rejected input: {((ModelDetailsViewModel)dialog.DataContext).Error}");
+            }
+            catch(Exception ex){failure=ex;dialog.Close();}
+        }));
+        action.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        if(failure!=null)throw failure;
+    }
+    private static async Task VerifyModelCrudButtons(MainWindow window,MainViewModel vm)
+    {
+        var original=vm.SelectedModel!;var confirm=vm.Confirm;vm.Confirm=_=>true;
+        try
+        {
+            RunModelDialog(window.AddModelButton,"CANCELLED","Cancelled model",cancel:true);
+            RunModelDialog(window.EditModelButton,"CANCELLED","Cancelled edit",cancel:true);
+            if(vm.ModelCode!=original.Code||vm.Dirty)throw new Exception("Cancel Add/Edit changed the selected recipe.");
+            RunModelDialog(window.AddModelButton,"UI-SECOND","Second model");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(vm.ModelCode!="UI-SECOND"||!vm.CanConfigureModel||!vm.Dirty)throw new Exception("Add from a selected model lost the new draft.");
+            var frame=ImageFiles.Frame(Fixture(),"SYNTHETIC CRUD FIXTURE");
+            foreach(var end in new[]{vm.End1,vm.End2})
+            {
+                end.SetFrame(frame);end.SetTerminal(new());end.Roi=original.Recipe.Ends[0].Roi.Copy();end.ExpectedText="SECOND";end.Apply();
+            }
+            vm.SaveRecipeCommand.Execute(null);await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(vm.SelectedModel?.Code!="UI-SECOND"||vm.Models.Count!=2)throw new Exception($"Second model save failed: {vm.Message}");
+            // Execute the actual command bound to the Delete button.
+            window.DeleteModelButton.Command.Execute(null);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if(vm.Models.Count!=1||vm.CanConfigureModel)throw new Exception("Delete must remove the selected model and lock setup.");
+            vm.SelectedModel=vm.Models.Single();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        }
+        finally{vm.Confirm=confirm;}
+    }
+    private static async Task VerifySimulatorRun(MainWindow window,MainViewModel vm)
+    {
+        vm.Cameras.Clear();vm.Cameras.Add(MainViewModel.SimulatorCamera);vm.SelectedCamera=MainViewModel.SimulatorCamera;
+        await vm.StartRunCommand.ExecuteAsync(null);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(!vm.Running||!vm.IsSimulatorRun||vm.CameraConnected||vm.Acquiring||!vm.CanLoadRuntime||vm.CanCaptureFromCamera||
+           !window.LoadRuntimeImageButton.IsEnabled||window.CaptureRuntimeImageButton.IsEnabled||!vm.RunPlcStatus.Contains("SIMULATOR",StringComparison.Ordinal))
+            throw new Exception("Simulator RUN must accept offline files while bypassing camera acquisition and PLC.");
+        await vm.SettingCommand.ExecuteAsync(null);await Dispatcher.Yield(DispatcherPriority.DataBind);
+        if(vm.Running||vm.IsSimulatorRun)throw new Exception("Leaving Simulator RUN must reset the simulator runtime state.");
+    }
+    /// <summary>
+    /// Declining the unsaved-draft question used to write the previous selection back while the
+    /// DataGrid was still inside its own selection change, which threw on a null item automation peer.
+    /// This drives the real library grid and checks the draft survives and both selections agree.
+    /// </summary>
+    private static async Task VerifyDeclinedModelSwitch(MainWindow window,MainViewModel vm)
+    {
+        var saved=vm.SelectedModel??throw new Exception("A saved model must be selected before the discard check.");
+        var confirm=vm.Confirm;
+        try
+        {
+            vm.Confirm=_=>false;
+            vm.NewModelCommand.Execute(new ModelIdentity("UI-DRAFT","Unsaved draft"));
+            if(!vm.Dirty||vm.SelectedModel!=null)throw new Exception("A new draft must be dirty and clear the selection.");
+            window.ModelLibraryGrid.SelectedItem=saved;   // the operator clicks another library row
+            if(!ReferenceEquals(vm.SelectedModel,saved))
+                throw new Exception("A declined selection must not be reverted inside the selection change.");
+            var deadline=DateTime.UtcNow.AddSeconds(5);
+            while(vm.SelectedModel!=null)
+            {
+                if(DateTime.UtcNow>deadline)throw new Exception("The declined selection was never restored.");
+                await Dispatcher.Yield(DispatcherPriority.Background);
+            }
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            window.UpdateLayout();
+            if(window.ModelLibraryGrid.SelectedItem!=null)throw new Exception("The library grid still shows the declined selection.");
+            if(!vm.Dirty||vm.ModelCode!="UI-DRAFT"||!vm.CanConfigureModel)
+                throw new Exception("Declining the discard must keep the unsaved draft.");
+            vm.Confirm=_=>true;
+            window.ModelLibraryGrid.SelectedItem=saved;   // accepting must load the saved model again
+            if(!ReferenceEquals(vm.SelectedModel,saved)||vm.Dirty)
+                throw new Exception("Accepting the discard must load the selected model.");
+        }
+        finally{vm.Confirm=confirm;}
+    }
+    /// <summary>
+    /// Camera parameters are taught per model, so the form must show the device limits and keep every
+    /// optional group disabled until the operator turns it on.
+    /// </summary>
+    private static void VerifyCameraParameterForm(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        if(!window.ReadCameraSettingsButton.IsEnabled||!window.ExposureTextBox.IsEnabled||!window.GainTextBox.IsEnabled)
+            throw new Exception("Camera parameters must be editable once connected.");
+        if(!vm.CameraInfo.Contains("FAKE-MODEL",StringComparison.Ordinal))
+            throw new Exception($"Camera identity was not read after connecting: {vm.CameraInfo}");
+        if(!vm.ExposureRange.Contains("1000000",StringComparison.Ordinal)||vm.GainRange.Length==0)
+            throw new Exception($"Camera limits were not read from the device: {vm.ExposureRange} / {vm.GainRange}");
+        if(window.GammaTextBox.IsEnabled||window.BlackLevelTextBox.IsEnabled)
+            throw new Exception("Optional camera values must stay disabled until they are enabled.");
+        // The device reports Gamma but no BlackLevel node, so the form must offer only what exists.
+        if(!window.GammaCheckBox.IsEnabled||window.BlackLevelCheckBox.IsEnabled)
+            throw new Exception("Camera parameter availability must follow the device parameter list.");
+        vm.GammaEnabled=true;
+        window.UpdateLayout();
+        if(!window.GammaTextBox.IsEnabled)throw new Exception("Enabling Gamma must enable its value.");
+        vm.GammaEnabled=false;
+        if(window.AdvancedCameraPanel.Visibility==Visibility.Visible)
+            throw new Exception("Advanced camera parameters must start collapsed.");
+        vm.ShowAdvancedCamera=true;
+        window.UpdateLayout();
+        if(window.AdvancedCameraPanel.Visibility!=Visibility.Visible||window.SensorWidthTextBox.IsEnabled)
+            throw new Exception("Advanced group must expand with the sensor ROI still disabled.");
+        vm.ShowAdvancedCamera=false;
+    }
+    /// <summary>RUN must show the measured cycle time next to the verdict, with its spread, not just an average.</summary>
+    private static void VerifyTimingReadout(MainWindow window,MainViewModel vm)
+    {
+        window.UpdateLayout();
+        foreach(var fragment in new[]{"910","TB","p95","max","n=2"})
+            if(!window.CycleTimingText.Text.Contains(fragment,StringComparison.Ordinal))
+                throw new Exception($"Cycle timing read-out is missing '{fragment}': {window.CycleTimingText.Text}");
+        if(window.RunAcquisitionSummaryText.Text.Length==0||window.AcquisitionSummaryText.Text.Length==0)
+            throw new Exception("Acquisition diagnostics must be visible in SETTING and RUN.");
+        _=vm;
     }
     private static void Capture(FrameworkElement element,string path)
     {
@@ -102,6 +560,137 @@ internal static class Smoke
             }
         }
         for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)VerifyHudLayout(VisualTreeHelper.GetChild(root,i));
+    }
+    private static void VerifyModelControls(MainWindow window,bool setupEnabled,bool saveEnabled,bool selectedActionsEnabled,bool notifyVisible)
+    {
+        window.UpdateLayout();
+        if(window.ModelSetupEditors.IsEnabled!=setupEnabled||window.SaveRecipeButton.IsEnabled!=saveEnabled)
+            throw new Exception($"Model setup/save enabled state is invalid. Expected {setupEnabled}/{saveEnabled}.");
+        if(window.EditModelButton.IsEnabled!=selectedActionsEnabled||window.DeleteModelButton.IsEnabled!=selectedActionsEnabled)
+            throw new Exception($"Selected-model action state is invalid. Expected {selectedActionsEnabled}.");
+        if((window.UnsavedNotification.Visibility==Visibility.Visible)!=notifyVisible)
+            throw new Exception($"Unsaved notification state is invalid. Expected {notifyVisible}.");
+        if(saveEnabled&&ColorOf(window.SaveRecipeButton.Foreground)!=ColorOf((Brush)window.FindResource("Brush.Brand.Secondary")))
+            throw new Exception("Pending Save button is not highlighted.");
+    }
+    private static void VerifyCameraControls(MainWindow window,bool search,bool connect,bool disconnect,bool acquisition,bool parameters)
+    {
+        window.UpdateLayout();
+        if(window.ScanCameraButton.IsEnabled!=search||window.ConnectCameraButton.IsEnabled!=connect||
+           window.DisconnectCameraButton.IsEnabled!=disconnect||window.AcquisitionButton.IsEnabled!=acquisition)
+            throw new Exception($"Camera action state is invalid. Expected search/connect/disconnect/acquisition {search}/{connect}/{disconnect}/{acquisition}.");
+        if(window.CameraSelector.IsEnabled!=connect||window.ExposureTextBox.IsEnabled!=parameters||
+           window.GainTextBox.IsEnabled!=parameters||window.ApplyCameraParametersButton.IsEnabled!=parameters)
+            throw new Exception($"Camera selector/parameter state is invalid. Expected {connect}/{parameters}.");
+    }
+    private static void VerifyRunStatusVisuals(MainWindow window)
+    {
+        window.UpdateLayout();
+        var success=ColorOf((Brush)window.FindResource("Brush.Status.Success"));
+        var error=ColorOf((Brush)window.FindResource("Brush.Status.Error"));
+        if(window.RunStatusText.FontSize!=40||ColorOf(window.RunStatusText.Foreground)!=error)
+            throw new Exception("Total NG verdict is not rendered at the required size/color.");
+        if(ColorOf(window.StopRuntimeButton.BorderBrush)!=error||window.StopRuntimeButton.BorderThickness.Left<1)
+            throw new Exception("Stop button does not have a red border.");
+        if(window.FirstEndResult.StatusText.FontSize!=40||ColorOf(window.FirstEndResult.StatusText.Foreground)!=success||
+           ColorOf(window.FirstEndResult.ActualText.Foreground)!=success)
+            throw new Exception("Per-end OK verdict/read text is not rendered large and green.");
+        if(window.SecondEndResult.StatusText.FontSize!=40||ColorOf(window.SecondEndResult.StatusText.Foreground)!=error||
+           ColorOf(window.SecondEndResult.ActualText.Foreground)!=success||ColorOf(window.SecondEndResult.DetailText.Foreground)!=success||
+           ColorOf(window.SecondEndResult.OrientationText.Foreground)!=error)
+            throw new Exception("Direction-only NG must retain green matching text and red direction/verdict.");
+    }
+    private static void VerifyWaitingStatusVisuals(MainWindow window)
+    {
+        window.UpdateLayout();
+        var warning=ColorOf((Brush)window.FindResource("Brush.Status.Warning"));
+        var error=ColorOf((Brush)window.FindResource("Brush.Status.Error"));
+        if(window.RunStatusText.FontSize!=28||ColorOf(window.RunStatusText.Foreground)!=warning)
+            throw new Exception("Waiting state is not rendered as a prominent warning.");
+        if(ColorOf(window.StopRuntimeButton.BorderBrush)!=error||window.StopRuntimeButton.BorderThickness.Left<1)
+            throw new Exception("Stop button does not have a red border while RUN is active.");
+    }
+    private static Color ColorOf(Brush brush)=>brush is SolidColorBrush solid?solid.Color:throw new Exception("Expected a solid status brush.");
+    private static void VerifyCheckColors(DependencyObject root,Color green,Color red)
+    {
+        if(root is System.Windows.Controls.TextBlock text&&text.DataContext is InspectionCheck check)
+        {
+            if(text.FontSize<16)throw new Exception("Inspection check text must be at least 16 DIP.");
+            if(check.Passed is{}pass&&ColorOf(text.Foreground)!=(pass?green:red))throw new Exception("Check color must follow its own measured verdict.");
+        }
+        for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)VerifyCheckColors(VisualTreeHelper.GetChild(root,i),green,red);
+    }
+    /// <summary>Synthetic frame source for the offline smoke. It never touches acquisition hardware.</summary>
+    private sealed class SmokeCamera:ICamera
+    {
+        public const int FrameWidth=640;
+        public const int FrameHeight=360;
+        private readonly object gate=new();
+        private bool grabbing;
+        private int grabs;
+        public IReadOnlyList<CameraDevice> Enumerate()=>[new("smoke-live","Synthetic smoke camera","smoke",false)];
+        public void Open(CameraDevice device){}
+        public CameraSettings? Applied{get;private set;}
+        public CameraInfo ReadInfo()=>new("FAKE-MODEL","SN-FAKE","Mono8",FrameWidth,FrameHeight,30,35);
+        public IReadOnlyList<CameraParameterInfo> DescribeParameters()=>
+        [
+            new("ExposureTime","us",10,1000000,0,10000,true),
+            new("Gain","dB",0,20,0,0,true),
+            new("Gamma",string.Empty,0,4,0,0.7,true),
+            new("Width","px",8,FrameWidth,8,FrameWidth,true),
+            new("Height","px",8,FrameHeight,8,FrameHeight,true)
+        ];
+        public CameraSettings ReadSettings()=>Applied??new(10000,0);
+        public void ApplySettings(CameraSettings settings)=>Applied=settings;
+        private CameraTrigger trigger=CameraTrigger.FreeRun;
+        private int pulses;
+        /// <summary>Simulates one pulse on the trigger line.</summary>
+        public void Pulse(){lock(gate)pulses++;}
+        public long Frames{get{lock(gate)return frames;}}
+        private long frames;
+        public void ConfigureTrigger(CameraTrigger value)
+        {
+            lock(gate)
+            {
+                if(grabbing)throw new InvalidOperationException("Stop acquisition before changing the trigger.");
+                trigger=value;pulses=0;
+            }
+        }
+        public void ExecuteSoftwareTrigger()
+        {
+            lock(gate)
+            {
+                if(trigger.Source!=CameraTriggerSource.Software)throw new InvalidOperationException("Not in software trigger mode.");
+                pulses++;
+            }
+        }
+        public void Start(){lock(gate)grabbing=true;}
+        public ImageFrame Grab(int timeoutMs)
+        {
+            lock(gate)
+            {
+                if(!grabbing)throw new InvalidOperationException("Acquisition has not started.");
+                // A triggered camera stays silent until it is pulsed.
+                if(trigger.IsTriggered)
+                {
+                    if(pulses==0)throw new TimeoutException("No trigger pulse.");
+                    pulses--;
+                }
+                var stride=FrameWidth*3;
+                var pixels=new byte[stride*FrameHeight];
+                for(var y=0;y<FrameHeight;y++)
+                    for(var x=0;x<FrameWidth;x++)
+                    {
+                        var i=y*stride+x*3;
+                        pixels[i]=(byte)(x%256);pixels[i+1]=(byte)(y%256);pixels[i+2]=(byte)((grabs+x+y)%256);
+                    }
+                grabs++;frames++;
+                return new(FrameWidth,FrameHeight,stride,pixels,Guid.NewGuid(),DateTimeOffset.UtcNow,"SYNTHETIC SMOKE CAMERA · NOT LIVE");
+            }
+        }
+        public void Stop(){lock(gate)grabbing=false;}
+        public void Close(){}
+        public void Dispose(){}
     }
     private static BitmapSource Fixture()
     {

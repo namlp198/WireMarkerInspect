@@ -5,6 +5,10 @@
 #include <string>
 int main() {
     if(wmi_abi_version()!=1) return 1;
+    if(wmi_matching_abi_version()!=1)return 6;
+    auto matching=wmi_match(nullptr,0,0,0,nullptr,0,0,nullptr,0,0,nullptr,0,0,nullptr,0);
+    std::string matchingError(matching);wmi_free(matching);
+    if(matchingError.find("error")==std::string::npos)return 7;
     cv::Mat frame(100,120,CV_8UC3,cv::Scalar(10,20,30));
     double rect[]={10,10,110,90};
     char* value=wmi_crop(frame.data,120,100,static_cast<int>(frame.step),0,rect,2);

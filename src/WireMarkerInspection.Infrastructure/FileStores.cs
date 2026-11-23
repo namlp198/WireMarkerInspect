@@ -30,6 +30,9 @@ public sealed class FileRecipeStore(string root) : IRecipeStore
             {
                 var recipe = JsonSerializer.Deserialize<Recipe>(File.ReadAllBytes(path), JsonFiles.Options)
                     ?? throw new InvalidDataException("Empty recipe.");
+                for(var end=0;end<recipe.Ends.Length;end++)
+                    if(recipe.Ends[end].Terminal is{} terminal&&!string.IsNullOrEmpty(terminal.TemplateImage))
+                        recipe.Ends[end]=recipe.Ends[end] with {Terminal=terminal with {TemplatePng=File.ReadAllBytes(AssetPath(recipe,terminal.TemplateImage))}};
                 if (recipe.Validate() is { } error) throw new InvalidDataException(error);
                 for(var end=0; end<2; end++) _ = ReferencePath(recipe, end);
                 if (values.Any(r => r.Id == recipe.Id || string.Equals(r.ModelCode, recipe.ModelCode, StringComparison.OrdinalIgnoreCase)))
@@ -61,6 +64,12 @@ public sealed class FileRecipeStore(string root) : IRecipeStore
             var name = $"end{i + 1}-{generation}.png";
             JsonFiles.AtomicWrite(Path.Combine(folder, name), referencePngs[i]);
             updated.Ends[i] = updated.Ends[i] with { ReferenceImage = name };
+            if(updated.Ends[i].Terminal is {TemplatePng.Length:>0} terminal)
+            {
+                var templateName=$"terminal{i+1}-{generation}.png";
+                JsonFiles.AtomicWrite(Path.Combine(folder,templateName),terminal.TemplatePng);
+                updated.Ends[i]=updated.Ends[i] with {Terminal=terminal with {TemplateImage=templateName}};
+            }
         }
         // Publish only after both immutable image files exist. Old versions remain recoverable.
         JsonFiles.AtomicWrite(Path.Combine(folder, "recipe.json"), JsonSerializer.SerializeToUtf8Bytes(updated, JsonFiles.Options));
@@ -69,6 +78,10 @@ public sealed class FileRecipeStore(string root) : IRecipeStore
     private string ReferencePath(Recipe recipe, int end)
     {
         var name = recipe.Ends[end].ReferenceImage;
+        return AssetPath(recipe,name);
+    }
+    private string AssetPath(Recipe recipe,string name)
+    {
         if (string.IsNullOrWhiteSpace(name) || Path.GetFileName(name) != name || Path.IsPathRooted(name))
             throw new InvalidDataException("Invalid reference image path.");
         var path = Path.Combine(directory, recipe.Id.ToString("N"), name);
@@ -109,4 +122,69 @@ public sealed class FileResultStore(string root) : IResultStore
         cancellationToken.ThrowIfCancellationRequested();
         JsonFiles.AtomicWrite(Path.Combine(folder,"result.json"), JsonSerializer.SerializeToUtf8Bytes(result, JsonFiles.Options));
     }
+}
+
+/// <summary>
+/// Append-only JSON Lines diagnostics, one file per day. Soak evidence has to survive the process that
+/// produced it, and one line per event keeps a partially written file readable.
+/// </summary>
+public sealed class FileDiagnosticsLog(string root) : IDiagnosticsLog
+{
+    private readonly object gate = new();
+    private readonly string directory = Path.Combine(root, "diagnostics");
+
+    public void Write(string category, string message, IReadOnlyDictionary<string, object?>? data = null)
+    {
+        var entry = new Dictionary<string, object?>
+        {
+            ["at"] = DateTimeOffset.Now, ["category"] = category, ["message"] = message
+        };
+        if (data != null) foreach (var pair in data) entry[pair.Key] = pair.Value;
+        var line = JsonSerializer.Serialize(entry, JsonFiles.Options).ReplaceLineEndings(" ") + Environment.NewLine;
+        lock (gate)
+        {
+            try
+            {
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(Path.Combine(directory, $"{DateTimeOffset.Now:yyyy-MM-dd}.jsonl"), line);
+            }
+            catch (IOException) { /* Diagnostics must never take down an inspection cycle. */ }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+}
+
+/// <summary>
+/// Machine-level physical PLC configuration plus legacy logical fields retained for schema-v1 migration.
+/// New RUN trigger/output semantics are recipe-owned.
+/// </summary>
+public sealed record MachineSettings(TriggerSettings Trigger, PlcSettings Plc)
+{
+    public static MachineSettings Default => new(new TriggerSettings(), new PlcSettings());
+}
+
+public sealed class FileSettingsStore(string root)
+{
+    private readonly string path = Path.Combine(root, "settings.json");
+    public string? LoadError { get; private set; }
+
+    public MachineSettings Load()
+    {
+        LoadError = null;
+        if (!File.Exists(path)) return MachineSettings.Default;
+        try
+        {
+            return JsonSerializer.Deserialize<MachineSettings>(File.ReadAllBytes(path), JsonFiles.Options)
+                ?? MachineSettings.Default;
+        }
+        catch (Exception ex)
+        {
+            // A broken settings file must not stop the station; it falls back and says so.
+            LoadError = $"{path}: {ex.Message}";
+            return MachineSettings.Default;
+        }
+    }
+
+    public void Save(MachineSettings settings) =>
+        JsonFiles.AtomicWrite(path, JsonSerializer.SerializeToUtf8Bytes(settings, JsonFiles.Options));
 }

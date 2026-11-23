@@ -62,15 +62,20 @@
         <Setter Property="Height" Value="{StaticResource Hud.ButtonSize}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="root" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Radius.SM}">
                         <Path x:Name="icon" Width="{StaticResource Hud.IconSize}" Height="{StaticResource Hud.IconSize}" Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
-                              Stroke="{StaticResource Brush.Text.Secondary}"
+                              Stroke="{TemplateBinding Foreground}"
                               StrokeThickness="1.5"
                               StrokeLineJoin="Round" StrokeStartLineCap="Round"
                               StrokeEndLineCap="Round" />
@@ -93,6 +98,12 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <Style x:Key="ToolRail.DangerButton" TargetType="Button" BasedOn="{StaticResource ToolRail.Button}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Status.Error}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Error}" />
+        <Setter Property="BorderThickness" Value="1.5" />
     </Style>
 
     <!-- ContextualToolRail state toggle. Checked means the overlay is visible. -->

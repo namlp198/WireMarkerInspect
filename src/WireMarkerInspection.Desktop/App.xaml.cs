@@ -1,4 +1,5 @@
 using System.Windows;
+using WireMarkerInspection.Controls.Localization;
 using WireMarkerInspection.Desktop.ViewModels;
 using WireMarkerInspection.Infrastructure;
 namespace WireMarkerInspection.Desktop;
@@ -13,10 +14,30 @@ public partial class App : System.Windows.Application
             ShutdownMode=ShutdownMode.OnExplicitShutdown;
             Smoke.Run(e.Args[1]);return;
         }
+        if(e.Args.Length==4&&e.Args[0]=="--real-image-smoke")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            RealImageSmoke.Run(e.Args[1],e.Args[2],e.Args[3]);return;
+        }
+        if(e.Args.Length is 3 or 4&&e.Args[0]=="--plc-probe")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            PlcProbe.Run(e.Args[1],e.Args[2],e.Args.Length==4?e.Args[3]:null);return;
+        }
+        if(e.Args.Length==3&&e.Args[0]=="--camera-soak")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            CameraSoak.Run(e.Args[1],double.Parse(e.Args[2],System.Globalization.CultureInfo.InvariantCulture));return;
+        }
+        if(e.Args.Length is 2 or 3&&e.Args[0]=="--camera-probe")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            CameraProbe.Run(e.Args[1],e.Args.Length==3&&e.Args[2]=="--grab",e.Args.Length==3&&e.Args[2]=="--software-trigger");return;
+        }
         instance=new Mutex(true,"Local\\WireMarkerInspection."+Environment.UserName,out var created);
         if(!created)
         {
-            MessageBox.Show("Wire Marker Inspection đang chạy. Chỉ mở một phiên cho mỗi người dùng.","Wire Marker Inspection");
+            MessageBox.Show(AppLocalizer.Text("SingleInstanceOnly"),"Wire Marker Inspection");
             instance.Dispose();instance=null;Shutdown();return;
         }
         var vm=new MainViewModel(JsonFiles.DataRoot);

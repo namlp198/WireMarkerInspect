@@ -1,5 +1,6 @@
 param([string]$Version='0.1.0')
 $ErrorActionPreference='Stop'
+if($Version -notmatch '^\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$'){throw 'Version must look like 1.2.3 or 1.2.3-preview.1.'}
 $repo=Split-Path -Parent $PSScriptRoot
 $publish=Join-Path $repo 'publish\WireMarkerInspection'
 if(-not(Test-Path -LiteralPath (Join-Path $publish 'WireMarkerInspection.Desktop.exe'))){throw 'Run build.ps1 -Publish first.'}

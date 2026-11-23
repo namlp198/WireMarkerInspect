@@ -24,7 +24,7 @@ Chỉ thích ứng ngôn ngữ giao diện và control; không mang bản đồ,
 |---|---|
 | Canvas ảnh | Chiếm toàn bộ vùng control, giữ tỉ lệ, Fit có letterbox; HUD không chiếm một hàng/cột layout của ảnh |
 | Rail ImageEditor | Dọc, phía trái, căn giữa; Select, Rectangle, Circle, Polygon, Pan; separator; Undo, Redo, Delete |
-| Toolbar điều hướng | Ngang, góc phải dưới; chỉ Zoom out, Zoom in và 100% |
+| Toolbar điều hướng | Ngang, góc phải dưới; chỉ Zoom out, Zoom in và Reset về Fit mặc định lúc load ảnh |
 | Caption | Chỉ dùng khi màn hình cần metadata; ImageEditor recipe không hiện caption |
 | Expand | Icon nổi ở góc phải trên của editor; mở lại cùng recipe trong cửa sổ lớn |
 | Polygon | Thanh nổi cạnh rail khi có điểm đang vẽ: Finish, Undo point, Cancel; Finish chỉ bật từ 3 điểm |
@@ -64,6 +64,11 @@ Dùng chung geometry icon của RoboStation. Các icon bổ sung Select, Pan, Re
 - Mỗi icon phải có tooltip mô tả / phím tắt và tên accessibility.
 - Trạng thái cập nhật khi click icon, dùng phím tắt, commit, undo/redo hoặc thay ảnh. Không để nút Polygon vẫn xanh sau khi đã chuyển về Select.
 - ImageViewer runtime chỉ có điều hướng zoom, tuyệt đối không có rail chỉnh ROI.
+- Nút cuối navigation (icon `[1]`) reset viewport về Fit mặc định lúc load ảnh, gồm cả zoom và offset căn giữa. Không dùng nút này cho 100%/1:1 pixel-to-DIP.
+- Save Recipe ở trạng thái clean phải disabled/nhạt. Khi recipe dirty, icon Save sáng, hiện đúng một notify đỏ `● CẦN LƯU` cạnh nút; notify biến mất ngay sau khi lưu thành công.
+- RUN dùng warning nổi bật cho `CHỜ ĐẦU 1/2`; Stop luôn có viền error đỏ khi RUN hoạt động.
+- OK/NG của từng đầu và verdict tổng dùng 40 DIP. Text đọc được dùng 18 DIP, các dòng kiểm tra dùng 16 DIP. Mỗi phần text/chiều/template/chỉ số có màu riêng: đạt xanh, không đạt đỏ, chưa đánh giá trung tính N/A. Không tô đỏ text đúng vì template hoặc góc bị NG. Panel kết quả cuộn ở cửa sổ nhỏ, không được cắt navigation HUD.
+- Setting template: thông số quyết định chính đánh dấu `*` màu warning và có tooltip giải thích tác động. Màu nhãn quan trọng không phải kết quả NG; đổi ngôn ngữ chỉ đổi nhãn, tuyệt đối không đổi giá trị.
 - Không tự tạo OK, OCR text hoặc camera frame để làm đầy giao diện. Nguồn offline/synthetic phải ghi rõ.
 
 ## 5. Phân tách control và nghiệp vụ
@@ -88,7 +93,11 @@ Taskbar SETTING/RUN dùng chevron kim loại 208×64 DIP, icon 18 và nhãn ng�
 
 Không xác định hình dạng bằng thứ tự visual tree hoặc converter. XAML phải khai báo `TailMode="Straight"` rõ ràng cho nút đầu để control vẫn tái sử dụng được khi thêm mode.
 
-SETTING: camera settings và Live Camera ở cột trái; model actions ở trên hai editor trung tâm; model library ở phải. Hai cột bên rộng 400 DIP, chủ động thu phần giữa. Hàng chọn model chỉ gồm combobox + Add/Edit/Delete; code/name được sửa trong dialog, Save Recipe là icon ở Model Library. Chuyển Live Camera sang cột acquisition để dành chiều cao cho hai canvas và rail HUD.
+SETTING: camera settings và Live Camera ở cột trái; model actions ở trên hai editor trung tâm; model library ở phải. Hai cột bên rộng 400 DIP, chủ động thu phần giữa. Badge vai trò và Login/Logout nằm trong card USER ACCESS riêng phía trên ACQUISITION; ACQUISITION không chứa thêm bộ chọn model. Operator chỉ được dùng ComboBox chọn model trong callout trung tâm; Add/Edit/Delete, cả hai editor, Save Recipe và Model Library bên phải đều disabled. Chỉ các vùng camera parameters và PLC/trigger/output dành cho Admin ở panel trái bị hidden. Hàng chọn model là callout viền nổi bật, luôn cho thấy code/name/revision hoặc cảnh báo chưa chọn, sau đó là combobox + Add/Edit/Delete; code/name được sửa trong dialog, Save Recipe là icon ở Model Library. RUN có callout riêng cho recipe đã freeze. Chuyển Live Camera sang cột acquisition để dành chiều cao cho hai canvas và rail HUD.
+
+Nguồn acquisition dùng nhãn tổng quát `CAMERA`, không gắn tên vendor vào tiêu đề ComboBox. `Simulator` luôn là lựa chọn mặc định để kiểm tra offline: không cho Connect/Start Acquisition và khi RUN chỉ bật Load Image, đồng thời hiển thị rõ camera/PLC đang bypass. Camera vật lý bật lại Connect/Acquisition và trong RUN chỉ cho capture từ camera. Simulator và camera vật lý phải dùng chung Recipe, OCR, orientation, session và verdict pipeline; không tạo logic đánh giá riêng hoặc kết quả giả cho Simulator.
+
+Header chỉ hiển thị tên sản phẩm, bộ chọn ngôn ngữ và trạng thái camera. `OFFLINE` dùng status-error, `ONLINE` dùng status-success; không hiển thị chi tiết công nghệ triển khai. Toàn bộ text hướng dẫn/thao tác phải đi qua catalog Việt/Anh/Hàn, ngoại trừ tên giao thức, hãng và đơn vị kỹ thuật.
 
 RUN: hai canvas read-only ngang nhau; caption/verdict/toolbar nổi trên ảnh; crop OCR và text mẫu/đọc được bên dưới. Không dùng màu xanh cho trạng thái chưa kiểm tra.
 

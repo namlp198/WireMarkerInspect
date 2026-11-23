@@ -1,0 +1,24 @@
+<Window x:Class="WireMarkerInspection.Desktop.LoginWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:loc="clr-namespace:WireMarkerInspection.Controls.Localization;assembly=WireMarkerInspection.Controls"
+ Title="{loc:Text LoginTitle}" Width="420" Height="300" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+ Background="{StaticResource Brush.Background.App}" Foreground="{StaticResource Brush.Text.Primary}" FontFamily="{StaticResource Font.Primary}">
+ <Border Style="{StaticResource Panel}" Margin="12">
+  <Grid>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <TextBlock Text="{loc:Text LoginTitle}" Style="{StaticResource SectionLabel}" FontSize="18" Margin="0,0,0,14"/>
+   <TextBlock Grid.Row="1" Text="{loc:Text Username}" Margin="0,0,0,4"/>
+   <TextBox Grid.Row="2" x:Name="UsernameInput" Style="{StaticResource TextEditor}" AutomationProperties.Name="{loc:Text Username}"/>
+   <TextBlock Grid.Row="3" Text="{loc:Text Password}" Margin="0,12,0,4"/>
+   <PasswordBox Grid.Row="4" x:Name="PasswordInput" Height="32" Padding="8,4" Background="{StaticResource Brush.Background.Elevated}" Foreground="{StaticResource Brush.Text.Primary}" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="1" AutomationProperties.Name="{loc:Text Password}" KeyDown="PasswordKeyDown"/>
+   <Grid Grid.Row="5" Margin="0,10,0,0">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBlock x:Name="ErrorText" Foreground="{StaticResource Brush.Status.Error}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+    <StackPanel Grid.Column="1" Orientation="Horizontal">
+     <Button Content="{loc:Text Cancel}" Style="{StaticResource Button.Secondary}" IsCancel="True" Margin="0,0,6,0"/>
+     <Button Content="{loc:Text Login}" Style="{StaticResource Button.Apply}" IsDefault="True" Click="Login"/>
+    </StackPanel>
+   </Grid>
+  </Grid>
+ </Border>
+</Window>

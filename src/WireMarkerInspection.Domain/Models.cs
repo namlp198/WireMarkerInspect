@@ -66,23 +66,135 @@ public sealed record SearchRoi(RoiShape Shape, PixelPoint[] Points)
 }
 
 public sealed record EndRecipe(string ReferenceImage, int Width, int Height, SearchRoi Roi,
-    string[] ExpectedLines, TextOrientation Orientation = TextOrientation.Degrees0)
+    string[] ExpectedLines, TextOrientation Orientation = TextOrientation.Degrees0, TerminalTemplate? Terminal = null)
 {
-    public EndRecipe Copy() => this with { Roi = Roi.Copy(), ExpectedLines = [.. ExpectedLines] };
+    public EndRecipe Copy() => this with { Roi = Roi.Copy(), ExpectedLines = [.. ExpectedLines],Terminal=Terminal?.Copy() };
     public string? Validate() => Roi.Validate(Width, Height) ??
         (ExpectedLines.Length == 0 || ExpectedLines.Any(string.IsNullOrEmpty)
-            ? "Enter expected text, one detected region per line. Empty lines are not allowed." : null);
+            ? "Enter expected text, one detected region per line. Empty lines are not allowed." : null)??Terminal?.Validate(Width,Height);
 }
+/// <summary>Sensor readout window in sensor pixels. Null means the full sensor.</summary>
+public sealed record SensorRoi(int OffsetX, int OffsetY, int Width, int Height)
+{
+    public string? Validate() =>
+        Width <= 0 || Height <= 0 ? "Sensor ROI width and height must be positive." :
+        OffsetX < 0 || OffsetY < 0 ? "Sensor ROI offset cannot be negative." : null;
+}
+
+/// <summary>Strobe output that fires the inspection light in step with the exposure.</summary>
+public sealed record StrobeSettings(bool Enabled, int Line, double DurationUs, double DelayUs)
+{
+    public string? Validate() =>
+        Line < 0 ? "Strobe line must not be negative." :
+        DurationUs < 0 || DelayUs < 0 ? "Strobe duration and delay cannot be negative." : null;
+}
+
+/// <summary>
+/// Acquisition settings a model was taught with. Repeating the exposure, gain and lighting of the
+/// reference images is what makes a saved recipe reproducible, so they are stored with the recipe.
+/// </summary>
+public sealed record CameraSettings(double ExposureTimeUs, double Gain, double? Gamma = null,
+    double? BlackLevel = null, SensorRoi? Roi = null, StrobeSettings? Strobe = null)
+{
+    public string? Validate()
+    {
+        if (!double.IsFinite(ExposureTimeUs) || ExposureTimeUs <= 0) return "Exposure time must be a positive number.";
+        if (!double.IsFinite(Gain) || Gain < 0) return "Gain cannot be negative.";
+        if (Gamma is { } gamma && (!double.IsFinite(gamma) || gamma <= 0)) return "Gamma must be a positive number.";
+        if (BlackLevel is { } black && (!double.IsFinite(black) || black < 0)) return "Black level cannot be negative.";
+        return Roi?.Validate() ?? Strobe?.Validate();
+    }
+}
+
+/// <summary>Recipe-owned capture semantics. Physical PLC transport remains a machine setting.</summary>
+public enum RecipeTriggerKind { Manual, CameraLine, Plc }
+public enum RecipeTriggerMapping { Shared, PerEnd }
+
+public sealed record RecipeTriggerProfile(RecipeTriggerKind Kind = RecipeTriggerKind.Manual,
+    RecipeTriggerMapping Mapping = RecipeTriggerMapping.Shared, int CameraLine = 0, bool RisingEdge = true,
+    double DelayUs = 0, double DebouncerUs = 1000, int RepeatBlockMs = 250, int PollMs = 20,
+    string SharedAddress = "X0", string End1Address = "X0", string End2Address = "X1")
+{
+    public string? Validate()
+    {
+        if (CameraLine < 0 || DelayUs < 0 || DebouncerUs < 0) return "Camera trigger parameters cannot be negative.";
+        if (RepeatBlockMs < 0) return "Trigger repeat block cannot be negative.";
+        if (PollMs is < 5 or > 5000) return "PLC polling interval must be between 5 and 5000 ms.";
+        if (Kind == RecipeTriggerKind.CameraLine && Mapping == RecipeTriggerMapping.PerEnd)
+            return "One camera line cannot identify two separate ends.";
+        if (Kind != RecipeTriggerKind.Plc) return null;
+        if (Mapping == RecipeTriggerMapping.Shared && string.IsNullOrWhiteSpace(SharedAddress))
+            return "Shared PLC trigger address is required.";
+        if (Mapping == RecipeTriggerMapping.PerEnd &&
+            (string.IsNullOrWhiteSpace(End1Address) || string.IsNullOrWhiteSpace(End2Address)))
+            return "Per-end PLC trigger addresses are required for both ends.";
+        return null;
+    }
+}
+
+public enum PlcOutputMode { Bit, Register }
+
+/// <summary>A single verdict action. Bit outputs pulse and reset; register outputs write one signed word.</summary>
+public sealed record PlcOutputAction(bool Enabled = false, PlcOutputMode Mode = PlcOutputMode.Bit,
+    string Device = "M", int Index = 1, short RegisterValue = 1, int PulseMs = 50)
+{
+    public string Address => $"{Device.Trim().ToUpperInvariant()}{Index}";
+    public string? Validate(string verdict)
+    {
+        if (!Enabled) return null;
+        if (Index < 0) return $"{verdict} output index cannot be negative.";
+        var device = Device.Trim().ToUpperInvariant();
+        if (Mode == PlcOutputMode.Bit)
+        {
+            if (device is not ("M" or "Y")) return $"{verdict} bit output must use M or Y.";
+            if (PulseMs is < 10 or > 10000) return $"{verdict} bit pulse must be between 10 and 10000 ms.";
+        }
+        else if (device != "D") return $"{verdict} register output must use D.";
+        return null;
+    }
+}
+
+public sealed record VerdictOutputProfile(PlcOutputAction? Ok = null, PlcOutputAction? Ng = null)
+{
+    public PlcOutputAction OkAction => Ok ?? new PlcOutputAction(Index: 1, RegisterValue: 1);
+    public PlcOutputAction NgAction => Ng ?? new PlcOutputAction(Index: 2, RegisterValue: 2);
+    public string? Validate()
+    {
+        if (OkAction.Validate("OK") is { } ok) return ok;
+        if (NgAction.Validate("NG") is { } ng) return ng;
+        if (OkAction.Enabled && NgAction.Enabled && OkAction.Mode == PlcOutputMode.Bit &&
+            NgAction.Mode == PlcOutputMode.Bit && string.Equals(OkAction.Address, NgAction.Address, StringComparison.OrdinalIgnoreCase))
+            return "OK and NG bit outputs must use different addresses.";
+        if (OkAction.Enabled && NgAction.Enabled && OkAction.Mode == PlcOutputMode.Register &&
+            NgAction.Mode == PlcOutputMode.Register && string.Equals(OkAction.Address, NgAction.Address, StringComparison.OrdinalIgnoreCase) &&
+            OkAction.RegisterValue == NgAction.RegisterValue)
+            return "OK and NG cannot write the same value to the same register.";
+        return null;
+    }
+}
+
+public sealed record CameraInspectionIo(RecipeTriggerProfile? Trigger = null, VerdictOutputProfile? Outputs = null)
+{
+    public RecipeTriggerProfile TriggerProfile => Trigger ?? new RecipeTriggerProfile();
+    public VerdictOutputProfile VerdictOutputs => Outputs ?? new VerdictOutputProfile();
+    public bool UsesPlc => TriggerProfile.Kind == RecipeTriggerKind.Plc ||
+        VerdictOutputs.OkAction.Enabled || VerdictOutputs.NgAction.Enabled;
+    public string? Validate() => TriggerProfile.Validate() ?? VerdictOutputs.Validate();
+}
+
 public sealed record Recipe(Guid Id, string ModelCode, string Name, int Revision, EndRecipe[] Ends,
-    DateTimeOffset SavedAt, int SchemaVersion = 1)
+    DateTimeOffset SavedAt, int SchemaVersion = 1, CameraSettings? Camera = null, CameraInspectionIo? Io = null)
 {
     public Recipe Copy() => this with { Ends = Ends.Select(e => e.Copy()).ToArray() };
     public string? Validate()
     {
-        if (SchemaVersion != 1) return "Unsupported recipe schema.";
+        if (SchemaVersion is not (1 or 2 or 3)) return "Unsupported recipe schema.";
         if (Id == Guid.Empty || string.IsNullOrWhiteSpace(ModelCode) || string.IsNullOrWhiteSpace(Name))
             return "Model code and name are required.";
         if (Ends.Length != 2) return "Both ends must be configured.";
+        // Recipes saved before camera settings existed stay valid; they simply keep the current machine setup.
+        if (Camera?.Validate() is { } cameraError) return cameraError;
+        if (Io?.Validate() is { } ioError) return ioError;
         return Ends.Select((e, i) => e.Validate() is { } error ? $"End {i + 1}: {error}" : null).FirstOrDefault(e => e != null);
     }
 }
@@ -99,10 +211,30 @@ public sealed record ImageFrame(int Width, int Height, int Stride, byte[] Bgr,
 public sealed record OcrRegion(string Text, double Confidence, PixelPoint[] Box, byte[] CropPng);
 public sealed record OcrReading(OcrRegion[] Regions, int Rotation);
 public sealed record TextDifference(int Region, string Expected, string Actual, int FirstMismatch);
-public sealed record EndResult(Guid FrameId, Verdict Verdict, OcrReading Reading, TextDifference[] Differences, string Reason);
+
+/// <summary>
+/// One measured step of a cycle. Durations come from a monotonic clock, never from wall-clock
+/// subtraction, so a time-service correction cannot produce a negative or jumped measurement.
+/// </summary>
+public sealed record StageTiming(string Stage, double Milliseconds);
+
+/// <summary>Monotonic stopwatch time. Use this for every duration; use UtcNow only to stamp evidence.</summary>
+public static class MonotonicClock
+{
+    public static long Now => System.Diagnostics.Stopwatch.GetTimestamp();
+    public static double MillisecondsSince(long start) => Milliseconds(start, Now);
+    public static double Milliseconds(long from, long to) =>
+        Math.Max(0, to - from) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+}
+
+public sealed record EndResult(Guid FrameId, Verdict Verdict, OcrReading Reading, TextDifference[] Differences, string Reason,
+    StageTiming[]? Timings = null, TemplateMatchResult? Terminal = null)
+{
+    public double MillisecondsOf(string stage) => Timings?.FirstOrDefault(t => t.Stage == stage)?.Milliseconds ?? 0;
+}
 public sealed record CaptureEvidence(Guid FrameId, DateTimeOffset CapturedAt, string Source, int Width, int Height);
 public sealed record ProductResult(Guid CycleId, Recipe Recipe, EndResult[] Ends, DateTimeOffset CompletedAt,
-    CaptureEvidence[]? Captures = null)
+    CaptureEvidence[]? Captures = null, StageTiming[]? Timings = null)
 {
     public Verdict Verdict => Ends.Length != 2 ? Verdict.Error :
         Ends.Any(e => e.Verdict == Verdict.Error) ? Verdict.Error :
@@ -124,8 +256,26 @@ public static class ExactTextComparer
             while (at < Math.Min(expected.Length, actual.Length) && expected[at] == actual[at]) at++;
             differences.Add(new(i + 1, expected, actual, at));
         }
-        var ok = differences.Count == 0 && reading.Regions.Length > 0;
+        var requiredRotation = recipe.Orientation switch
+        {
+            TextOrientation.Degrees0 => 0,
+            TextOrientation.Degrees180 => 180,
+            TextOrientation.Auto => (int?)null,
+            _ => throw new ArgumentOutOfRangeException(nameof(recipe), "Unsupported text orientation.")
+        };
+        var validRotation = reading.Rotation is 0 or 180;
+        var rotationMatches = validRotation && (requiredRotation==null||reading.Rotation==requiredRotation);
+        var textMatches = differences.Count==0&&reading.Regions.Length>0;
+        var ok = textMatches&&rotationMatches;
+        var orientationReason = requiredRotation==null
+            ? $"Detected rotation must be 0° or 180°; actual {reading.Rotation}°"
+            : $"Text orientation does not match: expected {requiredRotation}°, actual {reading.Rotation}°";
+        var reason = ok ? "Exact text and orientation match" :
+            reading.Regions.Length==0 ? "No text detected" :
+            !textMatches&&!rotationMatches ? $"Text/region count and orientation do not match; {orientationReason}" :
+            !textMatches ? "Text or region count does not match" :
+            orientationReason;
         return new(frame.Id, ok ? Verdict.Ok : Verdict.Ng, reading, [.. differences],
-            ok ? "Exact match" : reading.Regions.Length == 0 ? "No text detected" : "Text or region count does not match");
+            reason);
     }
 }
