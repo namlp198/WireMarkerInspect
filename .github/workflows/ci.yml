@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'release/**']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      # Desktop and the test project need the local native vision build and vendor/ DLLs (OpenCV, nti.dll), which are not in git.
+      # Full build + tests run locally (scripts/build.ps1) until a self-hosted runner exists. This job compiles the managed projects.
+      - name: Build managed projects (without Desktop)
+        shell: pwsh
+        run: |
+          Get-ChildItem src -Recurse -Filter *.csproj | Where-Object { $_.Name -notmatch '\.Desktop\.csproj$' } | ForEach-Object {
+            Write-Host "== $($_.Name)"
+            dotnet build $_.FullName -c Release
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
